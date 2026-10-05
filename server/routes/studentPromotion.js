@@ -7,8 +7,6 @@ import StudentPromotion from "../models/StudentPromotion.js";
 const router = express.Router();
 const allowRoles = (...roles) => (req,res,next) => roles.includes(req.user?.role) ? next() : res.status(403).json({message:"You are not authorized for this action."});
 
-<<<<<<< HEAD
-=======
 function sectionLabel(s){
   return [s?.program || s?.programId?.name || "", s?.semester || "", s?.name || ""].filter(Boolean).join(" · ");
 }
@@ -16,18 +14,10 @@ function sessionIdOfSection(s){ return s?.academicSession ? String(s.academicSes
 function sourceSessionIdOfStudent(section){ return sessionIdOfSection(section); }
 function normalizeIds(ids){ return [...new Set((Array.isArray(ids)?ids:[]).map(String).filter(Boolean))]; }
 
->>>>>>> 62a144d (Phase 18 QA fixes and Link2 runtime fix)
 router.get("/history", allowRoles("ADMIN","SCHEDULER"), async (req,res)=>{
   try{
     const filter={};
     if(req.query.sessionId) filter.academicSession=req.query.sessionId;
-<<<<<<< HEAD
-    const rows=await StudentPromotion.find(filter)
-      .sort({createdAt:-1}).limit(300)
-      .populate("student","admissionNo rollNo name")
-      .populate("fromSection","name program semester")
-      .populate("toSection","name program semester")
-=======
     if(req.query.studentId) filter.student=req.query.studentId;
     if(req.query.status) filter.status=req.query.status;
     const limit=Math.min(Math.max(Number(req.query.limit||100),1),500);
@@ -36,40 +26,12 @@ router.get("/history", allowRoles("ADMIN","SCHEDULER"), async (req,res)=>{
       .populate("student","admissionNo rollNo name active section")
       .populate("fromSection","name program programId semester academicSession")
       .populate("toSection","name program programId semester academicSession")
->>>>>>> 62a144d (Phase 18 QA fixes and Link2 runtime fix)
       .populate("academicSession","name")
       .lean();
     res.json(rows);
   }catch(e){res.status(500).json({message:e.message});}
 });
 
-<<<<<<< HEAD
-router.post("/bulk", allowRoles("ADMIN","SCHEDULER"), async (req,res)=>{
-  try{
-    const {studentIds=[], toSection, academicSessionId, action="PROMOTED", remarks=""}=req.body||{};
-    if(!Array.isArray(studentIds)||!studentIds.length) return res.status(400).json({message:"Select at least one student."});
-    if(!toSection||!academicSessionId) return res.status(400).json({message:"Target section and academic session are required."});
-    if(!["PROMOTED","TRANSFERRED"].includes(action)) return res.status(400).json({message:"Invalid promotion action."});
-    const [target,session,students]=await Promise.all([
-      Section.findById(toSection).lean(),
-      AcademicSession.findById(academicSessionId).lean(),
-      Student.find({_id:{$in:studentIds},active:true}).lean()
-    ]);
-    if(!target) return res.status(404).json({message:"Target section not found."});
-    if(!session) return res.status(404).json({message:"Academic session not found."});
-    if(!students.length) return res.status(400).json({message:"No active students found for promotion."});
-    const operations=[];
-    const history=[];
-    for(const s of students){
-      const from=String(s.section||"");
-      if(from===String(target._id)) continue;
-      operations.push({updateOne:{filter:{_id:s._id},update:{$set:{section:target._id}}}});
-      history.push({academicSession:session._id,student:s._id,fromSection:s.section,toSection:target._id,action,remarks,changedBy:req.user.id,changedByName:req.user.name||req.user.username||""});
-    }
-    if(operations.length) await Student.bulkWrite(operations);
-    if(history.length) await StudentPromotion.insertMany(history);
-    res.json({ok:true,updated:operations.length,skipped:students.length-operations.length,message:`${operations.length} student(s) ${action==="PROMOTED"?"promoted":"transferred"} successfully.`});
-=======
 router.post("/preview", allowRoles("ADMIN","SCHEDULER"), async (req,res)=>{
   try{
     const studentIds=normalizeIds(req.body?.studentIds);
@@ -178,7 +140,6 @@ router.post("/rollback/:id", allowRoles("ADMIN"), async (req,res)=>{
     await Student.updateOne({_id:student._id},{$set:{section:from._id,program:from.program||from.programId?.name||"",semester:from.semester||""}});
     await StudentPromotion.updateOne({_id:history._id},{$set:{status:"ROLLED_BACK",rolledBackAt:new Date(),rolledBackBy:req.user.id}});
     res.json({ok:true,message:`${student.name} was restored to ${sectionLabel(from)}.`});
->>>>>>> 62a144d (Phase 18 QA fixes and Link2 runtime fix)
   }catch(e){res.status(400).json({message:e.message});}
 });
 

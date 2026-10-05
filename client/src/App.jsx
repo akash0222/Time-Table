@@ -1,15 +1,3 @@
-<<<<<<< HEAD
-import React from "react";
-import { BrowserRouter } from "react-router-dom";
-import ERPWorkspace from "./app/ERPWorkspace";
-
-export default function App(){
-  return (
-    <BrowserRouter>
-      <ERPWorkspace />
-    </BrowserRouter>
-  );
-=======
 import React, {useEffect, useMemo, useState} from "react";
 import axios from "axios";
 import {CalendarDays, CalendarOff, Users, BookOpen, DoorOpen, Clock3, WandSparkles, Database, Trash2, Settings2, Check, X, FileSpreadsheet, Upload, Lock, Send, RotateCcw, ShieldCheck,BarChart3,Activity,Bell,UserCheck,RefreshCw,Copy,QrCode,History,ClipboardCheck,UserPlus,DollarSign,GraduationCap,Search,ArrowRight,UsersRound,ChevronLeft,ChevronRight,AlertTriangle,CheckCircle2,Link2} from "lucide-react";
@@ -2616,5 +2604,4 @@ function FullSessionTimetable({sessions,activeSession,role}){
       <div style={{overflowX:'auto'}}><table style={{width:'100%',borderCollapse:'collapse',minWidth:760}}><thead><tr><th style={{padding:10,borderBottom:'1px solid #ddd',textAlign:'left'}}>Week / Date</th><th style={{padding:10,borderBottom:'1px solid #ddd',textAlign:'left'}}>Day</th>{timeColumns.map(col=><th key={`${col.startTime}-${col.endTime}`} style={{padding:10,borderBottom:'1px solid #ddd',textAlign:'left',whiteSpace:'nowrap'}}>{col.startTime}–{col.endTime}</th>)}</tr></thead><tbody>{(week?.calendarDates||((week?.workingDates||[]).map(date=>({date,day:new Date(`${date}T00:00:00Z`).toLocaleDateString('en-US',{weekday:'long',timeZone:'UTC'}),status:'WORKING'})))).map(item=>{const date=item.date;const day=item.day;const holiday=item.status==='HOLIDAY';return <tr key={date} style={holiday?{background:'#fff7ed'}:{}}><td style={{padding:10,borderBottom:'1px solid #eee',fontWeight:700,whiteSpace:'nowrap'}}>{date}</td><td style={{padding:10,borderBottom:'1px solid #eee'}}>{day}</td>{timeColumns.map(col=>{const e=holiday?null:entryAt(date,col);return <td key={`${date}-${col.startTime}`} style={{padding:8,borderBottom:'1px solid #eee',verticalAlign:'top',minWidth:150}}>{holiday?<div style={{padding:8,borderRadius:8,background:'#ffedd5',fontWeight:700,color:'#9a3412'}}>Holiday</div>:e?<div style={{padding:8,borderRadius:8,background:'#eff6ff'}}><strong>{e.subject?.code||e.subject?.name||'Subject'}</strong><div style={{fontSize:12,color:'#475569'}}>{e.subject?.name||''}</div><div style={{fontSize:12}}>{e.faculty?.name||'Faculty'}</div><div style={{fontSize:12}}>{e.section?.name||'Section'} · {e.room?.name||'Room'}</div>{Number(e.duration||1)>1&&<small>{e.duration} periods</small>}</div>:<span style={{color:'#94a3b8'}}>—</span>}</td>})}</tr>})}</tbody></table>{!entries.length&&<p>No entries for selected filters or this week.</p>}</div>
     </section>}
   </div>;
->>>>>>> 62a144d (Phase 18 QA fixes and Link2 runtime fix)
 }

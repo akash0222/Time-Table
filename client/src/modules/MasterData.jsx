@@ -90,13 +90,8 @@ export function MasterView({type,data,setData,reload}){
       });
     }else if(key==="sections"){
       const raw=String(record.program||"");
-<<<<<<< HEAD
-      const program=(data.programs||[]).find(p=>refId(p)===raw||String(p.name||"").toLowerCase()===raw.toLowerCase()||String(p.code||"").toLowerCase()===raw.toLowerCase());
-      setForm({...record,program:program?.code||program?.name||raw});
-=======
       const program=(data.programs||[]).find(p=>refId(p)===String(record.programId||"")||refId(p)===raw||String(p.name||"").toLowerCase()===raw.toLowerCase()||String(p.code||"").toLowerCase()===raw.toLowerCase());
       setForm({...record,programId:program?._id||record.programId||"",program:program?.code||program?.name||raw});
->>>>>>> 62a144d (Phase 18 QA fixes and Link2 runtime fix)
     }else{
       setForm({...record});
     }
@@ -120,12 +115,6 @@ export function MasterView({type,data,setData,reload}){
       unavailableSlots:body.unavailableSlots||[]
     };
 
-<<<<<<< HEAD
-    if(key==="sections") body={
-      program:body.program,semester:body.semester,name:body.name,
-      maxClassesPerDay:Number(body.maxClassesPerDay||5)
-    };
-=======
     if(key==="sections") {
       const program=(data.programs||[]).find(p=>refId(p)===String(body.programId||"")||String(p.name||"").toLowerCase()===String(body.program||"").toLowerCase()||String(p.code||"").toLowerCase()===String(body.program||"").toLowerCase());
       if(!program){ setMessage("Select a valid Program for this section."); return; }
@@ -137,7 +126,6 @@ export function MasterView({type,data,setData,reload}){
         maxClassesPerDay:Number(body.maxClassesPerDay||5)
       };
     }
->>>>>>> 62a144d (Phase 18 QA fixes and Link2 runtime fix)
 
     if(key==="rooms") body={
       name:body.name,type:body.type||"Classroom",
@@ -257,15 +245,9 @@ export function MasterView({type,data,setData,reload}){
       {key==="sections" && <>
         <Select
           label="Program"
-<<<<<<< HEAD
-          value={form.program||""}
-          options={(data.programs||[]).filter(p=>p.active!==false).map(p=>[p.code||p.name,p.name])}
-          onChange={v=>setForm({...form,program:v})}
-=======
           value={form.programId||""}
           options={[["","Select Program"],...(data.programs||[]).filter(p=>p.active!==false).map(p=>[p._id,`${p.name}${p.code?` (${p.code})`:""}`])]}
           onChange={v=>{const p=(data.programs||[]).find(x=>refId(x)===v);setForm({...form,programId:v,program:p?.code||p?.name||""})}}
->>>>>>> 62a144d (Phase 18 QA fixes and Link2 runtime fix)
         />
         <Input label="Semester" value={form.semester||""} onChange={v=>setForm({...form,semester:v})}/>
         <Input label="Section" value={form.name||""} onChange={v=>setForm({...form,name:v})}/>
@@ -337,11 +319,7 @@ export function MasterView({type,data,setData,reload}){
               <div><small>Room Type</small><strong>{x.roomType||"—"}</strong></div>
             </>}
             {key==="sections" && <>
-<<<<<<< HEAD
-              <div><small>Program</small><strong>{x.program||"—"}</strong></div>
-=======
               <div><small>Program</small><strong>{(data.programs||[]).find(p=>refId(p)===String(x.programId||""))?.name||x.program||"—"}</strong></div>
->>>>>>> 62a144d (Phase 18 QA fixes and Link2 runtime fix)
               <div><small>Semester</small><strong>{x.semester||"—"}</strong></div>
               <div><small>Max Classes / Day</small><strong>{x.maxClassesPerDay||"—"}</strong></div>
             </>}
@@ -368,8 +346,6 @@ export function MasterView({type,data,setData,reload}){
 }
 
 
-<<<<<<< HEAD
-=======
 
 export function ProgramSectionMapping({data,reload,setMessage}){
   const programs=data.programs||[];
@@ -396,7 +372,6 @@ export function ProgramSectionMapping({data,reload,setMessage}){
 }
 function studentsCount(students,sectionId){return students.filter(s=>refId(s.section)===String(sectionId)).length}
 
->>>>>>> 62a144d (Phase 18 QA fixes and Link2 runtime fix)
 export function AvailabilityMatrix({data,reload,setMessage}){
   const [facultyId,setFacultyId]=useState("");
   const [matrix,setMatrix]=useState({});

@@ -5,11 +5,8 @@ import {CalendarDays, Users, BookOpen, DoorOpen, Clock3, WandSparkles, Database,
 import AppSidebar from "../components/AppSidebar";
 import AppHeader from "../components/AppHeader";
 import AllProgramTimetables from "../modules/AllProgramTimetables";
-<<<<<<< HEAD
-=======
 import {ProgramSectionMapping} from "../modules/MasterData";
 import {navGroupsForRole} from "../config/navigation";
->>>>>>> 62a144d (Phase 18 QA fixes and Link2 runtime fix)
 
 const API=(import.meta.env.VITE_API_URL||"http://localhost:5000/api").replace(/\/$/,"");
 axios.defaults.timeout=20000;
@@ -43,10 +40,7 @@ function ERPWorkspace(){
     "/calendar":"Calendar View",
     "/my-timetable":"My Timetable",
     "/students":"Students",
-<<<<<<< HEAD
-=======
     "/students/mapping":"Student Mapping",
->>>>>>> 62a144d (Phase 18 QA fixes and Link2 runtime fix)
     "/students/profile":"Student Profile",
     "/students/promotion":"Student Promotion",
     "/attendance":"Attendance",
@@ -54,10 +48,7 @@ function ERPWorkspace(){
     "/faculty-portal":"Faculty Portal",
     "/section-portal":"Section Portal",
     "/master-data":"Master Data Settings",
-<<<<<<< HEAD
-=======
     "/program-section-mapping":"Program & Section Mapping",
->>>>>>> 62a144d (Phase 18 QA fixes and Link2 runtime fix)
     "/excel-import":"Excel Import",
     "/templates":"Templates & Clone",
     "/public-sharing":"Public Sharing",
@@ -212,11 +203,7 @@ function ERPWorkspace(){
   .erp-sidebar.collapsed .nav{width:100%;}
   .erp-sidebar.collapsed .side-action{width:100%;box-sizing:border-box;}
   /* Phase 38.2 navigation polish */
-<<<<<<< HEAD
-  .erp-sidebar{box-sizing:border-box}.erp-sidebar .nav{position:relative;overflow:visible;min-height:40px}.erp-sidebar .nav-icon{width:22px;height:22px;display:grid;place-items:center;flex:none}.erp-sidebar .nav-label{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.erp-sidebar .nav.active{box-shadow:inset 3px 0 0 #60a5fa}.erp-sidebar.collapsed .nav-label,.erp-sidebar.collapsed .workspace-label,.erp-sidebar.collapsed .nav-group-title,.erp-sidebar.collapsed .sidebar-user span,.erp-sidebar.collapsed .sidebar-user strong{display:none}.erp-sidebar.collapsed .nav{justify-content:center;padding-left:0;padding-right:0}.erp-sidebar.collapsed .side-bottom{padding-left:10px;padding-right:10px}.erp-sidebar.collapsed .side-action{justify-content:center;position:relative}.erp-sidebar.collapsed .side-action>svg{flex:none}.erp-sidebar.collapsed .brand span{display:none}.erp-sidebar.collapsed .brand{justify-content:center;padding-left:8px;padding-right:8px}.erp-sidebar.collapsed .sidebar-brand-row{padding-left:6px}.erp-sidebar.collapsed .sidebar-collapse{margin-left:auto}.erp-sidebar.collapsed .sidebar-user{justify-content:center;padding-left:0;padding-right:0}.erp-sidebar.collapsed .sidebar-user:before{content:"";display:block;width:8px;height:8px;border-radius:50%;background:#22c55e;box-shadow:0 0 0 4px rgba(34,197,94,.12)}
-=======
   .erp-sidebar{box-sizing:border-box}.erp-sidebar .nav{position:relative;overflow:visible;min-height:40px}.erp-sidebar .nav-icon{width:22px;height:22px;display:grid;place-items:center;flex:none}.nav-group-toggle{width:100%;display:flex;align-items:center;justify-content:space-between;border:0;background:transparent;color:#64748b;padding:9px 18px 7px;text-align:left;font-size:10px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;cursor:pointer}.nav-group-toggle:hover{color:#cbd5e1}.nav-group-toggle svg{transition:transform .18s}.nav-group-toggle .group-chevron-closed{transform:rotate(-90deg)}.nav-group.closed .nav-group-toggle{margin-bottom:2px}.student-management-hero,.student-mapping-hero{display:flex;justify-content:space-between;gap:20px;align-items:flex-end;margin-bottom:18px}.student-kpi-grid{display:grid;grid-template-columns:repeat(4,100px);gap:8px}.student-kpi-grid div,.student-mapping-stat{background:#fff;border:1px solid #dbe3ef;border-radius:12px;padding:12px;text-align:center;box-shadow:0 4px 16px rgba(15,23,42,.04)}.student-kpi-grid strong,.student-mapping-stat strong{display:block;font-size:20px;color:#172033}.student-kpi-grid span,.student-mapping-stat span{font-size:11px;color:#64748b}.student-form-tabs{display:flex;gap:8px;margin:0 0 18px;border-bottom:1px solid #e5e7eb}.student-form-tabs button{border:0;background:transparent;padding:10px 14px;border-bottom:2px solid transparent;color:#64748b;font-weight:700;cursor:pointer}.student-form-tabs button.active{color:#2563eb;border-bottom-color:#2563eb}.student-directory-filters{display:grid;grid-template-columns:2fr repeat(4,minmax(140px,1fr));gap:10px}.student-directory-filters input,.student-directory-filters select{width:100%;min-width:0}.student-map-filters{grid-template-columns:repeat(4,minmax(0,1fr))}.student-mapping-hero h2{margin:4px 0}.student-map-target{border:1px solid #bfdbfe;background:#f8fbff}.program-section-mapping-page .master-settings-hero{margin-bottom:18px}.program-section-mapping-page .view-filter input,.program-section-mapping-page .view-filter select{min-height:40px}.student-mapping-stat{min-width:120px}@media(max-width:900px){.student-management-hero,.student-mapping-hero{display:block}.student-kpi-grid{margin-top:14px;grid-template-columns:repeat(4,1fr)}.student-directory-filters{grid-template-columns:1fr 1fr}.student-map-filters{grid-template-columns:1fr 1fr}}@media(max-width:600px){.student-kpi-grid{grid-template-columns:1fr 1fr}.student-directory-filters,.student-map-filters{grid-template-columns:1fr}.student-form-tabs{overflow:auto}.student-form-tabs button{white-space:nowrap}}.erp-sidebar .nav-label{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.erp-sidebar .nav.active{box-shadow:inset 3px 0 0 #60a5fa}.erp-sidebar.collapsed .nav-label,.erp-sidebar.collapsed .workspace-label,.erp-sidebar.collapsed .nav-group-title,.erp-sidebar.collapsed .sidebar-user span,.erp-sidebar.collapsed .sidebar-user strong{display:none}.erp-sidebar.collapsed .nav{justify-content:center;padding-left:0;padding-right:0}.erp-sidebar.collapsed .side-bottom{padding-left:10px;padding-right:10px}.erp-sidebar.collapsed .side-action{justify-content:center;position:relative}.erp-sidebar.collapsed .side-action>svg{flex:none}.erp-sidebar.collapsed .brand span{display:none}.erp-sidebar.collapsed .brand{justify-content:center;padding-left:8px;padding-right:8px}.erp-sidebar.collapsed .sidebar-brand-row{padding-left:6px}.erp-sidebar.collapsed .sidebar-collapse{margin-left:auto}.erp-sidebar.collapsed .sidebar-user{justify-content:center;padding-left:0;padding-right:0}.erp-sidebar.collapsed .sidebar-user:before{content:"";display:block;width:8px;height:8px;border-radius:50%;background:#22c55e;box-shadow:0 0 0 4px rgba(34,197,94,.12)}
->>>>>>> 62a144d (Phase 18 QA fixes and Link2 runtime fix)
 
 @media(max-width:1000px){.erp-header{padding:16px 20px}.header-main{align-items:flex-start}.header-actions{align-items:flex-start}.search-trigger span,.search-trigger kbd{display:none}.search-trigger{width:40px;justify-content:center}.erp-sidebar{width:258px!important;position:fixed;left:0;top:0;bottom:0;transform:translateX(-105%);box-shadow:16px 0 45px rgba(15,23,42,.22)}.erp-sidebar.mobile-open{transform:translateX(0)}.sidebar-collapse{display:none}.mobile-close{display:grid;width:34px;height:34px;border:1px solid rgba(148,163,184,.18);border-radius:9px;background:rgba(255,255,255,.05);color:#cbd5e1;place-items:center;cursor:pointer}.mobile-menu-trigger{display:grid;position:fixed;left:14px;top:14px;z-index:45;width:40px;height:40px;border:1px solid #dbe3ef;background:#fff;border-radius:10px;place-items:center;color:#172033;box-shadow:0 5px 20px rgba(15,23,42,.08)}.sidebar-backdrop{display:block;position:fixed;inset:0;z-index:25;background:rgba(15,23,42,.42);border:0}.erp-header{padding-left:70px}.search-popover{right:-8px;width:min(360px,calc(100vw - 32px))}}
 @media(max-width:650px){.header-main{display:block}.header-actions{margin-top:12px;justify-content:flex-end}.header-title-wrap h1{font-size:23px}.header-title-wrap p{font-size:12px}.status{font-size:11px}.erp-header{padding-bottom:12px}.message{margin-left:14px;margin-right:14px}.search-popover{right:-4px}.breadcrumb{font-size:11px}}
@@ -252,10 +239,7 @@ function ERPWorkspace(){
 
       {tab==="Attendance" && <Attendance data={data} auth={auth} setMessage={setMessage}/>}
       {tab==="Students" && <Students data={data} reload={load} setMessage={setMessage}/>}
-<<<<<<< HEAD
-=======
       {tab==="Student Mapping" && <StudentMapping data={data} reload={load} setMessage={setMessage}/>}
->>>>>>> 62a144d (Phase 18 QA fixes and Link2 runtime fix)
       {tab==="Student Profile" && <StudentProfile data={data} setMessage={setMessage}/>}
       {tab==="Student Promotion" && <StudentPromotion data={data} sessions={sessions} activeSession={activeSession} reload={load} setMessage={setMessage}/>}
       {tab==="Fees" && <FeeManagement data={data} sessions={sessions} auth={auth} setMessage={setMessage}/>}
@@ -281,10 +265,7 @@ function ERPWorkspace(){
       {tab==="Timetable" && <TimetableVersions activeSession={activeSession} versionList={versionList} setVersionList={setVersionList} setLatest={setLatest} setMessage={setMessage}/>}
       {tab==="Settings" && <SchedulerSettings settings={settings} setSettings={setSettings} setMessage={setMessage}/>} 
       {tab==="Master Data Settings" && <MasterDataSettings data={data} setData={setData} reload={load} setMessage={setMessage}/>}
-<<<<<<< HEAD
-=======
       {tab==="Program & Section Mapping" && <ProgramSectionMapping data={data} reload={load} setMessage={setMessage}/>}
->>>>>>> 62a144d (Phase 18 QA fixes and Link2 runtime fix)
       {["Programs","Faculty","Subjects","Sections","Rooms","Time Slots"].includes(tab) &&
         <MasterView type={tab} data={data} setData={setData} reload={load}/>}
       {tab==="Availability" && <AvailabilityMatrix data={data} reload={load} setMessage={setMessage}/>}
@@ -357,37 +338,6 @@ function PublicShareRoute(){
   return <PublicShareView token={token}/>;
 }
 
-<<<<<<< HEAD
-function navGroupsForRole(role){
-  const base = [
-    {label:"Overview", items:["Dashboard"]},
-    {label:"Academic", items:["Academic Sessions","Full Session Timetable","All Program Timetables","Timetable","Calendar View","My Timetable"]},
-    {label:"People & Attendance", items:["Students","Student Profile","Student Promotion","Attendance","Faculty Portal","Section Portal"]},
-    {label:"Fees", items:["Fees"]},
-    {label:"Master Data", items:["Master Data Settings"]},
-    {label:"Tools", items:["Excel Import","Templates & Clone","Public Sharing"]},
-    {label:"Insights", items:["Reports","Analytics","Notifications","Change History","Validation","Optimization","Audit Logs"]}
-  ];
-  if(role==="ADMIN") base.push({label:"Administration",items:["User Management","Settings"]});
-  else if(role==="SCHEDULER") base.push({label:"Administration",items:["Settings"]});
-  const allowed=new Set(navForRole(role));
-  const icons={
-    Dashboard:Activity, "Academic Sessions":CalendarDays, "Full Session Timetable":CalendarDays, Timetable:CalendarDays, "Calendar View":CalendarDays, "My Timetable":CalendarDays,
-    Students:UserPlus, "Student Profile":UsersRound, "Student Promotion":GraduationCap, Attendance:UserCheck, "Faculty Portal":Users, "Section Portal":Users, Fees:DollarSign, "Master Data Settings":Settings2, Programs:BookOpen, Faculty:Users, Subjects:BookOpen, Sections:Users, Rooms:DoorOpen, "Time Slots":Clock3, Availability:Activity,
-    "Excel Import":FileSpreadsheet, "Templates & Clone":Copy, "Public Sharing":QrCode, Reports:BarChart3, Analytics:BarChart3, Notifications:Bell, "Change History":History, Validation:ShieldCheck, Optimization:Activity, "Audit Logs":History, "User Management":Users, Settings:Settings2
-  };
-  return base.map(g=>({...g,items:g.items.filter(name=>allowed.has(name)).map(name=>({name,Icon:icons[name]||Activity}))})).filter(g=>g.items.length);
-}
-
-function navForRole(role){
-  if(role==="ADMIN") return ["Dashboard","Attendance","Students","Student Profile","Student Promotion","Fees","Full Session Timetable","All Program Timetables","My Timetable","Calendar View","Section Portal","Notifications","Change History","Reports","Audit Logs","Optimization","Academic Sessions","Templates & Clone","Public Sharing","Analytics","Validation","Master Data Settings","Settings","Excel Import","Timetable","User Management"];
-  if(role==="SCHEDULER") return ["Dashboard","Attendance","Students","Student Profile","Student Promotion","Fees","Full Session Timetable","All Program Timetables","My Timetable","Calendar View","Section Portal","Notifications","Change History","Reports","Audit Logs","Optimization","Academic Sessions","Templates & Clone","Public Sharing","Analytics","Validation","Master Data Settings","Settings","Excel Import","Timetable"];
-  if(role==="FACULTY") return ["Dashboard","Attendance","Student Profile","Full Session Timetable","All Program Timetables","My Timetable","Faculty Portal","Section Portal","Notifications","Change History","Analytics","Validation","Timetable"];
-  return ["Dashboard","Attendance","Student Profile","Full Session Timetable","All Program Timetables","My Timetable","Calendar View","Section Portal","Notifications","Change History","Analytics","Validation","Timetable"];
-}
-
-=======
->>>>>>> 62a144d (Phase 18 QA fixes and Link2 runtime fix)
 function CalendarView({timetable,data,role,onMoved,setMessage}){
   const [view,setView]=useState("week");
   const [day,setDay]=useState("Monday");
@@ -1647,204 +1597,6 @@ export default ERPWorkspace;
 function localToday(){return new Intl.DateTimeFormat("en-CA",{timeZone:"Asia/Kolkata",year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date())}
 
 function Students({data,reload,setMessage}){
-<<<<<<< HEAD
-  const blank={
-    admissionNo:"",rollNo:"",name:"",email:"",phone:"",gender:"",dateOfBirth:"",
-    fatherName:"",motherName:"",category:"",address:"",city:"",state:"",pincode:"",
-    program:"",semester:"",section:"",active:true,admissionDate:""
-  };
-  const [form,setForm]=useState(blank);
-  const [editingId,setEditingId]=useState(null);
-  const [saving,setSaving]=useState(false);
-  const [q,setQ]=useState("");
-  const [programFilter,setProgramFilter]=useState("");
-  const [semesterFilter,setSemesterFilter]=useState("");
-  const [sectionFilter,setSectionFilter]=useState("");
-  const [statusFilter,setStatusFilter]=useState("ACTIVE");
-  const [view,setView]=useState("DIRECTORY");
-  const [bulkFile,setBulkFile]=useState(null);
-  const [bulkBusy,setBulkBusy]=useState(false);
-  const [bulkResult,setBulkResult]=useState(null);
-
-  const sections=data.sections||[];
-  const students=data.students||[];
-  const programs=useMemo(()=>Array.from(new Set(sections.map(s=>String(s.program||"").trim()).filter(Boolean))).sort((a,b)=>a.localeCompare(b)),[sections]);
-  const semesters=useMemo(()=>Array.from(new Set(sections.filter(s=>!programFilter||String(s.program)===programFilter).map(s=>String(s.semester||"").trim()).filter(Boolean))).sort((a,b)=>a.localeCompare(b)),[sections,programFilter]);
-  const formSemesters=useMemo(()=>Array.from(new Set(sections.filter(s=>!form.program||String(s.program)===form.program).map(s=>String(s.semester||"").trim()).filter(Boolean))).sort((a,b)=>a.localeCompare(b)),[sections,form.program]);
-  const formSections=useMemo(()=>sections.filter(s=>(!form.program||String(s.program)===form.program)&&(!form.semester||String(s.semester)===form.semester)),[sections,form.program,form.semester]);
-  const filteredSections=useMemo(()=>sections.filter(s=>(!programFilter||String(s.program)===programFilter)&&(!semesterFilter||String(s.semester)===semesterFilter)),[sections,programFilter,semesterFilter]);
-  const list=useMemo(()=>students.filter(s=>{
-    const section=s.section||{};
-    const hay=`${s.name||""} ${s.admissionNo||""} ${s.rollNo||""} ${s.email||""} ${s.phone||""} ${s.fatherName||""} ${s.motherName||""}`.toLowerCase();
-    const active=s.active!==false;
-    return (!q||hay.includes(q.trim().toLowerCase())) &&
-      (!programFilter||String(section.program||"")===programFilter) &&
-      (!semesterFilter||String(section.semester||"")===semesterFilter) &&
-      (!sectionFilter||refId(s.section)===sectionFilter) &&
-      (!statusFilter||statusFilter==="ALL"||(statusFilter==="ACTIVE"&&active)||(statusFilter==="INACTIVE"&&!active));
-  }),[students,q,programFilter,semesterFilter,sectionFilter,statusFilter]);
-
-  const counts=useMemo(()=>({
-    total:students.length,
-    active:students.filter(s=>s.active!==false).length,
-    inactive:students.filter(s=>s.active===false).length,
-    sections:new Set(students.map(s=>refId(s.section)).filter(Boolean)).size
-  }),[students]);
-
-  function setField(name,value){setForm(prev=>({...prev,[name]:value}));}
-  function startCreate(){setEditingId(null);setForm(blank);setView("FORM");window.scrollTo({top:0,behavior:"smooth"});}
-  function edit(s){
-    const section=s.section||{};
-    setEditingId(s._id);
-    setForm({
-      admissionNo:s.admissionNo||"",rollNo:s.rollNo||"",name:s.name||"",email:s.email||"",phone:s.phone||"",
-      gender:s.gender||"",dateOfBirth:s.dateOfBirth?String(s.dateOfBirth).slice(0,10):"",fatherName:s.fatherName||"",
-      motherName:s.motherName||"",category:s.category||"",address:s.address||"",city:s.city||"",state:s.state||"",
-      pincode:s.pincode||"",program:section.program||"",semester:section.semester||"",section:refId(s.section),
-      active:s.active!==false,admissionDate:s.admissionDate?String(s.admissionDate).slice(0,10):""
-    });
-    setView("FORM");
-    window.scrollTo({top:0,behavior:"smooth"});
-  }
-  function reset(){setEditingId(null);setForm(blank);setView("DIRECTORY");}
-
-  async function save(){
-    if(!form.admissionNo||!form.rollNo||!form.name||!form.section){
-      return setMessage("Admission No, Roll No, Student Name and Section are required.");
-    }
-    setSaving(true);
-    try{
-      const payload={
-        admissionNo:form.admissionNo.trim(),rollNo:form.rollNo.trim(),name:form.name.trim(),email:form.email.trim(),phone:form.phone.trim(),
-        gender:form.gender,dateOfBirth:form.dateOfBirth||null,fatherName:form.fatherName.trim(),motherName:form.motherName.trim(),
-        category:form.category.trim(),address:form.address.trim(),city:form.city.trim(),state:form.state.trim(),pincode:form.pincode.trim(),
-        section:form.section,active:form.active!==false,admissionDate:form.admissionDate||null
-      };
-      if(editingId) await axios.put(`${API}/students/${editingId}`,payload);
-      else await axios.post(`${API}/students`,payload);
-      setMessage(editingId?"Student updated successfully.":"Student added successfully.");
-      reset();
-      await reload();
-    }catch(e){setMessage(e.response?.data?.message||e.message)}finally{setSaving(false)}
-  }
-
-  async function deactivate(id){
-    if(!confirm("Mark this student inactive? Historical attendance will be retained."))return;
-    try{await axios.delete(`${API}/students/${id}`);await reload();setMessage("Student marked inactive.")}catch(e){setMessage(e.response?.data?.message||e.message)}
-  }
-
-  async function downloadBulkTemplate(){
-    try{
-      const r=await axios.get(`${API}/students/bulk-template`,{responseType:"blob"});
-      const url=URL.createObjectURL(r.data);const a=document.createElement("a");a.href=url;a.download="student-bulk-import-template.xlsx";document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);
-    }catch(e){setMessage(e.response?.data?.message||e.message)}
-  }
-  async function uploadBulkStudents(){
-    if(!bulkFile)return setMessage("Please select an Excel file first.");
-    if(!/\.xlsx$/i.test(bulkFile.name))return setMessage("Please select an Excel file (.xlsx).");
-    setBulkBusy(true);setBulkResult(null);setMessage("");
-    try{
-      const fd=new FormData();fd.append("file",bulkFile);
-      const r=await axios.post(`${API}/students/bulk`,fd,{headers:{"Content-Type":"multipart/form-data"},timeout:120000});
-      setBulkResult(r.data);setBulkFile(null);
-      const picker=document.getElementById("student-bulk-file");if(picker)picker.value="";
-      await reload();setMessage(r.data.message||"Bulk student import completed.");setView("DIRECTORY");
-    }catch(e){const payload=e.response?.data;setBulkResult(payload?.errors?payload:null);setMessage(payload?.message||e.message)}finally{setBulkBusy(false)}
-  }
-
-  function handleProgramChange(v){setForm(prev=>({...prev,program:v,semester:"",section:""}));}
-  function handleSemesterChange(v){setForm(prev=>({...prev,semester:v,section:""}));}
-
-  return <div className="student-management-page">
-    <section className="student-management-hero">
-      <div>
-        <span className="student-eyebrow">PEOPLE & ATTENDANCE</span>
-        <h2>Student Management</h2>
-        <p>Manage the complete student master in the same structure used by the Excel import template.</p>
-      </div>
-      <div className="student-hero-actions">
-        <button className="secondary" onClick={()=>setView("BULK")}><FileSpreadsheet size={16}/> Excel Import</button>
-        <button className="primary" onClick={startCreate}><UserPlus size={16}/> Add Student</button>
-      </div>
-    </section>
-
-    <section className="student-stat-grid">
-      <div className="student-stat-card"><span>Total Students</span><strong>{counts.total}</strong><small>All records</small></div>
-      <div className="student-stat-card"><span>Active Students</span><strong>{counts.active}</strong><small>Currently enrolled</small></div>
-      <div className="student-stat-card"><span>Inactive Students</span><strong>{counts.inactive}</strong><small>Historical records retained</small></div>
-      <div className="student-stat-card"><span>Sections Used</span><strong>{counts.sections}</strong><small>Current student mapping</small></div>
-    </section>
-
-    <div className="student-tabs">
-      <button className={view==="DIRECTORY"?"active":""} onClick={()=>setView("DIRECTORY")}>Student Directory</button>
-      <button className={view==="FORM"?"active":""} onClick={()=>setView("FORM")}>{editingId?"Edit Student":"Add Student"}</button>
-      <button className={view==="BULK"?"active":""} onClick={()=>setView("BULK")}>Bulk Excel Import</button>
-    </div>
-
-    {view==="FORM"&&<section className="student-form-shell panel">
-      <div className="panel-head"><div><h3>{editingId?"Edit Student":"Add New Student"}</h3><p>All fields correspond to the student information supported by the Excel import.</p></div><span className="status-badge">{editingId?"EDIT MODE":"NEW RECORD"}</span></div>
-      <div className="student-form-section">
-        <div className="student-form-section-head"><span>01</span><div><strong>Student Identity</strong><small>Core identification and demographic information</small></div></div>
-        <div className="student-form-grid">
-          <Input label="Admission No *" value={form.admissionNo} onChange={v=>setField("admissionNo",v)}/>
-          <Input label="Roll No *" value={form.rollNo} onChange={v=>setField("rollNo",v)}/>
-          <Input label="Student Name *" value={form.name} onChange={v=>setField("name",v)}/>
-          <Select label="Gender" value={form.gender} options={[["Male","Male"],["Female","Female"],["Other","Other"]]} onChange={v=>setField("gender",v)}/>
-          <Input label="Date of Birth" type="date" value={form.dateOfBirth} onChange={v=>setField("dateOfBirth",v)}/>
-          <Input label="Category" value={form.category} onChange={v=>setField("category",v)}/>
-        </div>
-      </div>
-      <div className="student-form-section">
-        <div className="student-form-section-head"><span>02</span><div><strong>Contact & Family</strong><small>Communication and parent details</small></div></div>
-        <div className="student-form-grid">
-          <Input label="Email" type="email" value={form.email} onChange={v=>setField("email",v)}/>
-          <Input label="Phone" value={form.phone} onChange={v=>setField("phone",v)}/>
-          <Input label="Father Name" value={form.fatherName} onChange={v=>setField("fatherName",v)}/>
-          <Input label="Mother Name" value={form.motherName} onChange={v=>setField("motherName",v)}/>
-          <Input label="Address" value={form.address} onChange={v=>setField("address",v)}/>
-          <Input label="City" value={form.city} onChange={v=>setField("city",v)}/>
-          <Input label="State" value={form.state} onChange={v=>setField("state",v)}/>
-          <Input label="Pincode" value={form.pincode} onChange={v=>setField("pincode",v)}/>
-        </div>
-      </div>
-      <div className="student-form-section">
-        <div className="student-form-section-head"><span>03</span><div><strong>Academic Mapping</strong><small>Program → Semester → Section determines the student's enrollment</small></div></div>
-        <div className="student-form-grid">
-          <Select label="Program" value={form.program} options={programs.map(x=>[x,x])} onChange={handleProgramChange}/>
-          <Select label="Semester" value={form.semester} options={formSemesters.map(x=>[x,x])} onChange={handleSemesterChange}/>
-          <Select label="Section *" value={form.section} options={formSections.map(s=>[s._id,`${s.name} · ${s.program} · Sem ${s.semester}`])} onChange={v=>setField("section",v)}/>
-          <Input label="Admission Date" type="date" value={form.admissionDate} onChange={v=>setField("admissionDate",v)}/>
-          <div className="field student-status-field"><label>Status</label><label className="student-switch"><input type="checkbox" checked={form.active!==false} onChange={e=>setField("active",e.target.checked)}/><span>{form.active!==false?"Active student":"Inactive student"}</span></label></div>
-        </div>
-        <div className="student-mapping-note"><strong>Excel mapping:</strong> Section can be identified by <b>Section ID</b> or by <b>Program + Semester + Section Name</b>. Manual entry uses the same Program → Semester → Section relationship.</div>
-      </div>
-      <div className="student-form-actions"><button className="primary" onClick={save} disabled={saving}><UserPlus size={16}/>{saving?(editingId?"Updating...":"Saving..."):(editingId?"Update Student":"Add Student")}</button><button className="secondary" onClick={reset}>Cancel</button></div>
-    </section>}
-
-    {view==="BULK"&&<section className="panel student-bulk-shell">
-      <div className="panel-head"><div><h3><FileSpreadsheet size={17}/> Bulk Student Import</h3><p>Import student records using the same fields supported by the Student Management form.</p></div><span className="status-badge">Maximum 1000 rows</span></div>
-      <div className="student-import-steps"><div><b>1</b><span>Download template</span></div><div><b>2</b><span>Fill student data</span></div><div><b>3</b><span>Upload .xlsx</span></div><div><b>4</b><span>Review validation</span></div></div>
-      <div className="student-import-actions"><button className="secondary" onClick={downloadBulkTemplate}><FileSpreadsheet size={17}/> Download Excel Template</button><label className="student-file-picker"><Upload size={17}/><span>{bulkFile?bulkFile.name:"Choose .xlsx file"}</span><input id="student-bulk-file" type="file" accept=".xlsx" onChange={e=>setBulkFile(e.target.files?.[0]||null)}/></label><button className="primary" onClick={uploadBulkStudents} disabled={bulkBusy||!bulkFile}><Upload size={17}/>{bulkBusy?"Importing...":"Import Students"}</button></div>
-      <div className="student-column-list"><strong>Excel columns supported</strong><div className="student-column-chips">{["Admission No","Roll No","Name","Email","Phone","Gender","Date of Birth","Father Name","Mother Name","Category","Address","City","State","Pincode","Section ID","Program","Semester","Section Name","Active","Admission Date"].map(x=><span key={x}>{x}</span>)}</div></div>
-      <div className="student-import-note"><strong>Required:</strong> Admission No, Roll No and Name. Section is required through <b>Section ID</b> or <b>Program + Semester + Section Name</b>. Existing Admission No values are skipped and row-level validation errors are returned.</div>
-      {bulkResult&&<div className="bulk-result" style={{marginTop:18}}><div className="profile-summary" style={{gridTemplateColumns:"repeat(3,minmax(0,1fr))"}}><div className="profile-stat"><span>Imported</span><strong>{bulkResult.imported||0}</strong></div><div className="profile-stat"><span>Skipped / Errors</span><strong>{bulkResult.skipped||0}</strong></div><div className="profile-stat"><span>Processed</span><strong>{bulkResult.totalRows||0}</strong></div></div>{!!bulkResult.errors?.length&&<div className="table-wrap" style={{marginTop:14,maxHeight:280,overflow:"auto"}}><table><thead><tr><th>Row</th><th>Admission No</th><th>Name</th><th>Errors</th></tr></thead><tbody>{bulkResult.errors.map((x,i)=><tr key={`${x.row}-${i}`}><td>{x.row}</td><td>{x.admissionNo||"—"}</td><td>{x.name||"—"}</td><td>{(x.errors||[]).join("; ")}</td></tr>)}</tbody></table></div>}</div>}
-    </section>}
-
-    {view==="DIRECTORY"&&<section className="panel student-directory-shell">
-      <div className="panel-head"><div><h3>Student Directory</h3><p>Search, filter, edit and deactivate student records without leaving the master screen.</p></div><span className="status-badge approved">{list.length} shown / {students.length}</span></div>
-      <div className="student-filter-grid">
-        <label className="student-search-field"><Search size={17}/><input placeholder="Search name, admission, roll, email, phone..." value={q} onChange={e=>setQ(e.target.value)}/></label>
-        <select value={programFilter} onChange={e=>{setProgramFilter(e.target.value);setSemesterFilter("");setSectionFilter("")}}><option value="">All Programs</option>{programs.map(x=><option key={x} value={x}>{x}</option>)}</select>
-        <select value={semesterFilter} onChange={e=>{setSemesterFilter(e.target.value);setSectionFilter("")}}><option value="">All Semesters</option>{semesters.map(x=><option key={x} value={x}>{x}</option>)}</select>
-        <select value={sectionFilter} onChange={e=>setSectionFilter(e.target.value)}><option value="">All Sections</option>{filteredSections.map(s=><option key={s._id} value={s._id}>{s.name} · {s.program} · Sem {s.semester}</option>)}</select>
-        <select value={statusFilter} onChange={e=>setStatusFilter(e.target.value)}><option value="ACTIVE">Active</option><option value="ALL">All Status</option><option value="INACTIVE">Inactive</option></select>
-      </div>
-      <div className="table-wrap student-directory-table"><table><thead><tr><th>Student</th><th>Admission / Roll</th><th>Program / Semester / Section</th><th>Contact</th><th>Admission Date</th><th>Status</th><th>Actions</th></tr></thead><tbody>{list.map(s=><tr key={s._id}><td><strong>{s.name}</strong><div className="muted">{s.gender||""}{s.category?` · ${s.category}`:""}</div></td><td><strong>{s.admissionNo}</strong><div className="muted">Roll {s.rollNo}</div></td><td><strong>{s.section?.program||"—"}</strong><div className="muted">Sem {s.section?.semester||"—"} · {s.section?.name||"—"}</div></td><td><div>{s.email||"—"}</div><div className="muted">{s.phone||""}</div></td><td>{s.admissionDate?String(s.admissionDate).slice(0,10):"—"}</td><td>{s.active!==false?<span className="status-badge approved">ACTIVE</span>:<span className="status-badge">INACTIVE</span>}</td><td><div className="student-row-actions"><button className="secondary" onClick={()=>edit(s)}>Edit</button>{s.active!==false&&<button className="secondary" onClick={()=>deactivate(s._id)}>Deactivate</button>}</div></td></tr>)}{!list.length&&<tr><td colSpan="7"><div className="empty-state"><h3>No students found</h3><p>Change the search or filters, or add a new student.</p></div></td></tr>}</tbody></table></div>
-    </section>}
-  </div>
-}
-
-=======
   const blank={admissionNo:"",rollNo:"",name:"",email:"",phone:"",gender:"",dateOfBirth:"",fatherName:"",motherName:"",category:"",address:"",city:"",state:"",pincode:"",programId:"",semester:"",section:"",active:true,admissionDate:""};
   const [form,setForm]=useState(blank),[editingId,setEditingId]=useState(null),[saving,setSaving]=useState(false),[q,setQ]=useState(""),[programFilter,setProgramFilter]=useState(""),[semesterFilter,setSemesterFilter]=useState(""),[sectionFilter,setSectionFilter]=useState(""),[statusFilter,setStatusFilter]=useState("ALL"),[activeFormTab,setActiveFormTab]=useState("ACADEMIC");
   const programs=data.programs||[],sections=data.sections||[],students=data.students||[];
@@ -1924,7 +1676,6 @@ function StudentMapping({data,reload,setMessage}){
   </div>;
 }
 
->>>>>>> 62a144d (Phase 18 QA fixes and Link2 runtime fix)
 function StudentProfile({data,setMessage}){
   const [q,setQ]=useState("");
   const [sectionId,setSectionId]=useState("");
@@ -2102,10 +1853,7 @@ function FeeManagement({data,sessions,auth,setMessage}){
 function FullSessionTimetable({sessions,activeSession,role}){
   const [sessionId,setSessionId]=useState(activeSession?._id||"");
   const [holidays,setHolidays]=useState("");
-<<<<<<< HEAD
-=======
   const [holidayDate,setHolidayDate]=useState("");
->>>>>>> 62a144d (Phase 18 QA fixes and Link2 runtime fix)
   const [plans,setPlans]=useState([]);
   const [plan,setPlan]=useState(null);
   const [weekIndex,setWeekIndex]=useState(0);
@@ -2114,11 +1862,7 @@ function FullSessionTimetable({sessions,activeSession,role}){
   const [busy,setBusy]=useState(false);
   const [error,setError]=useState("");
   useEffect(()=>{if(activeSession?._id&&!sessionId)setSessionId(activeSession._id)},[activeSession?._id]);
-<<<<<<< HEAD
-  useEffect(()=>{setPlan(null);setWeekIndex(0);if(!sessionId)return;axios.get(`${API}/session-plans?sessionId=${sessionId}`).then(r=>setPlans(r.data||[])).catch(e=>setError(e.response?.data?.message||e.message))},[sessionId]);
-=======
   useEffect(()=>{setPlan(null);setWeekIndex(0);if(!sessionId)return;Promise.all([axios.get(`${API}/session-plans?sessionId=${sessionId}`),axios.get(`${API}/academic-sessions/${sessionId}`)]).then(([r,sr])=>{setPlans(r.data||[]);setHolidays((sr.data?.holidayDates||[]).join(", "))}).catch(e=>setError(e.response?.data?.message||e.message))},[sessionId]);
->>>>>>> 62a144d (Phase 18 QA fixes and Link2 runtime fix)
   async function openPlan(id){setBusy(true);setError("");try{const r=await axios.get(`${API}/session-plans/${id}`);setPlan(r.data);setWeekIndex(0)}catch(e){setError(e.response?.data?.message||e.message)}finally{setBusy(false)}}
   async function generateFull(){if(!window.confirm('Generate and save a new full academic session plan? Existing plans will be preserved.'))return;setBusy(true);setError("");try{const dates=holidays.split(/[\s,;]+/).map(x=>x.trim()).filter(Boolean);const r=await axios.post(`${API}/session-plans/generate`,{sessionId,holidays:dates});const p=await axios.get(`${API}/session-plans?sessionId=${sessionId}`);setPlans(p.data||[]);await openPlan(r.data.id)}catch(e){setError(e.response?.data?.message||e.message)}finally{setBusy(false)}}
   async function publish(){if(!plan||!window.confirm('Publish this full-session timetable version?'))return;setBusy(true);try{await axios.patch(`${API}/session-plans/${plan._id}/publish`);const r=await axios.get(`${API}/session-plans?sessionId=${sessionId}`);setPlans(r.data||[]);await openPlan(plan._id)}catch(e){setError(e.response?.data?.message||e.message)}finally{setBusy(false)}}
@@ -2133,9 +1877,6 @@ function FullSessionTimetable({sessions,activeSession,role}){
       <h2>Full Academic Session Timetable</h2><p>Generate and store the complete date-wise timetable for the academic session. Each week may have a different arrangement, while subject totals are controlled for the entire session.</p>
       <div style={{display:'flex',gap:12,flexWrap:'wrap',alignItems:'end'}}>
         <label>Academic Session<br/><select value={sessionId} onChange={e=>setSessionId(e.target.value)}><option value="">Select session</option>{sessions.map(s=><option key={s._id} value={s._id}>{s.name} ({String(s.startDate||'').slice(0,10)} to {String(s.endDate||'').slice(0,10)})</option>)}</select></label>
-<<<<<<< HEAD
-        {['ADMIN','SCHEDULER'].includes(role)&&<><label>Holiday dates (YYYY-MM-DD, separated by commas)<br/><textarea rows={2} style={{minWidth:300}} value={holidays} onChange={e=>setHolidays(e.target.value)} placeholder="2026-08-15, 2026-10-02"/></label><button className="primary" disabled={!sessionId||busy} onClick={generateFull}>{busy?'Generating...':'Generate Full Session'}</button></>}
-=======
         {['ADMIN','SCHEDULER'].includes(role)&&<>
           <div style={{display:'flex',flexDirection:'column',gap:8,minWidth:320}}>
             <label>Holiday date</label>
@@ -2150,7 +1891,6 @@ function FullSessionTimetable({sessions,activeSession,role}){
           </div>
           <button className="primary" disabled={!sessionId||busy} onClick={generateFull}>{busy?'Generating...':'Generate Full Session'}</button>
         </>}
->>>>>>> 62a144d (Phase 18 QA fixes and Link2 runtime fix)
       </div>
       {error&&<p style={{color:'#b91c1c',whiteSpace:'pre-wrap'}}>{error}</p>}
       <p style={{fontSize:12,color:'#64748b'}}>The generator does not repeat one fixed weekly timetable. It distributes each subject’s Total Sessions across the academic weeks, respects Max Classes / Week, handles holidays, and saves every dated class in the session plan. No partial plan is saved.</p>

@@ -7,28 +7,6 @@ import {Metric, Progress} from "../components/Metrics";
 import {localToday, authRole} from "../core/helpers";
 
 export function Students({data,reload,setMessage}){
-<<<<<<< HEAD
-  const blank={admissionNo:"",rollNo:"",name:"",email:"",phone:"",gender:"",dateOfBirth:"",fatherName:"",motherName:"",category:"",address:"",city:"",state:"",pincode:"",section:"",active:true};
-  const [form,setForm]=useState(blank),[editingId,setEditingId]=useState(null),[saving,setSaving]=useState(false),[q,setQ]=useState(""),[sectionId,setSectionId]=useState("");
-  const list=(data.students||[]).filter(s=>!sectionId||refId(s.section)===sectionId).filter(s=>!q||`${s.name} ${s.admissionNo} ${s.rollNo}`.toLowerCase().includes(q.toLowerCase()));
-  function edit(s){setEditingId(s._id);setForm({admissionNo:s.admissionNo||"",rollNo:s.rollNo||"",name:s.name||"",email:s.email||"",phone:s.phone||"",gender:s.gender||"",dateOfBirth:s.dateOfBirth?String(s.dateOfBirth).slice(0,10):"",fatherName:s.fatherName||"",motherName:s.motherName||"",category:s.category||"",address:s.address||"",city:s.city||"",state:s.state||"",pincode:s.pincode||"",section:refId(s.section),active:s.active!==false});window.scrollTo({top:0,behavior:"smooth"})}
-  function reset(){setEditingId(null);setForm(blank)}
-  async function save(){if(!form.admissionNo||!form.rollNo||!form.name||!form.section)return setMessage("Admission No, Roll No, Name and Section are required.");setSaving(true);try{if(editingId)await axios.put(`${API}/students/${editingId}`,form);else await axios.post(`${API}/students`,form);setMessage(editingId?"Student updated successfully.":"Student added successfully.");reset();await reload()}catch(e){setMessage(e.response?.data?.message||e.message)}finally{setSaving(false)}}
-  async function deactivate(id){if(!confirm("Mark this student inactive? Historical attendance will be retained."))return;try{await axios.delete(`${API}/students/${id}`);await reload();setMessage("Student marked inactive.")}catch(e){setMessage(e.response?.data?.message||e.message)}}
-  return <div>
-    <section className="panel"><div className="panel-head"><div><h3><Users size={17}/> Student Management</h3><p>Maintain the student roster used by attendance. Historical attendance remains available when a student is made inactive.</p></div><span className="status-badge approved">{data.students?.length||0} Students</span></div>
-      <div className="form-grid">
-        <Input label="Admission No" value={form.admissionNo} onChange={v=>setForm({...form,admissionNo:v})}/><Input label="Roll No" value={form.rollNo} onChange={v=>setForm({...form,rollNo:v})}/><Input label="Student Name" value={form.name} onChange={v=>setForm({...form,name:v})}/><Input label="Email" value={form.email} onChange={v=>setForm({...form,email:v})}/><Input label="Phone" value={form.phone} onChange={v=>setForm({...form,phone:v})}/><Select label="Gender" value={form.gender} options={[["","Select"],["Male","Male"],["Female","Female"],["Other","Other"]]} onChange={v=>setForm({...form,gender:v})}/><Input label="Date of Birth" type="date" value={form.dateOfBirth} onChange={v=>setForm({...form,dateOfBirth:v})}/><Input label="Father Name" value={form.fatherName} onChange={v=>setForm({...form,fatherName:v})}/><Input label="Mother Name" value={form.motherName} onChange={v=>setForm({...form,motherName:v})}/><Input label="Category" value={form.category} onChange={v=>setForm({...form,category:v})}/><Input label="Address" value={form.address} onChange={v=>setForm({...form,address:v})}/><Input label="City" value={form.city} onChange={v=>setForm({...form,city:v})}/><Input label="State" value={form.state} onChange={v=>setForm({...form,state:v})}/><Input label="Pincode" value={form.pincode} onChange={v=>setForm({...form,pincode:v})}/><Select label="Section" value={form.section} options={(data.sections||[]).map(s=>[s._id,`${s.program||""} · ${s.semester||""} · ${s.name}`])} onChange={v=>setForm({...form,section:v})}/>
-        <div className="field"><label>Status</label><label style={{display:"flex",gap:8,alignItems:"center"}}><input type="checkbox" checked={form.active!==false} onChange={e=>setForm({...form,active:e.target.checked})}/> Active student</label></div>
-        <div className="form-actions"><button className="primary add" onClick={save} disabled={saving}><UserPlus size={15}/>{saving?(editingId?"Updating...":"Adding..."):(editingId?"Update Student":"Add Student")}</button>{editingId&&<button className="secondary" onClick={reset}>Cancel</button>}</div>
-      </div>
-    </section>
-    <section className="panel"><div className="view-filter" style={{display:"flex",gap:12,flexWrap:"wrap"}}><input placeholder="Search name, admission or roll no..." value={q} onChange={e=>setQ(e.target.value)}/><select value={sectionId} onChange={e=>setSectionId(e.target.value)}><option value="">All Sections</option>{(data.sections||[]).map(s=><option key={s._id} value={s._id}>{s.program} · {s.semester} · {s.name}</option>)}</select></div><div className="table-wrap"><table><thead><tr><th>Admission No</th><th>Roll No</th><th>Name</th><th>Section</th><th>Status</th><th>Actions</th></tr></thead><tbody>{list.map(s=><tr key={s._id}><td>{s.admissionNo}</td><td>{s.rollNo}</td><td><strong>{s.name}</strong><div className="muted">{s.email||s.phone||""}</div></td><td>{s.section?.program||""} · {s.section?.semester||""} · {s.section?.name||""}</td><td>{s.active!==false?<span className="status-badge approved">ACTIVE</span>:<span className="status-badge">INACTIVE</span>}</td><td><div style={{display:"flex",gap:6}}><button className="secondary" onClick={()=>edit(s)}>Edit</button>{s.active!==false&&<button className="secondary" onClick={()=>deactivate(s._id)}>Deactivate</button>}</div></td></tr>)}{!list.length&&<tr><td colSpan="6">No students found.</td></tr>}</tbody></table></div></section>
-  </div>
-}
-
-
-=======
   const blank={
     admissionNo:"",rollNo:"",name:"",email:"",phone:"",gender:"",dateOfBirth:"",
     fatherName:"",motherName:"",category:"",address:"",city:"",state:"",pincode:"",
@@ -206,7 +184,6 @@ export function Students({data,reload,setMessage}){
   </div>
 }
 
->>>>>>> 62a144d (Phase 18 QA fixes and Link2 runtime fix)
 export function StudentProfile({data,setMessage}){
   const [q,setQ]=useState("");
   const [sectionId,setSectionId]=useState("");

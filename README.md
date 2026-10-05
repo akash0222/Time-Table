@@ -1,6 +1,6 @@
 # TimeTable Pro — Production-Hardened College ERP
 
-Current baseline: Phase 36
+Current baseline: Phase 18 — Automated QA & Deployment Readiness
 
 ## Modules
 - Academic sessions with program-wise dates
@@ -44,4 +44,19 @@ npm run dev
 ```
 
 ## Production
-See `README-PRODUCTION.md` and `server/.env.example`.
+See `README-PRODUCTION.md` and `server/.env.example`. The production baseline also requires a non-default `DEFAULT_ADMIN_PASSWORD`, a strong `JWT_SECRET`, and an explicit CORS allowlist.
+
+## Phase 18 — Automated QA
+
+Run the API against a running MongoDB-backed server, then execute:
+
+```powershell
+cd server
+npm run qa
+```
+
+The smoke suite validates authentication, protected Master Data, Academic Structure, Sessions, settings, timetable readiness, analytics, share links, exports, health/readiness, and API 404 behavior. See `PHASE-18-QA-DEPLOYMENT-READINESS.md`.
+
+## Phase 3
+
+See `PHASE-3-SUBJECT-FACULTY-MAPPING.md` for the session-aware Subject & Faculty Academic Mapping workflow.

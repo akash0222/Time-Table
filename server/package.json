@@ -4,12 +4,8 @@
   "type": "module",
   "scripts": {
     "start": "node server.js",
-<<<<<<< HEAD
-    "dev": "nodemon server.js"
-=======
     "dev": "nodemon server.js",
     "qa": "node qa/smoke.mjs"
->>>>>>> 62a144d (Phase 18 QA fixes and Link2 runtime fix)
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

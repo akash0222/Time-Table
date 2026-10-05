@@ -405,31 +405,6 @@ main{padding:30px 34px 42px;min-width:0}header{margin-bottom:20px}header h1{font
   .master-program-head{height:20px;font-size:7px}.master-section-row th{height:22px;font-size:7px}
 }
 
-<<<<<<< HEAD
-/* Student Management redesign - aligned with Excel import fields */
-.student-management-page{display:grid;gap:18px}
-.student-management-hero{display:flex;align-items:center;justify-content:space-between;gap:20px;padding:26px 30px;border:1px solid #dbe4f0;border-radius:18px;background:linear-gradient(135deg,#f8fbff,#eef5ff);box-shadow:0 8px 28px rgba(15,23,42,.05)}
-.student-eyebrow{font-size:11px;font-weight:800;letter-spacing:.14em;color:#2563eb}
-.student-management-hero h2{margin:6px 0 4px;font-size:28px;color:#172033}
-.student-management-hero p{margin:0;color:#64748b}
-.student-hero-actions{display:flex;gap:10px;flex-wrap:wrap}
-.student-stat-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}
-.student-stat-card{padding:18px 20px;background:#fff;border:1px solid #e1e8f0;border-radius:15px;box-shadow:0 5px 18px rgba(15,23,42,.04)}
-.student-stat-card span,.student-stat-card small{display:block;color:#64748b}.student-stat-card strong{display:block;font-size:27px;margin:5px 0;color:#172033}.student-stat-card small{font-size:11px}
-.student-tabs{display:flex;gap:4px;padding:5px;border:1px solid #dbe4f0;background:#f6f8fb;border-radius:12px;width:max-content;max-width:100%;overflow:auto}
-.student-tabs button{border:0;background:transparent;padding:10px 16px;border-radius:8px;color:#64748b;font-weight:700;white-space:nowrap;cursor:pointer}.student-tabs button.active{background:#fff;color:#2563eb;box-shadow:0 2px 8px rgba(15,23,42,.08)}
-.student-form-shell,.student-bulk-shell,.student-directory-shell{overflow:hidden}
-.student-form-section{padding:22px 0;border-top:1px solid #edf1f6}.student-form-section:first-of-type{border-top:0}
-.student-form-section-head{display:flex;gap:12px;align-items:center;margin-bottom:18px}.student-form-section-head>span{width:30px;height:30px;border-radius:9px;background:#eaf2ff;color:#2563eb;display:grid;place-items:center;font-weight:800;font-size:12px}.student-form-section-head strong,.student-form-section-head small{display:block}.student-form-section-head strong{color:#172033}.student-form-section-head small{color:#64748b;margin-top:2px}
-.student-form-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
-.student-status-field{display:flex;flex-direction:column;justify-content:center}.student-switch{display:flex!important;align-items:center;gap:9px!important;font-weight:600!important;color:#334155!important}.student-switch input{width:18px;height:18px;accent-color:#2563eb}
-.student-mapping-note,.student-import-note{margin-top:16px;padding:12px 14px;border-radius:10px;background:#f8fafc;border:1px dashed #cbd5e1;color:#475569;font-size:12px;line-height:1.6}.student-form-actions{display:flex;gap:10px;padding-top:18px;border-top:1px solid #edf1f6}
-.student-import-steps{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:4px 0 20px}.student-import-steps>div{display:flex;align-items:center;gap:9px;padding:12px;background:#f8fafc;border:1px solid #e5eaf1;border-radius:10px}.student-import-steps b{width:25px;height:25px;border-radius:50%;background:#2563eb;color:#fff;display:grid;place-items:center;font-size:12px}.student-import-steps span{font-size:12px;font-weight:700;color:#334155}
-.student-import-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap}.student-file-picker{display:flex;align-items:center;gap:9px;border:1px dashed #94a3b8;border-radius:10px;padding:10px 13px;color:#475569;background:#fff;cursor:pointer;min-width:250px}.student-file-picker input{display:none}.student-column-list{margin-top:20px}.student-column-list>strong{display:block;margin-bottom:10px}.student-column-chips{display:flex;gap:7px;flex-wrap:wrap}.student-column-chips span{padding:6px 9px;border-radius:7px;background:#f1f5f9;color:#475569;font-size:11px;border:1px solid #e2e8f0}
-.student-filter-grid{display:grid;grid-template-columns:minmax(240px,2fr) repeat(4,minmax(130px,1fr));gap:10px;margin-bottom:16px}.student-filter-grid select{min-width:0}.student-search-field{height:40px;display:flex;align-items:center;gap:8px;padding:0 12px;border:1px solid #d6dfeb;border-radius:8px;background:#fff}.student-search-field input{border:0!important;outline:0!important;padding:0!important;width:100%;min-width:0;background:transparent}.student-directory-table table{min-width:1050px}.student-row-actions{display:flex;gap:6px;flex-wrap:wrap}.student-directory-table .muted{font-size:11px;margin-top:2px}
-@media(max-width:1100px){.student-stat-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.student-form-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.student-filter-grid{grid-template-columns:1fr 1fr}.student-search-field{grid-column:1/-1}.student-import-steps{grid-template-columns:repeat(2,1fr)}}
-@media(max-width:650px){.student-management-hero{align-items:flex-start;flex-direction:column;padding:20px}.student-stat-grid{grid-template-columns:1fr 1fr}.student-form-grid{grid-template-columns:1fr}.student-filter-grid{grid-template-columns:1fr}.student-search-field{grid-column:auto}.student-import-steps{grid-template-columns:1fr}.student-tabs{width:100%}.student-tabs button{flex:1}.student-import-actions>*{width:100%;justify-content:center}.student-file-picker{min-width:0}}
-=======
 /* Holiday Management */
 .holiday-summary-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:18px}
 .holiday-summary-grid>div{padding:16px;border:1px solid #e2e8f0;border-radius:12px;background:#f8fafc}
@@ -447,4 +422,3 @@ main{padding:30px 34px 42px;min-width:0}header{margin-bottom:20px}header h1{font
 button.danger{color:#b91c1c;border-color:#fecaca;background:#fff}
 button.danger:hover{background:#fff1f2}
 @media(max-width:800px){.holiday-summary-grid,.holiday-rules{grid-template-columns:1fr}.holiday-date-row{align-items:flex-start;flex-direction:column}}
->>>>>>> 62a144d (Phase 18 QA fixes and Link2 runtime fix)

@@ -98,48 +98,6 @@ function candidateFor(entry, subject, faculty, section, rooms, slots, entries, s
   return out.sort((a,b)=>b.score-a.score).slice(0,limit);
 }
 
-<<<<<<< HEAD
-router.get("/", async (_req,res)=>{
-  try{
-    const c=await context();
-    if(!c.timetable) return res.json({hasTimetable:false,suggestions:[],summary:{issues:0,suggestions:0}});
-    const entries=c.timetable.entries||[];
-    const fMap=new Map(c.faculty.map(x=>[id(x),x])), sMap=new Map(c.sections.map(x=>[id(x),x])), subMap=new Map(c.subjects.map(x=>[id(x),x]));
-    const suggestions=[]; const issueKeys=new Set();
-    const add=(type,entry,subject,reason)=>{
-      const key=`${type}|${id(entry)}`; if(issueKeys.has(key)) return; issueKeys.add(key);
-      const f=fMap.get(id(subject?.faculty||entry?.faculty)), sec=sMap.get(id(subject?.section||entry?.section));
-      const candidates=candidateFor(entry||{faculty:f?._id,section:sec?._id,subject:subject?._id,duration:subject?.duration||1},subject,f,sec,c.rooms,c.slots,entries,c.settings,5);
-      if(candidates.length) suggestions.push({type,entryId:entry?._id||null,subject:subject?.name||"Unscheduled class",faculty:f?.name||"",section:sec?.name||"",reason,candidates});
-    };
-
-    // Existing hard conflicts.
-    for(let i=0;i<entries.length;i++) for(let j=i+1;j<entries.length;j++){
-      const a=entries[i],b=entries[j]; if(!overlaps(a,b)) continue;
-      if(id(a.faculty)===id(b.faculty)) add("FACULTY_CONFLICT",a,subMap.get(id(a.subject)),`${fMap.get(id(a.faculty))?.name||"Faculty"} is double-booked.`);
-      if(id(a.section)===id(b.section)) add("SECTION_CONFLICT",a,subMap.get(id(a.subject)),`${sMap.get(id(a.section))?.name||"Section"} is double-booked.`);
-      if(id(a.room)===id(b.room)) add("ROOM_CONFLICT",a,subMap.get(id(a.subject)),`${c.rooms.find(r=>id(r)===id(a.room))?.name||"Room"} is double-booked.`);
-    }
-
-    // Coverage gaps: suggest a placement for each missing weekly session.
-    const counts=new Map(); entries.forEach(e=>counts.set(id(e.subject),(counts.get(id(e.subject))||0)+1));
-    for(const subject of c.subjects){
-      const missing=Math.max(0,Number(subject.classesPerWeek||0)-(counts.get(id(subject))||0));
-      for(let i=0;i<missing;i++) add("UNSCHEDULED",null,subject,`${subject.name}: ${counts.get(id(subject))||0}/${subject.classesPerWeek||0} weekly classes scheduled.`);
-    }
-
-    // Availability / room-type issues on existing entries.
-    for(const e of entries){
-      const sub=subMap.get(id(e.subject)), f=fMap.get(id(e.faculty)), sec=sMap.get(id(e.section)), room=c.rooms.find(r=>id(r)===id(e.room));
-      if(sub&&f&&sec){
-        const block=slotBlocks(c.slots,e.day,e.order,e.duration||sub.duration||1);
-        if(!availableFaculty(f,e.day,block)) add("FACULTY_AVAILABILITY",e,sub,`${f.name} is unavailable for this class time.`);
-        if(room&&sub.roomType!=="Any"&&norm(room.type)!==norm(sub.roomType)) add("ROOM_TYPE",e,sub,`${sub.name} requires ${sub.roomType}; ${room.name} is ${room.type}.`);
-      }
-    }
-    const unique=suggestions.slice(0,100);
-    res.json({hasTimetable:true,status:c.timetable.status,version:c.timetable.version,versionLabel:c.timetable.versionLabel,summary:{issues:unique.length,suggestions:unique.reduce((n,x)=>n+x.candidates.length,0)},suggestions:unique});
-=======
 
 async function buildOptimizationReport(c){
   if(!c.timetable) return {hasTimetable:false,suggestions:[],summary:{issues:0,suggestions:0}};
@@ -206,16 +164,12 @@ router.post("/auto-fix", async (req,res)=>{
     const finalReport=await buildOptimizationReport(c);
     await AuditLog.create({action:"AUTO_FIX_OPTIMIZATION",category:"TIMETABLE",description:`Automatically applied ${applied.length} timetable optimization change(s).`,user:req.user?.id||null,username:req.user?.username||"",role:req.user?.role||"",targetType:"Timetable",targetId:String(c.timetable._id),metadata:{appliedCount:applied.length,remainingIssues:finalReport.summary?.issues||0},ipAddress:req.ip||""});
     res.json({message:`Applied ${applied.length} optimization change(s).`,applied,remaining:finalReport.summary?.issues||0,timetable:c.timetable,report:finalReport});
->>>>>>> 62a144d (Phase 18 QA fixes and Link2 runtime fix)
   }catch(e){res.status(500).json({message:e.message});}
 });
 
 router.post("/apply", async (req,res)=>{
   try{
-<<<<<<< HEAD
-=======
     if(!["ADMIN","SCHEDULER"].includes(req.user?.role)) return res.status(403).json({message:"Only Admin or Scheduler users can apply timetable optimization changes."});
->>>>>>> 62a144d (Phase 18 QA fixes and Link2 runtime fix)
     const {entryId,day,startTime,roomId}=req.body||{};
     if(!entryId||!day||!startTime) return res.status(400).json({message:"entryId, day and startTime are required."});
     const c=await context(); if(!c.timetable)return res.status(404).json({message:"No current timetable found."});
