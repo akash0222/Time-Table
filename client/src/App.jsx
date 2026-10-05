@@ -1801,31 +1801,21 @@ function AllProgramTimetables({timetable,data,activeSession}){
   const sections=data?.sections||[];
   const programs=data?.programs||[];
 
-  const periodSlotsByProgram=useMemo(()=>{
-    const normalize=v=>String(v??"").trim().toLowerCase();
-    const programMatchesSlot=(program,slot)=>{
-      if(!slot?.program) return true;
-      const mapped=typeof slot.program==="object"
-        ? (slot.program.name||slot.program.code||refId(slot.program))
-        : String(slot.program);
-      const master=(programs||[]).find(p=>refId(p)===mapped || normalize(p.name)===normalize(mapped) || normalize(p.code)===normalize(mapped));
-      return normalize(program)===normalize(mapped) || normalize(program)===normalize(master?.name) || normalize(program)===normalize(master?.code);
-    };
-    const map=new Map();
-    for(const program of programNames){
-      const seen=new Set();
-      const rows=[...(data?.timeslots||[])]
-        .filter(s=>!s.isBreak && programMatchesSlot(program,s))
-        .sort((a,b)=>Number(a.order||0)-Number(b.order||0))
-        .filter(s=>{
-          const key=`${s.startTime}-${s.endTime}`;
-          if(seen.has(key)) return false;
-          seen.add(key); return true;
-        });
-      map.set(program,rows);
-    }
-    return map;
-  },[data?.timeslots,programNames,programs]);
+  const periodSlots=useMemo(()=>{
+    const seen=new Set();
+
+    return [...(data?.timeslots||[])]
+      .filter(s=>!s.isBreak)
+      .sort((a,b)=>Number(a.order||0)-Number(b.order||0))
+      .filter(s=>{
+        const key=`${s.startTime}-${s.endTime}`;
+
+        if(seen.has(key)) return false;
+
+        seen.add(key);
+        return true;
+      });
+  },[data?.timeslots]);
 
   const sectionMap=useMemo(()=>{
     const map=new Map();

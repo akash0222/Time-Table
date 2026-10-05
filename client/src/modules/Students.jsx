@@ -28,7 +28,7 @@ export function Students({data,reload,setMessage}){
   const programs=Array.from(new Set(sections.map(s=>String(s.program||s.programId?.name||"").trim()).filter(Boolean))).sort();
   const semesters=Array.from(new Set(sections
     .filter(s=>!form.program || String(s.program||s.programId?.name||"")===String(form.program))
-    .map(s=>String(s.semester||"").trim()).filter(Boolean)))).sort((a,b)=>Number(a)-Number(b)||a.localeCompare(b));
+    .map(s=>String(s.semester||"").trim()).filter(Boolean))).sort((a,b)=>Number(a)-Number(b)||a.localeCompare(b));
   const formSections=sections.filter(s=>
     (!form.program || String(s.program||s.programId?.name||"")===String(form.program)) &&
     (!form.semester || String(s.semester||"")===String(form.semester))

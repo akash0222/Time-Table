@@ -1,3 +1,0 @@
-TimeTable Pro — Final 16-Phase + Phase 17 Production + Phase 18 QA Release
-Version: 1.0.18
-Baseline: Phase 18 Automated QA & Deployment Readiness
