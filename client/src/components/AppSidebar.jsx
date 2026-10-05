@@ -1,5 +1,10 @@
+<<<<<<< HEAD
 import React from "react";
 import {CalendarDays, CalendarRange, CalendarClock, Clock3, LayoutDashboard, Users, UsersRound, UserPlus, GraduationCap, UserCheck, DoorOpen, BookOpen, DollarSign, Database, WandSparkles, LogOut, ChevronLeft, Menu, X, FileSpreadsheet, Copy, QrCode, BarChart3, Bell, History, ShieldCheck, Activity, Settings2, SlidersHorizontal} from "lucide-react";
+=======
+import React, {useEffect, useState} from "react";
+import {CalendarDays, CalendarRange, CalendarClock, Clock3, LayoutDashboard, Users, UsersRound, UserPlus, GraduationCap, UserCheck, DoorOpen, BookOpen, DollarSign, Database, WandSparkles, LogOut, ChevronLeft, Menu, X, ChevronDown, FileSpreadsheet, Copy, QrCode, BarChart3, Bell, History, ShieldCheck, Activity, Settings2, SlidersHorizontal} from "lucide-react";
+>>>>>>> 62a144d (Phase 18 QA fixes and Link2 runtime fix)
 
 const iconByName={
   "Dashboard":LayoutDashboard,
@@ -34,6 +39,17 @@ const iconByName={
 export default function AppSidebar({auth,groups,tab,goTab,seed,generate,loading,collapsed,setCollapsed,mobileOpen,setMobileOpen}){
   const closeMobile=()=>setMobileOpen(false);
   const navigate=(name)=>{goTab(name);closeMobile()};
+<<<<<<< HEAD
+=======
+  const [openGroups,setOpenGroups]=useState(()=>{try{return JSON.parse(localStorage.getItem("tt_nav_groups")||"{}") }catch{return {}}});
+  useEffect(()=>{localStorage.setItem("tt_nav_groups",JSON.stringify(openGroups))},[openGroups]);
+  useEffect(()=>{
+    if(!tab)return;
+    const group=groups.find(g=>g.items.some(x=>x.name===tab));
+    if(group) setOpenGroups(prev=>({...prev,[group.label]:true}));
+  },[tab,groups]);
+  const toggleGroup=(label)=>setOpenGroups(prev=>({...prev,[label]:prev[label]===undefined?false:!prev[label]}));
+>>>>>>> 62a144d (Phase 18 QA fixes and Link2 runtime fix)
   return <>
     {mobileOpen&&<button className="sidebar-backdrop" aria-label="Close navigation" onClick={closeMobile}/>} 
     <aside className={`erp-sidebar ${collapsed?"collapsed":""} ${mobileOpen?"mobile-open":""}`} aria-label="Primary navigation">
@@ -48,9 +64,19 @@ export default function AppSidebar({auth,groups,tab,goTab,seed,generate,loading,
       </div>
       <div className="workspace-label">ACADEMIC WORKSPACE</div>
       <nav className="sidebar-nav">
+<<<<<<< HEAD
         {groups.map(group=><div className="nav-group" key={group.label}>
           <div className="nav-group-title">{group.label}</div>
           {group.items.map(({name,Icon:GroupIcon})=>{
+=======
+        {groups.map(group=>{
+          const groupOpen=openGroups[group.label]!==false;
+          return <div className={`nav-group ${groupOpen?"open":"closed"}`} key={group.label}>
+          <button type="button" className="nav-group-title nav-group-toggle" onClick={()=>toggleGroup(group.label)} title={collapsed?group.label:undefined} aria-expanded={groupOpen}>
+            <span>{group.label}</span><ChevronDown size={14} className={groupOpen?"":"group-chevron-closed"}/>
+          </button>
+          {groupOpen && group.items.map(({name,Icon:GroupIcon})=>{
+>>>>>>> 62a144d (Phase 18 QA fixes and Link2 runtime fix)
             const Icon=iconByName[name]||GroupIcon||Activity;
             const active=tab===name;
             return <button
@@ -67,7 +93,11 @@ export default function AppSidebar({auth,groups,tab,goTab,seed,generate,loading,
               
             </button>;
           })}
+<<<<<<< HEAD
         </div>)}
+=======
+        </div>})}
+>>>>>>> 62a144d (Phase 18 QA fixes and Link2 runtime fix)
       </nav>
       <div className="side-bottom">
         {auth.role==="ADMIN"&&<button title={collapsed?"Load Demo Data":undefined} aria-label="Load Demo Data" className="secondary full side-action" onClick={seed} disabled={loading}><Database size={17}/><span>Load Demo Data</span></button>}

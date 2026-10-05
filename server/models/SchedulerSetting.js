@@ -7,8 +7,12 @@ const schedulerSettingSchema = new mongoose.Schema({
   avoidSameSubjectSameDay: { type: Boolean, default: true },
   distributeSubjectAcrossDays: { type: Boolean, default: true },
   avoidFirstLastPeriod: { type: Boolean, default: false },
+<<<<<<< HEAD
   generationRuns: { type: Number, default: 8, min: 1, max: 20 },
   generationTimeLimitMs: { type: Number, default: 30000, min: 5000, max: 60000 }
+=======
+  holidayDays: { type: [String], default: ["Sunday"] }
+>>>>>>> 62a144d (Phase 18 QA fixes and Link2 runtime fix)
 }, { timestamps: true });
 
 export default mongoose.model("SchedulerSetting", schedulerSettingSchema);

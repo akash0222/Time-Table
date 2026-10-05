@@ -16,6 +16,13 @@ const studentSchema = new mongoose.Schema({
   state: { type: String, trim: true, default: "" },
   pincode: { type: String, trim: true, default: "" },
   section: { type: mongoose.Schema.Types.ObjectId, ref: "Section", required: true },
+<<<<<<< HEAD
+=======
+  // Section is the source of truth for Program/Semester/Section mapping.
+  // These legacy display fields are optional and are kept only for import compatibility.
+  program: { type: String, trim: true, default: "" },
+  semester: { type: String, trim: true, default: "" },
+>>>>>>> 62a144d (Phase 18 QA fixes and Link2 runtime fix)
   active: { type: Boolean, default: true },
   admissionDate: { type: Date, default: null }
 }, { timestamps: true });

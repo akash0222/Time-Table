@@ -21,7 +21,12 @@ const schema = new mongoose.Schema({
   endDate:{type:Date},
   programDates:{type:[programDateSchema],default:[]},
   active:{type:Boolean,default:false},
+<<<<<<< HEAD
   description:{type:String,default:""}
+=======
+  description:{type:String,default:""},
+  holidayDates:{type:[String],default:[]}
+>>>>>>> 62a144d (Phase 18 QA fixes and Link2 runtime fix)
 },{timestamps:true});
 
 schema.pre("validate", function(next) {

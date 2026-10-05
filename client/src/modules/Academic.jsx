@@ -146,6 +146,10 @@ export function TimetableVersions({activeSession,versionList,setVersionList,setL
 export function FullSessionTimetable({sessions,activeSession,role}){
   const [sessionId,setSessionId]=useState(activeSession?._id||"");
   const [holidays,setHolidays]=useState("");
+<<<<<<< HEAD
+=======
+  const [holidayDate,setHolidayDate]=useState("");
+>>>>>>> 62a144d (Phase 18 QA fixes and Link2 runtime fix)
   const [plans,setPlans]=useState([]);
   const [plan,setPlan]=useState(null);
   const [weekIndex,setWeekIndex]=useState(0);
@@ -154,7 +158,11 @@ export function FullSessionTimetable({sessions,activeSession,role}){
   const [busy,setBusy]=useState(false);
   const [error,setError]=useState("");
   useEffect(()=>{if(activeSession?._id&&!sessionId)setSessionId(activeSession._id)},[activeSession?._id]);
+<<<<<<< HEAD
   useEffect(()=>{setPlan(null);setWeekIndex(0);if(!sessionId)return;axios.get(`${API}/session-plans?sessionId=${sessionId}`).then(r=>setPlans(r.data||[])).catch(e=>setError(e.response?.data?.message||e.message))},[sessionId]);
+=======
+  useEffect(()=>{setPlan(null);setWeekIndex(0);if(!sessionId)return;Promise.all([axios.get(`${API}/session-plans?sessionId=${sessionId}`),axios.get(`${API}/academic-sessions/${sessionId}`)]).then(([r,sr])=>{setPlans(r.data||[]);setHolidays((sr.data?.holidayDates||[]).join(', '))}).catch(e=>setError(e.response?.data?.message||e.message))},[sessionId]);
+>>>>>>> 62a144d (Phase 18 QA fixes and Link2 runtime fix)
   async function openPlan(id){setBusy(true);setError("");try{const r=await axios.get(`${API}/session-plans/${id}`);setPlan(r.data);setWeekIndex(0)}catch(e){setError(e.response?.data?.message||e.message)}finally{setBusy(false)}}
   async function generateFull(){if(!window.confirm('Generate and save a new full academic session plan? Existing plans will be preserved.'))return;setBusy(true);setError("");try{const dates=holidays.split(/[\s,;]+/).map(x=>x.trim()).filter(Boolean);const r=await axios.post(`${API}/session-plans/generate`,{sessionId,holidays:dates});const p=await axios.get(`${API}/session-plans?sessionId=${sessionId}`);setPlans(p.data||[]);await openPlan(r.data.id)}catch(e){setError(e.response?.data?.message||e.message)}finally{setBusy(false)}}
   async function publish(){if(!plan||!window.confirm('Publish this full-session timetable version?'))return;setBusy(true);try{await axios.patch(`${API}/session-plans/${plan._id}/publish`);const r=await axios.get(`${API}/session-plans?sessionId=${sessionId}`);setPlans(r.data||[]);await openPlan(plan._id)}catch(e){setError(e.response?.data?.message||e.message)}finally{setBusy(false)}}
@@ -169,7 +177,24 @@ export function FullSessionTimetable({sessions,activeSession,role}){
       <h2>Full Academic Session Timetable</h2><p>Generate and store the complete date-wise timetable for the academic session. Each week may have a different arrangement, while subject totals are controlled for the entire session.</p>
       <div style={{display:'flex',gap:12,flexWrap:'wrap',alignItems:'end'}}>
         <label>Academic Session<br/><select value={sessionId} onChange={e=>setSessionId(e.target.value)}><option value="">Select session</option>{sessions.map(s=><option key={s._id} value={s._id}>{s.name} ({String(s.startDate||'').slice(0,10)} to {String(s.endDate||'').slice(0,10)})</option>)}</select></label>
+<<<<<<< HEAD
         {['ADMIN','SCHEDULER'].includes(role)&&<><label>Holiday dates (YYYY-MM-DD, separated by commas)<br/><textarea rows={2} style={{minWidth:300}} value={holidays} onChange={e=>setHolidays(e.target.value)} placeholder="2026-08-15, 2026-10-02"/></label><button className="primary" disabled={!sessionId||busy} onClick={generateFull}>{busy?'Generating...':'Generate Full Session'}</button></>}
+=======
+        {['ADMIN','SCHEDULER'].includes(role)&&<>
+          <div style={{display:'flex',flexDirection:'column',gap:8,minWidth:320}}>
+            <label>Holiday date</label>
+            <div style={{display:'flex',gap:8,alignItems:'center'}}>
+              <input type="date" value={holidayDate} onChange={e=>setHolidayDate(e.target.value)} />
+              <button className="secondary" type="button" disabled={!holidayDate||new Date(`${holidayDate}T00:00:00Z`).getUTCDay()===0} onClick={()=>{if(!holidayDate)return;const vals=holidays.split(/[,;\s]+/).map(x=>x.trim()).filter(Boolean);if(!vals.includes(holidayDate)){vals.push(holidayDate);vals.sort();setHolidays(vals.join(', '));}setHolidayDate('')}}>Add Holiday</button>
+            </div>
+            <small style={{color:'#64748b'}}>Sunday is automatically a holiday and cannot be added as a separate date.</small>
+            <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
+              {holidays.split(/[,;\s]+/).map(x=>x.trim()).filter(Boolean).map(d=><span key={d} style={{padding:'5px 9px',borderRadius:999,background:'#fff7ed',color:'#9a3412',fontSize:12}}>{d} <button type="button" onClick={()=>setHolidays(holidays.split(/[,;\s]+/).map(x=>x.trim()).filter(Boolean).filter(v=>v!==d).join(', '))} style={{border:0,background:'transparent',cursor:'pointer',color:'#9a3412'}}>×</button></span>)}
+            </div>
+          </div>
+          <button className="primary" disabled={!sessionId||busy} onClick={generateFull}>{busy?'Generating...':'Generate Full Session'}</button>
+        </>}
+>>>>>>> 62a144d (Phase 18 QA fixes and Link2 runtime fix)
       </div>
       {error&&<p style={{color:'#b91c1c',whiteSpace:'pre-wrap'}}>{error}</p>}
       <p style={{fontSize:12,color:'#64748b'}}>The generator does not repeat one fixed weekly timetable. It distributes each subject’s Total Sessions across the academic weeks, respects Max Classes / Week, handles holidays, and saves every dated class in the session plan. No partial plan is saved.</p>

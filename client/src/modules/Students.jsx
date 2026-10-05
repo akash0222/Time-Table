@@ -7,6 +7,7 @@ import {Metric, Progress} from "../components/Metrics";
 import {localToday, authRole} from "../core/helpers";
 
 export function Students({data,reload,setMessage}){
+<<<<<<< HEAD
   const blank={admissionNo:"",rollNo:"",name:"",email:"",phone:"",gender:"",dateOfBirth:"",fatherName:"",motherName:"",category:"",address:"",city:"",state:"",pincode:"",section:"",active:true};
   const [form,setForm]=useState(blank),[editingId,setEditingId]=useState(null),[saving,setSaving]=useState(false),[q,setQ]=useState(""),[sectionId,setSectionId]=useState("");
   const list=(data.students||[]).filter(s=>!sectionId||refId(s.section)===sectionId).filter(s=>!q||`${s.name} ${s.admissionNo} ${s.rollNo}`.toLowerCase().includes(q.toLowerCase()));
@@ -27,6 +28,185 @@ export function Students({data,reload,setMessage}){
 }
 
 
+=======
+  const blank={
+    admissionNo:"",rollNo:"",name:"",email:"",phone:"",gender:"",dateOfBirth:"",
+    fatherName:"",motherName:"",category:"",address:"",city:"",state:"",pincode:"",
+    sectionId:"",program:"",semester:"",sectionName:"",active:true,admissionDate:""
+  };
+  const [form,setForm]=useState(blank);
+  const [editingId,setEditingId]=useState(null);
+  const [saving,setSaving]=useState(false);
+  const [q,setQ]=useState("");
+  const [filterProgram,setFilterProgram]=useState("");
+  const [filterSemester,setFilterSemester]=useState("");
+  const [filterSection,setFilterSection]=useState("");
+  const [importFile,setImportFile]=useState(null);
+  const [importBusy,setImportBusy]=useState(false);
+  const [importResult,setImportResult]=useState(null);
+
+  const sections=data.sections||[];
+  const students=data.students||[];
+  const programs=Array.from(new Set(sections.map(s=>String(s.program||s.programId?.name||"").trim()).filter(Boolean))).sort();
+  const semesters=Array.from(new Set(sections
+    .filter(s=>!form.program || String(s.program||s.programId?.name||"")===String(form.program))
+    .map(s=>String(s.semester||"").trim()).filter(Boolean)))).sort((a,b)=>Number(a)-Number(b)||a.localeCompare(b));
+  const formSections=sections.filter(s=>
+    (!form.program || String(s.program||s.programId?.name||"")===String(form.program)) &&
+    (!form.semester || String(s.semester||"")===String(form.semester))
+  );
+  const filterSemesters=Array.from(new Set(sections.filter(s=>!filterProgram || String(s.program||s.programId?.name||"")===filterProgram).map(s=>String(s.semester||"")).filter(Boolean))).sort((a,b)=>Number(a)-Number(b)||a.localeCompare(b));
+  const filterSections=sections.filter(s=>
+    (!filterProgram || String(s.program||s.programId?.name||"")===filterProgram) &&
+    (!filterSemester || String(s.semester||"")===filterSemester)
+  );
+
+  const sectionLabel=s=>`${s.program||s.programId?.name||""} · Semester ${s.semester||""} · ${s.name||""}`;
+  const selectedSection=formSections.find(s=>String(s._id)===String(form.sectionId)) || sections.find(s=>String(s._id)===String(form.sectionId));
+
+  function setField(key,value){setForm(prev=>({...prev,[key]:value}));}
+  function applySection(sectionId){
+    const s=sections.find(x=>String(x._id)===String(sectionId));
+    if(!s){setForm(prev=>({...prev,sectionId:"",sectionName:""}));return;}
+    setForm(prev=>({...prev,sectionId:String(s._id),program:String(s.program||s.programId?.name||""),semester:String(s.semester||""),sectionName:String(s.name||"")}));
+  }
+  function edit(s){
+    const section=s.section||{};
+    setEditingId(s._id);
+    setForm({
+      admissionNo:s.admissionNo||"",rollNo:s.rollNo||"",name:s.name||"",email:s.email||"",phone:s.phone||"",
+      gender:s.gender||"",dateOfBirth:s.dateOfBirth?String(s.dateOfBirth).slice(0,10):"",fatherName:s.fatherName||"",
+      motherName:s.motherName||"",category:s.category||"",address:s.address||"",city:s.city||"",state:s.state||"",
+      pincode:s.pincode||"",sectionId:refId(section)||"",program:String(section.program||section.programId?.name||""),
+      semester:String(section.semester||""),sectionName:String(section.name||""),active:s.active!==false,
+      admissionDate:s.admissionDate?String(s.admissionDate).slice(0,10):""
+    });
+    window.scrollTo({top:0,behavior:"smooth"});
+  }
+  function reset(){setEditingId(null);setForm(blank);}
+
+  async function save(){
+    if(!form.admissionNo||!form.rollNo||!form.name||!form.sectionId){
+      setMessage("Admission No, Roll No, Name and Section are required.");return;
+    }
+    setSaving(true);
+    try{
+      const payload={
+        admissionNo:form.admissionNo.trim(),rollNo:form.rollNo.trim(),name:form.name.trim(),email:form.email.trim(),
+        phone:form.phone.trim(),gender:form.gender,dateOfBirth:form.dateOfBirth||null,fatherName:form.fatherName.trim(),
+        motherName:form.motherName.trim(),category:form.category.trim(),address:form.address.trim(),city:form.city.trim(),
+        state:form.state.trim(),pincode:form.pincode.trim(),section:form.sectionId,active:form.active!==false,
+        admissionDate:form.admissionDate||null
+      };
+      if(editingId) await axios.put(`${API}/students/${editingId}`,payload);
+      else await axios.post(`${API}/students`,payload);
+      setMessage(editingId?"Student updated successfully.":"Student added successfully.");
+      reset(); await reload();
+    }catch(e){setMessage(e.response?.data?.message||e.message)}finally{setSaving(false)}
+  }
+
+  async function deactivate(id){
+    if(!confirm("Mark this student inactive? Historical attendance will be retained."))return;
+    try{await axios.delete(`${API}/students/${id}`);await reload();setMessage("Student marked inactive.")}catch(e){setMessage(e.response?.data?.message||e.message)}
+  }
+
+  async function downloadStudentTemplate(){
+    try{
+      const r=await axios.get(`${API}/students/bulk-template`,{responseType:"blob"});
+      const url=URL.createObjectURL(r.data); const a=document.createElement("a");
+      a.href=url; a.download="student-bulk-import-template.xlsx"; a.click(); URL.revokeObjectURL(url);
+    }catch(e){setMessage(e.response?.data?.message||e.message)}
+  }
+
+  async function importStudents(){
+    if(!importFile){setMessage("Please choose the Student Excel file first.");return;}
+    if(!/\.xlsx$/i.test(importFile.name)){setMessage("Only .xlsx files are supported for student import.");return;}
+    setImportBusy(true);setImportResult(null);setMessage("");
+    try{
+      const fd=new FormData();fd.append("file",importFile);
+      const r=await axios.post(`${API}/students/bulk`,fd,{headers:{"Content-Type":"multipart/form-data"}});
+      setImportResult(r.data);setImportFile(null);await reload();setMessage(r.data?.message||"Student bulk import completed.");
+    }catch(e){setMessage(e.response?.data?.message||e.message)}finally{setImportBusy(false)}
+  }
+
+  const list=students
+    .filter(s=>!filterProgram || String(s.section?.program||s.section?.programId?.name||"")===filterProgram)
+    .filter(s=>!filterSemester || String(s.section?.semester||"")===filterSemester)
+    .filter(s=>!filterSection || refId(s.section)===filterSection)
+    .filter(s=>!q || `${s.name} ${s.admissionNo} ${s.rollNo} ${s.email||""} ${s.phone||""} ${s.fatherName||""} ${s.motherName||""}`.toLowerCase().includes(q.toLowerCase()));
+
+  const fieldStyle={minWidth:0};
+  return <div>
+    <section className="panel">
+      <div className="panel-head">
+        <div><h3><Users size={17}/> Student Management</h3><p>Manual student entry uses the same fields and academic mapping supported by the Student Bulk Import Excel template.</p></div>
+        <span className="status-badge approved">{students.length} Students</span>
+      </div>
+
+      <div style={{display:"grid",gridTemplateColumns:"repeat(3,minmax(0,1fr))",gap:12,marginBottom:18}}>
+        <div className="panel" style={{margin:0,padding:14,background:"#f8fafc"}}><strong>Student Identity</strong><div className="muted">Admission, roll number and personal details</div></div>
+        <div className="panel" style={{margin:0,padding:14,background:"#f8fafc"}}><strong>Contact & Family</strong><div className="muted">Email, phone and parent information</div></div>
+        <div className="panel" style={{margin:0,padding:14,background:"#f8fafc"}}><strong>Academic Mapping</strong><div className="muted">Program, semester and section</div></div>
+      </div>
+
+      <div className="form-grid">
+        <Input label="Admission No *" value={form.admissionNo} onChange={v=>setField("admissionNo",v)}/>
+        <Input label="Roll No *" value={form.rollNo} onChange={v=>setField("rollNo",v)}/>
+        <Input label="Student Name *" value={form.name} onChange={v=>setField("name",v)}/>
+        <Input label="Email" type="email" value={form.email} onChange={v=>setField("email",v)}/>
+        <Input label="Phone" value={form.phone} onChange={v=>setField("phone",v)}/>
+        <Select label="Gender" value={form.gender} options={[['','Select'],['Male','Male'],['Female','Female'],['Other','Other']]} onChange={v=>setField("gender",v)}/>
+        <Input label="Date of Birth" type="date" value={form.dateOfBirth} onChange={v=>setField("dateOfBirth",v)}/>
+        <Input label="Father Name" value={form.fatherName} onChange={v=>setField("fatherName",v)}/>
+        <Input label="Mother Name" value={form.motherName} onChange={v=>setField("motherName",v)}/>
+        <Input label="Category" value={form.category} onChange={v=>setField("category",v)}/>
+        <Input label="Address" value={form.address} onChange={v=>setField("address",v)}/>
+        <Input label="City" value={form.city} onChange={v=>setField("city",v)}/>
+        <Input label="State" value={form.state} onChange={v=>setField("state",v)}/>
+        <Input label="Pincode" value={form.pincode} onChange={v=>setField("pincode",v)}/>
+
+        <Select label="Program" value={form.program} options={[['','Select Program'],...programs.map(p=>[p,p])]} onChange={v=>{setForm(prev=>({...prev,program:v,semester:"",sectionId:"",sectionName:""}))}}/>
+        <Select label="Semester" value={form.semester} options={[['','Select Semester'],...semesters.map(v=>[v,`Semester ${v}`])]} onChange={v=>{setForm(prev=>({...prev,semester:v,sectionId:"",sectionName:""}))}} disabled={!form.program}/>
+        <Select label="Section Name" value={form.sectionId} options={[['','Select Section'],...formSections.map(s=>[s._id,s.name])]} onChange={applySection} disabled={!form.program||!form.semester}/>
+        <div className="field" style={fieldStyle}><label>Section ID</label><input value={form.sectionId} readOnly placeholder="Auto-mapped from Section Name"/></div>
+        <Input label="Admission Date" type="date" value={form.admissionDate} onChange={v=>setField("admissionDate",v)}/>
+        <div className="field"><label>Active</label><label style={{display:"flex",gap:8,alignItems:"center",minHeight:42}}><input type="checkbox" checked={form.active!==false} onChange={e=>setField("active",e.target.checked)}/> Active student</label></div>
+      </div>
+
+      {selectedSection&&<div className="import-result" style={{marginTop:16}}><strong>Academic Mapping:</strong> {selectedSection.program||selectedSection.programId?.name||""} · Semester {selectedSection.semester||""} · {selectedSection.name||""} <span className="muted"> · Section ID: {selectedSection._id}</span></div>}
+      <div className="form-actions" style={{marginTop:18}}>
+        <button className="primary add" onClick={save} disabled={saving}><UserPlus size={15}/>{saving?(editingId?"Updating...":"Adding..."):(editingId?"Update Student":"Add Student")}</button>
+        {editingId&&<button className="secondary" onClick={reset}><X size={15}/> Cancel</button>}
+      </div>
+    </section>
+
+    <section className="panel">
+      <div className="panel-head"><div><h3><FileSpreadsheet size={17}/> Bulk Student Import</h3><p>Import students using the exact same 20-column structure used by this Student Management form.</p></div><span className="status-badge">.xlsx · Max 1000 rows</span></div>
+      <div className="import-grid">
+        <div><h3>Supported columns</h3><p className="muted">Admission No, Roll No, Name, Email, Phone, Gender, Date of Birth, Father Name, Mother Name, Category, Address, City, State, Pincode, Section ID, Program, Semester, Section Name, Active, Admission Date.</p></div>
+        <div><h3>Section mapping</h3><p className="muted">Use <strong>Section ID</strong> or use <strong>Program + Semester + Section Name</strong>. The system validates the section before importing.</p></div>
+      </div>
+      <div className="import-actions">
+        <button className="secondary" onClick={downloadStudentTemplate}><FileSpreadsheet size={17}/> Download Student Template</button>
+        <label className="file-picker"><Upload size={17}/><span>{importFile?importFile.name:"Choose Student Excel file"}</span><input type="file" accept=".xlsx" onChange={e=>setImportFile(e.target.files?.[0]||null)}/></label>
+        <button className="primary" onClick={importStudents} disabled={importBusy}>{importBusy?"Importing...":"Import Students"}</button>
+      </div>
+      {importResult&&<div className="import-result" style={{marginTop:14}}><strong>Imported:</strong> {importResult.imported||0} &nbsp; <strong>Skipped:</strong> {importResult.skipped||0} &nbsp; <strong>Processed:</strong> {importResult.totalRows||0}{Array.isArray(importResult.errors)&&importResult.errors.length>0&&<details style={{marginTop:10}}><summary>View validation errors ({importResult.errors.length})</summary><div style={{marginTop:8,maxHeight:220,overflow:"auto"}}>{importResult.errors.map((x,i)=><div key={i} className="muted">Row {x.row}: {x.errors?.join(", ")}</div>)}</div></details>}</div>}
+    </section>
+
+    <section className="panel">
+      <div className="view-filter" style={{display:"grid",gridTemplateColumns:"2fr 1fr 1fr 1fr",gap:10,alignItems:"end"}}>
+        <div className="field"><label>Search students</label><input placeholder="Name, admission, roll, email, phone or parent..." value={q} onChange={e=>setQ(e.target.value)}/></div>
+        <div className="field"><label>Program</label><select value={filterProgram} onChange={e=>{setFilterProgram(e.target.value);setFilterSemester("");setFilterSection("")}}><option value="">All Programs</option>{programs.map(p=><option key={p} value={p}>{p}</option>)}</select></div>
+        <div className="field"><label>Semester</label><select value={filterSemester} onChange={e=>{setFilterSemester(e.target.value);setFilterSection("")}}><option value="">All Semesters</option>{filterSemesters.map(v=><option key={v} value={v}>Semester {v}</option>)}</select></div>
+        <div className="field"><label>Section</label><select value={filterSection} onChange={e=>setFilterSection(e.target.value)}><option value="">All Sections</option>{filterSections.map(s=><option key={s._id} value={s._id}>{s.name}</option>)}</select></div>
+      </div>
+      <div className="table-wrap"><table><thead><tr><th>Admission No</th><th>Roll No</th><th>Name</th><th>Program</th><th>Semester</th><th>Section</th><th>Status</th><th>Actions</th></tr></thead><tbody>{list.map(s=><tr key={s._id}><td>{s.admissionNo}</td><td>{s.rollNo}</td><td><strong>{s.name}</strong><div className="muted">{s.email||s.phone||""}</div></td><td>{s.section?.program||s.section?.programId?.name||""}</td><td>{s.section?.semester||""}</td><td>{s.section?.name||""}</td><td>{s.active!==false?<span className="status-badge approved">ACTIVE</span>:<span className="status-badge">INACTIVE</span>}</td><td><div style={{display:"flex",gap:6,flexWrap:"wrap"}}><button className="secondary" onClick={()=>edit(s)}>Edit</button>{s.active!==false&&<button className="secondary" onClick={()=>deactivate(s._id)}>Deactivate</button>}</div></td></tr>)}{!list.length&&<tr><td colSpan="8">No students found.</td></tr>}</tbody></table></div>
+    </section>
+  </div>
+}
+
+>>>>>>> 62a144d (Phase 18 QA fixes and Link2 runtime fix)
 export function StudentProfile({data,setMessage}){
   const [q,setQ]=useState("");
   const [sectionId,setSectionId]=useState("");

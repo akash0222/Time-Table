@@ -260,8 +260,28 @@ router.post('/generate',allowRoles('ADMIN','SCHEDULER'),async(req,res)=>{
     if(!start||!end)return res.status(400).json({message:'Configure program-wise session start and end dates before generating.'});
     if(end<start||end-start>370*86400000)return res.status(400).json({message:'Academic session must be at most 371 days and end after its start.'});
 
+<<<<<<< HEAD
     const holidays=Array.isArray(req.body.holidays)?[...new Set(req.body.holidays.map(String).filter(Boolean))]:[];
     for(const d of holidays)parseDate(d);
+=======
+    const requestedHolidays=Array.isArray(req.body.holidays)?req.body.holidays.map(String).filter(Boolean):[];
+    const sessionHolidays=Array.isArray(session.holidayDates)?session.holidayDates.map(String).filter(Boolean):[];
+    let holidays=[...new Set([...sessionHolidays,...requestedHolidays])];
+    for(const d of holidays)parseDate(d);
+    // Sunday is always a holiday. Persisting it here makes the generated
+    // academic calendar explicit even when the user does not enter it.
+    const sessionHolidaySet=new Set(holidays);
+    const cursor=new Date(start);
+    const finalHolidays=new Set(holidays);
+    while(cursor<=end){
+      if(cursor.getUTCDay()===0) finalHolidays.add(dateKey(cursor));
+      cursor.setUTCDate(cursor.getUTCDate()+1);
+    }
+    holidays=[...finalHolidays].sort();
+
+    const persistedHolidayDates=[...new Set([...sessionHolidays,...requestedHolidays])].filter(d=>{const x=parseDate(d); return x.getUTCDay()!==0;}).sort();
+    await AcademicSession.findByIdAndUpdate(session._id,{holidayDates:persistedHolidayDates});
+>>>>>>> 62a144d (Phase 18 QA fixes and Link2 runtime fix)
 
     const [faculty,subjects,sections,rooms,slots,settings,programs]=await Promise.all([
       Faculty.find().lean(),Subject.find().lean(),Section.find().lean(),Room.find().lean(),TimeSlot.find().lean(),SchedulerSetting.findOne({key:'default'}).lean(),Program.find().lean()

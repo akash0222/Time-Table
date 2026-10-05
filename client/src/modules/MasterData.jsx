@@ -90,8 +90,13 @@ export function MasterView({type,data,setData,reload}){
       });
     }else if(key==="sections"){
       const raw=String(record.program||"");
+<<<<<<< HEAD
       const program=(data.programs||[]).find(p=>refId(p)===raw||String(p.name||"").toLowerCase()===raw.toLowerCase()||String(p.code||"").toLowerCase()===raw.toLowerCase());
       setForm({...record,program:program?.code||program?.name||raw});
+=======
+      const program=(data.programs||[]).find(p=>refId(p)===String(record.programId||"")||refId(p)===raw||String(p.name||"").toLowerCase()===raw.toLowerCase()||String(p.code||"").toLowerCase()===raw.toLowerCase());
+      setForm({...record,programId:program?._id||record.programId||"",program:program?.code||program?.name||raw});
+>>>>>>> 62a144d (Phase 18 QA fixes and Link2 runtime fix)
     }else{
       setForm({...record});
     }
@@ -115,10 +120,24 @@ export function MasterView({type,data,setData,reload}){
       unavailableSlots:body.unavailableSlots||[]
     };
 
+<<<<<<< HEAD
     if(key==="sections") body={
       program:body.program,semester:body.semester,name:body.name,
       maxClassesPerDay:Number(body.maxClassesPerDay||5)
     };
+=======
+    if(key==="sections") {
+      const program=(data.programs||[]).find(p=>refId(p)===String(body.programId||"")||String(p.name||"").toLowerCase()===String(body.program||"").toLowerCase()||String(p.code||"").toLowerCase()===String(body.program||"").toLowerCase());
+      if(!program){ setMessage("Select a valid Program for this section."); return; }
+      body={
+        programId:program._id,
+        program:program.code||program.name,
+        semester:body.semester,
+        name:body.name,
+        maxClassesPerDay:Number(body.maxClassesPerDay||5)
+      };
+    }
+>>>>>>> 62a144d (Phase 18 QA fixes and Link2 runtime fix)
 
     if(key==="rooms") body={
       name:body.name,type:body.type||"Classroom",
@@ -238,9 +257,15 @@ export function MasterView({type,data,setData,reload}){
       {key==="sections" && <>
         <Select
           label="Program"
+<<<<<<< HEAD
           value={form.program||""}
           options={(data.programs||[]).filter(p=>p.active!==false).map(p=>[p.code||p.name,p.name])}
           onChange={v=>setForm({...form,program:v})}
+=======
+          value={form.programId||""}
+          options={[["","Select Program"],...(data.programs||[]).filter(p=>p.active!==false).map(p=>[p._id,`${p.name}${p.code?` (${p.code})`:""}`])]}
+          onChange={v=>{const p=(data.programs||[]).find(x=>refId(x)===v);setForm({...form,programId:v,program:p?.code||p?.name||""})}}
+>>>>>>> 62a144d (Phase 18 QA fixes and Link2 runtime fix)
         />
         <Input label="Semester" value={form.semester||""} onChange={v=>setForm({...form,semester:v})}/>
         <Input label="Section" value={form.name||""} onChange={v=>setForm({...form,name:v})}/>
@@ -312,7 +337,11 @@ export function MasterView({type,data,setData,reload}){
               <div><small>Room Type</small><strong>{x.roomType||"—"}</strong></div>
             </>}
             {key==="sections" && <>
+<<<<<<< HEAD
               <div><small>Program</small><strong>{x.program||"—"}</strong></div>
+=======
+              <div><small>Program</small><strong>{(data.programs||[]).find(p=>refId(p)===String(x.programId||""))?.name||x.program||"—"}</strong></div>
+>>>>>>> 62a144d (Phase 18 QA fixes and Link2 runtime fix)
               <div><small>Semester</small><strong>{x.semester||"—"}</strong></div>
               <div><small>Max Classes / Day</small><strong>{x.maxClassesPerDay||"—"}</strong></div>
             </>}
@@ -339,6 +368,35 @@ export function MasterView({type,data,setData,reload}){
 }
 
 
+<<<<<<< HEAD
+=======
+
+export function ProgramSectionMapping({data,reload,setMessage}){
+  const programs=data.programs||[];
+  const sections=data.sections||[];
+  const [programId,setProgramId]=useState("");
+  const [semester,setSemester]=useState("");
+  const [sectionName,setSectionName]=useState("");
+  const [maxClassesPerDay,setMaxClassesPerDay]=useState(5);
+  const [editingId,setEditingId]=useState(null);
+  const [saving,setSaving]=useState(false);
+  const [q,setQ]=useState("");
+  const selectedProgram=programs.find(p=>refId(p)===programId);
+  const semesters=[...new Set(sections.filter(s=>!programId||String(s.programId||"")===programId||String(s.program||"").toLowerCase()===String(selectedProgram?.name||"").toLowerCase()||String(s.program||"").toLowerCase()===String(selectedProgram?.code||"").toLowerCase()).map(s=>String(s.semester||"")).filter(Boolean))];
+  const filtered=sections.filter(s=>{const p=programs.find(x=>refId(x)===String(s.programId||"")||String(x.name||"").toLowerCase()===String(s.program||"").toLowerCase()||String(x.code||"").toLowerCase()===String(s.program||"").toLowerCase());return (!programId||refId(p)===programId)&&(!semester||String(s.semester)===semester)&&(!q||`${p?.name||s.program} ${s.semester} ${s.name}`.toLowerCase().includes(q.toLowerCase()))});
+  function reset(){setProgramId("");setSemester("");setSectionName("");setMaxClassesPerDay(5);setEditingId(null)}
+  function edit(s){const p=programs.find(x=>refId(x)===String(s.programId||"")||String(x.name||"").toLowerCase()===String(s.program||"").toLowerCase()||String(x.code||"").toLowerCase()===String(s.program||"").toLowerCase());setProgramId(p?._id||"");setSemester(s.semester||"");setSectionName(s.name||"");setMaxClassesPerDay(s.maxClassesPerDay||5);setEditingId(s._id);window.scrollTo({top:0,behavior:"smooth"})}
+  async function save(){if(!programId||!semester||!sectionName)return setMessage("Program, Semester and Section are required.");const p=programs.find(x=>refId(x)===programId);if(!p)return setMessage("Select a valid Program.");setSaving(true);try{const body={programId:p._id,program:p.code||p.name,semester:String(semester).trim(),name:String(sectionName).trim(),maxClassesPerDay:Number(maxClassesPerDay||5)};if(editingId)await axios.put(`${API}/sections/${editingId}`,body);else await axios.post(`${API}/sections`,body);setMessage(editingId?"Program-section mapping updated.":"Program-section mapping created.");reset();await reload()}catch(e){setMessage(e.response?.data?.message||e.message)}finally{setSaving(false)}}
+  async function remove(id){if(!confirm("Delete this section mapping? Students mapped to this section should be moved first."))return;try{await axios.delete(`${API}/sections/${id}`);setMessage("Section mapping deleted.");await reload()}catch(e){setMessage(e.response?.data?.message||e.message)}}
+  return <div className="program-section-mapping-page">
+    <section className="master-settings-hero"><div><span className="master-settings-eyebrow">MASTER DATA · ACADEMIC STRUCTURE</span><h2>Program & Section Mapping</h2><p>Define which sections belong to each program and semester. This mapping drives student mapping, subjects, attendance and timetable generation.</p></div><div className="master-settings-total"><strong>{sections.length}</strong><span>sections mapped</span></div></section>
+    <section className="panel"><div className="panel-head"><div><h3>{editingId?"Edit Mapping":"Create Program → Semester → Section"}</h3><p>Always select the Program from the master list. Avoid free-text program names.</p></div></div><div className="form-grid"><Select label="Program" value={programId} options={[["","Select Program"],...programs.filter(p=>p.active!==false).map(p=>[p._id,`${p.name}${p.code?` (${p.code})`:""}`])]} onChange={v=>{setProgramId(v);setSemester("")}}/><Input label="Semester" value={semester} onChange={setSemester}/><Input label="Section Name" value={sectionName} onChange={setSectionName}/><Input label="Max Classes / Day" type="number" value={maxClassesPerDay} onChange={setMaxClassesPerDay}/><div className="form-actions"><button className="primary" onClick={save} disabled={saving}>{saving?(editingId?"Updating...":"Creating..."):(editingId?"Update Mapping":"Create Mapping")}</button>{editingId&&<button className="secondary" onClick={reset}>Cancel</button>}</div></div></section>
+    <section className="panel"><div className="panel-head"><div><h3>Program / Section Directory</h3><p>Search and manage the academic structure used by students and timetable subjects.</p></div></div><div className="view-filter"><div style={{display:"flex",gap:10,flexWrap:"wrap"}}><select value={programId} onChange={e=>{setProgramId(e.target.value);setSemester("")}}><option value="">All Programs</option>{programs.map(p=><option key={p._id} value={p._id}>{p.name}{p.code?` (${p.code})`:""}</option>)}</select><select value={semester} onChange={e=>setSemester(e.target.value)}><option value="">All Semesters</option>{semesters.map(s=><option key={s}>{s}</option>)}</select><input placeholder="Search program, semester or section..." value={q} onChange={e=>setQ(e.target.value)}/></div></div><div className="table-wrap"><table><thead><tr><th>Program</th><th>Code</th><th>Semester</th><th>Section</th><th>Max / Day</th><th>Students</th><th>Actions</th></tr></thead><tbody>{filtered.map(s=>{const p=programs.find(x=>refId(x)===String(s.programId||"")||String(x.name||"").toLowerCase()===String(s.program||"").toLowerCase()||String(x.code||"").toLowerCase()===String(s.program||"").toLowerCase());const count=studentsCount(data.students||[],s._id);return <tr key={s._id}><td><strong>{p?.name||s.program||"Unmapped"}</strong></td><td>{p?.code||"—"}</td><td>{s.semester}</td><td>{s.name}</td><td>{s.maxClassesPerDay||5}</td><td>{count}</td><td><button className="secondary" onClick={()=>edit(s)}>Edit</button> <button className="icon-btn danger-btn" onClick={()=>remove(s._id)}><Trash2 size={15}/></button></td></tr>})}{!filtered.length&&<tr><td colSpan="7">No program-section mappings found.</td></tr>}</tbody></table></div></section>
+  </div>;
+}
+function studentsCount(students,sectionId){return students.filter(s=>refId(s.section)===String(sectionId)).length}
+
+>>>>>>> 62a144d (Phase 18 QA fixes and Link2 runtime fix)
 export function AvailabilityMatrix({data,reload,setMessage}){
   const [facultyId,setFacultyId]=useState("");
   const [matrix,setMatrix]=useState({});

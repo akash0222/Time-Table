@@ -5,6 +5,11 @@ import {CalendarDays, Users, BookOpen, DoorOpen, Clock3, WandSparkles, Database,
 import AppSidebar from "../components/AppSidebar";
 import AppHeader from "../components/AppHeader";
 import AllProgramTimetables from "../modules/AllProgramTimetables";
+<<<<<<< HEAD
+=======
+import {ProgramSectionMapping} from "../modules/MasterData";
+import {navGroupsForRole} from "../config/navigation";
+>>>>>>> 62a144d (Phase 18 QA fixes and Link2 runtime fix)
 
 const API=(import.meta.env.VITE_API_URL||"http://localhost:5000/api").replace(/\/$/,"");
 axios.defaults.timeout=20000;
@@ -38,6 +43,10 @@ function ERPWorkspace(){
     "/calendar":"Calendar View",
     "/my-timetable":"My Timetable",
     "/students":"Students",
+<<<<<<< HEAD
+=======
+    "/students/mapping":"Student Mapping",
+>>>>>>> 62a144d (Phase 18 QA fixes and Link2 runtime fix)
     "/students/profile":"Student Profile",
     "/students/promotion":"Student Promotion",
     "/attendance":"Attendance",
@@ -45,6 +54,10 @@ function ERPWorkspace(){
     "/faculty-portal":"Faculty Portal",
     "/section-portal":"Section Portal",
     "/master-data":"Master Data Settings",
+<<<<<<< HEAD
+=======
+    "/program-section-mapping":"Program & Section Mapping",
+>>>>>>> 62a144d (Phase 18 QA fixes and Link2 runtime fix)
     "/excel-import":"Excel Import",
     "/templates":"Templates & Clone",
     "/public-sharing":"Public Sharing",
@@ -199,7 +212,11 @@ function ERPWorkspace(){
   .erp-sidebar.collapsed .nav{width:100%;}
   .erp-sidebar.collapsed .side-action{width:100%;box-sizing:border-box;}
   /* Phase 38.2 navigation polish */
+<<<<<<< HEAD
   .erp-sidebar{box-sizing:border-box}.erp-sidebar .nav{position:relative;overflow:visible;min-height:40px}.erp-sidebar .nav-icon{width:22px;height:22px;display:grid;place-items:center;flex:none}.erp-sidebar .nav-label{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.erp-sidebar .nav.active{box-shadow:inset 3px 0 0 #60a5fa}.erp-sidebar.collapsed .nav-label,.erp-sidebar.collapsed .workspace-label,.erp-sidebar.collapsed .nav-group-title,.erp-sidebar.collapsed .sidebar-user span,.erp-sidebar.collapsed .sidebar-user strong{display:none}.erp-sidebar.collapsed .nav{justify-content:center;padding-left:0;padding-right:0}.erp-sidebar.collapsed .side-bottom{padding-left:10px;padding-right:10px}.erp-sidebar.collapsed .side-action{justify-content:center;position:relative}.erp-sidebar.collapsed .side-action>svg{flex:none}.erp-sidebar.collapsed .brand span{display:none}.erp-sidebar.collapsed .brand{justify-content:center;padding-left:8px;padding-right:8px}.erp-sidebar.collapsed .sidebar-brand-row{padding-left:6px}.erp-sidebar.collapsed .sidebar-collapse{margin-left:auto}.erp-sidebar.collapsed .sidebar-user{justify-content:center;padding-left:0;padding-right:0}.erp-sidebar.collapsed .sidebar-user:before{content:"";display:block;width:8px;height:8px;border-radius:50%;background:#22c55e;box-shadow:0 0 0 4px rgba(34,197,94,.12)}
+=======
+  .erp-sidebar{box-sizing:border-box}.erp-sidebar .nav{position:relative;overflow:visible;min-height:40px}.erp-sidebar .nav-icon{width:22px;height:22px;display:grid;place-items:center;flex:none}.nav-group-toggle{width:100%;display:flex;align-items:center;justify-content:space-between;border:0;background:transparent;color:#64748b;padding:9px 18px 7px;text-align:left;font-size:10px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;cursor:pointer}.nav-group-toggle:hover{color:#cbd5e1}.nav-group-toggle svg{transition:transform .18s}.nav-group-toggle .group-chevron-closed{transform:rotate(-90deg)}.nav-group.closed .nav-group-toggle{margin-bottom:2px}.student-management-hero,.student-mapping-hero{display:flex;justify-content:space-between;gap:20px;align-items:flex-end;margin-bottom:18px}.student-kpi-grid{display:grid;grid-template-columns:repeat(4,100px);gap:8px}.student-kpi-grid div,.student-mapping-stat{background:#fff;border:1px solid #dbe3ef;border-radius:12px;padding:12px;text-align:center;box-shadow:0 4px 16px rgba(15,23,42,.04)}.student-kpi-grid strong,.student-mapping-stat strong{display:block;font-size:20px;color:#172033}.student-kpi-grid span,.student-mapping-stat span{font-size:11px;color:#64748b}.student-form-tabs{display:flex;gap:8px;margin:0 0 18px;border-bottom:1px solid #e5e7eb}.student-form-tabs button{border:0;background:transparent;padding:10px 14px;border-bottom:2px solid transparent;color:#64748b;font-weight:700;cursor:pointer}.student-form-tabs button.active{color:#2563eb;border-bottom-color:#2563eb}.student-directory-filters{display:grid;grid-template-columns:2fr repeat(4,minmax(140px,1fr));gap:10px}.student-directory-filters input,.student-directory-filters select{width:100%;min-width:0}.student-map-filters{grid-template-columns:repeat(4,minmax(0,1fr))}.student-mapping-hero h2{margin:4px 0}.student-map-target{border:1px solid #bfdbfe;background:#f8fbff}.program-section-mapping-page .master-settings-hero{margin-bottom:18px}.program-section-mapping-page .view-filter input,.program-section-mapping-page .view-filter select{min-height:40px}.student-mapping-stat{min-width:120px}@media(max-width:900px){.student-management-hero,.student-mapping-hero{display:block}.student-kpi-grid{margin-top:14px;grid-template-columns:repeat(4,1fr)}.student-directory-filters{grid-template-columns:1fr 1fr}.student-map-filters{grid-template-columns:1fr 1fr}}@media(max-width:600px){.student-kpi-grid{grid-template-columns:1fr 1fr}.student-directory-filters,.student-map-filters{grid-template-columns:1fr}.student-form-tabs{overflow:auto}.student-form-tabs button{white-space:nowrap}}.erp-sidebar .nav-label{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.erp-sidebar .nav.active{box-shadow:inset 3px 0 0 #60a5fa}.erp-sidebar.collapsed .nav-label,.erp-sidebar.collapsed .workspace-label,.erp-sidebar.collapsed .nav-group-title,.erp-sidebar.collapsed .sidebar-user span,.erp-sidebar.collapsed .sidebar-user strong{display:none}.erp-sidebar.collapsed .nav{justify-content:center;padding-left:0;padding-right:0}.erp-sidebar.collapsed .side-bottom{padding-left:10px;padding-right:10px}.erp-sidebar.collapsed .side-action{justify-content:center;position:relative}.erp-sidebar.collapsed .side-action>svg{flex:none}.erp-sidebar.collapsed .brand span{display:none}.erp-sidebar.collapsed .brand{justify-content:center;padding-left:8px;padding-right:8px}.erp-sidebar.collapsed .sidebar-brand-row{padding-left:6px}.erp-sidebar.collapsed .sidebar-collapse{margin-left:auto}.erp-sidebar.collapsed .sidebar-user{justify-content:center;padding-left:0;padding-right:0}.erp-sidebar.collapsed .sidebar-user:before{content:"";display:block;width:8px;height:8px;border-radius:50%;background:#22c55e;box-shadow:0 0 0 4px rgba(34,197,94,.12)}
+>>>>>>> 62a144d (Phase 18 QA fixes and Link2 runtime fix)
 
 @media(max-width:1000px){.erp-header{padding:16px 20px}.header-main{align-items:flex-start}.header-actions{align-items:flex-start}.search-trigger span,.search-trigger kbd{display:none}.search-trigger{width:40px;justify-content:center}.erp-sidebar{width:258px!important;position:fixed;left:0;top:0;bottom:0;transform:translateX(-105%);box-shadow:16px 0 45px rgba(15,23,42,.22)}.erp-sidebar.mobile-open{transform:translateX(0)}.sidebar-collapse{display:none}.mobile-close{display:grid;width:34px;height:34px;border:1px solid rgba(148,163,184,.18);border-radius:9px;background:rgba(255,255,255,.05);color:#cbd5e1;place-items:center;cursor:pointer}.mobile-menu-trigger{display:grid;position:fixed;left:14px;top:14px;z-index:45;width:40px;height:40px;border:1px solid #dbe3ef;background:#fff;border-radius:10px;place-items:center;color:#172033;box-shadow:0 5px 20px rgba(15,23,42,.08)}.sidebar-backdrop{display:block;position:fixed;inset:0;z-index:25;background:rgba(15,23,42,.42);border:0}.erp-header{padding-left:70px}.search-popover{right:-8px;width:min(360px,calc(100vw - 32px))}}
 @media(max-width:650px){.header-main{display:block}.header-actions{margin-top:12px;justify-content:flex-end}.header-title-wrap h1{font-size:23px}.header-title-wrap p{font-size:12px}.status{font-size:11px}.erp-header{padding-bottom:12px}.message{margin-left:14px;margin-right:14px}.search-popover{right:-4px}.breadcrumb{font-size:11px}}
@@ -235,6 +252,10 @@ function ERPWorkspace(){
 
       {tab==="Attendance" && <Attendance data={data} auth={auth} setMessage={setMessage}/>}
       {tab==="Students" && <Students data={data} reload={load} setMessage={setMessage}/>}
+<<<<<<< HEAD
+=======
+      {tab==="Student Mapping" && <StudentMapping data={data} reload={load} setMessage={setMessage}/>}
+>>>>>>> 62a144d (Phase 18 QA fixes and Link2 runtime fix)
       {tab==="Student Profile" && <StudentProfile data={data} setMessage={setMessage}/>}
       {tab==="Student Promotion" && <StudentPromotion data={data} sessions={sessions} activeSession={activeSession} reload={load} setMessage={setMessage}/>}
       {tab==="Fees" && <FeeManagement data={data} sessions={sessions} auth={auth} setMessage={setMessage}/>}
@@ -260,6 +281,10 @@ function ERPWorkspace(){
       {tab==="Timetable" && <TimetableVersions activeSession={activeSession} versionList={versionList} setVersionList={setVersionList} setLatest={setLatest} setMessage={setMessage}/>}
       {tab==="Settings" && <SchedulerSettings settings={settings} setSettings={setSettings} setMessage={setMessage}/>} 
       {tab==="Master Data Settings" && <MasterDataSettings data={data} setData={setData} reload={load} setMessage={setMessage}/>}
+<<<<<<< HEAD
+=======
+      {tab==="Program & Section Mapping" && <ProgramSectionMapping data={data} reload={load} setMessage={setMessage}/>}
+>>>>>>> 62a144d (Phase 18 QA fixes and Link2 runtime fix)
       {["Programs","Faculty","Subjects","Sections","Rooms","Time Slots"].includes(tab) &&
         <MasterView type={tab} data={data} setData={setData} reload={load}/>}
       {tab==="Availability" && <AvailabilityMatrix data={data} reload={load} setMessage={setMessage}/>}
@@ -332,6 +357,7 @@ function PublicShareRoute(){
   return <PublicShareView token={token}/>;
 }
 
+<<<<<<< HEAD
 function navGroupsForRole(role){
   const base = [
     {label:"Overview", items:["Dashboard"]},
@@ -360,6 +386,8 @@ function navForRole(role){
   return ["Dashboard","Attendance","Student Profile","Full Session Timetable","All Program Timetables","My Timetable","Calendar View","Section Portal","Notifications","Change History","Analytics","Validation","Timetable"];
 }
 
+=======
+>>>>>>> 62a144d (Phase 18 QA fixes and Link2 runtime fix)
 function CalendarView({timetable,data,role,onMoved,setMessage}){
   const [view,setView]=useState("week");
   const [day,setDay]=useState("Monday");
@@ -1619,6 +1647,7 @@ export default ERPWorkspace;
 function localToday(){return new Intl.DateTimeFormat("en-CA",{timeZone:"Asia/Kolkata",year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date())}
 
 function Students({data,reload,setMessage}){
+<<<<<<< HEAD
   const blank={
     admissionNo:"",rollNo:"",name:"",email:"",phone:"",gender:"",dateOfBirth:"",
     fatherName:"",motherName:"",category:"",address:"",city:"",state:"",pincode:"",
@@ -1815,6 +1844,87 @@ function Students({data,reload,setMessage}){
   </div>
 }
 
+=======
+  const blank={admissionNo:"",rollNo:"",name:"",email:"",phone:"",gender:"",dateOfBirth:"",fatherName:"",motherName:"",category:"",address:"",city:"",state:"",pincode:"",programId:"",semester:"",section:"",active:true,admissionDate:""};
+  const [form,setForm]=useState(blank),[editingId,setEditingId]=useState(null),[saving,setSaving]=useState(false),[q,setQ]=useState(""),[programFilter,setProgramFilter]=useState(""),[semesterFilter,setSemesterFilter]=useState(""),[sectionFilter,setSectionFilter]=useState(""),[statusFilter,setStatusFilter]=useState("ALL"),[activeFormTab,setActiveFormTab]=useState("ACADEMIC");
+  const programs=data.programs||[],sections=data.sections||[],students=data.students||[];
+  const findProgram=s=>programs.find(p=>refId(p)===String(s?.programId||s?.section?.programId||"")||String(p.name||"").toLowerCase()===String(s?.section?.program||s?.program||"").toLowerCase()||String(p.code||"").toLowerCase()===String(s?.section?.program||s?.program||"").toLowerCase());
+  const filteredSections=sections.filter(s=>!form.programId||String(s.programId||"")===form.programId||String(s.program||"").toLowerCase()===String(programs.find(p=>refId(p)===form.programId)?.name||"").toLowerCase()||String(s.program||"").toLowerCase()===String(programs.find(p=>refId(p)===form.programId)?.code||"").toLowerCase()).filter(s=>!form.semester||String(s.semester)===String(form.semester));
+  const formSemesters=[...new Set(sections.filter(s=>!form.programId||String(s.programId||"")===form.programId||String(s.program||"").toLowerCase()===String(programs.find(p=>refId(p)===form.programId)?.name||"").toLowerCase()||String(s.program||"").toLowerCase()===String(programs.find(p=>refId(p)===form.programId)?.code||"").toLowerCase()).map(s=>String(s.semester||"")).filter(Boolean))];
+  const filterSections=sections.filter(s=>!programFilter||String(s.programId||"")===programFilter||String(s.program||"").toLowerCase()===String(programs.find(p=>refId(p)===programFilter)?.name||"").toLowerCase()||String(s.program||"").toLowerCase()===String(programs.find(p=>refId(p)===programFilter)?.code||"").toLowerCase()).filter(s=>!semesterFilter||String(s.semester)===semesterFilter);
+  const filterSemesters=[...new Set(filterSections.map(s=>String(s.semester||"")).filter(Boolean))];
+  const list=students.filter(s=>!sectionFilter||refId(s.section)===sectionFilter).filter(s=>!programFilter||String(s.section?.programId||"")===programFilter||String(s.section?.program||"").toLowerCase()===String(programs.find(p=>refId(p)===programFilter)?.name||"").toLowerCase()||String(s.section?.program||"").toLowerCase()===String(programs.find(p=>refId(p)===programFilter)?.code||"").toLowerCase()).filter(s=>!semesterFilter||String(s.section?.semester)===semesterFilter).filter(s=>statusFilter==="ALL"||(statusFilter==="ACTIVE"?s.active!==false:s.active===false)).filter(s=>!q||`${s.name} ${s.admissionNo} ${s.rollNo} ${s.email||""} ${s.phone||""}`.toLowerCase().includes(q.toLowerCase()));
+  const activeCount=students.filter(s=>s.active!==false).length;
+  function edit(s){const p=findProgram(s);setEditingId(s._id);setForm({admissionNo:s.admissionNo||"",rollNo:s.rollNo||"",name:s.name||"",email:s.email||"",phone:s.phone||"",gender:s.gender||"",dateOfBirth:s.dateOfBirth?String(s.dateOfBirth).slice(0,10):"",fatherName:s.fatherName||"",motherName:s.motherName||"",category:s.category||"",address:s.address||"",city:s.city||"",state:s.state||"",pincode:s.pincode||"",programId:p?._id||s.section?.programId||"",semester:s.section?.semester||"",section:refId(s.section),active:s.active!==false,admissionDate:s.admissionDate?String(s.admissionDate).slice(0,10):""});setActiveFormTab("ACADEMIC");window.scrollTo({top:0,behavior:"smooth"})}
+  function reset(){setEditingId(null);setForm(blank);setActiveFormTab("ACADEMIC")}
+  function updateForm(patch){setForm(prev=>({...prev,...patch}))}
+  async function save(){if(!form.admissionNo||!form.rollNo||!form.name||!form.section)return setMessage("Admission No, Roll No, Name and Section are required.");setSaving(true);try{const body={...form,programId:undefined,semester:undefined};delete body.programId;delete body.semester;if(editingId)await axios.put(`${API}/students/${editingId}`,body);else await axios.post(`${API}/students`,body);setMessage(editingId?"Student updated successfully.":"Student added successfully.");reset();await reload()}catch(e){setMessage(e.response?.data?.message||e.message)}finally{setSaving(false)}}
+  async function deactivate(id){if(!confirm("Mark this student inactive? Historical attendance will be retained."))return;try{await axios.delete(`${API}/students/${id}`);await reload();setMessage("Student marked inactive.")}catch(e){setMessage(e.response?.data?.message||e.message)}}
+  return <div className="students-page">
+    <section className="student-management-hero"><div><span className="master-settings-eyebrow">PEOPLE & STUDENTS</span><h2>Student Management</h2><p>Maintain complete student records and keep every student correctly mapped to Program → Semester → Section.</p></div><div className="student-kpi-grid"><div><strong>{students.length}</strong><span>Total</span></div><div><strong>{activeCount}</strong><span>Active</span></div><div><strong>{students.length-activeCount}</strong><span>Inactive</span></div><div><strong>{new Set(students.map(s=>refId(s.section)).filter(Boolean)).size}</strong><span>Sections</span></div></div></section>
+    <section className="panel student-form-panel"><div className="panel-head"><div><h3>{editingId?"Edit Student":"Add Student"}</h3><p>Fields are aligned with the Excel import template. Academic mapping is controlled by the Program and Section masters.</p></div>{editingId&&<button className="secondary" onClick={reset}>Cancel Edit</button>}</div>
+      <div className="student-form-tabs"><button className={activeFormTab==="ACADEMIC"?"active":""} onClick={()=>setActiveFormTab("ACADEMIC")}>Academic Mapping</button><button className={activeFormTab==="IDENTITY"?"active":""} onClick={()=>setActiveFormTab("IDENTITY")}>Student Identity</button><button className={activeFormTab==="CONTACT"?"active":""} onClick={()=>setActiveFormTab("CONTACT")}>Contact & Family</button></div>
+      <div className="form-grid">
+        {activeFormTab==="ACADEMIC"&&<><Select label="Program" value={form.programId} options={[["","Select Program"],...programs.filter(p=>p.active!==false).map(p=>[p._id,`${p.name}${p.code?` (${p.code})`:""}`])]} onChange={v=>updateForm({programId:v,semester:"",section:""})}/><Select label="Semester" value={form.semester} options={[["","Select Semester"],...formSemesters.map(s=>[s,s])]} onChange={v=>updateForm({semester:v,section:""})}/><Select label="Section" value={form.section} options={[["","Select Section"],...filteredSections.map(s=>[s._id,`${s.name} · Semester ${s.semester}`])]} onChange={v=>updateForm({section:v})}/><Input label="Admission Date" type="date" value={form.admissionDate} onChange={v=>updateForm({admissionDate:v})}/><div className="field"><label>Status</label><label style={{display:"flex",gap:8,alignItems:"center"}}><input type="checkbox" checked={form.active!==false} onChange={e=>updateForm({active:e.target.checked})}/> Active student</label></div></>}
+        {activeFormTab==="IDENTITY"&&<><Input label="Admission No *" value={form.admissionNo} onChange={v=>updateForm({admissionNo:v})}/><Input label="Roll No *" value={form.rollNo} onChange={v=>updateForm({rollNo:v})}/><Input label="Student Name *" value={form.name} onChange={v=>updateForm({name:v})}/><Select label="Gender" value={form.gender} options={[["","Select"],["Male","Male"],["Female","Female"],["Other","Other"]]} onChange={v=>updateForm({gender:v})}/><Input label="Date of Birth" type="date" value={form.dateOfBirth} onChange={v=>updateForm({dateOfBirth:v})}/><Input label="Category" value={form.category} onChange={v=>updateForm({category:v})}/></>}
+        {activeFormTab==="CONTACT"&&<><Input label="Email" value={form.email} onChange={v=>updateForm({email:v})}/><Input label="Phone" value={form.phone} onChange={v=>updateForm({phone:v})}/><Input label="Father Name" value={form.fatherName} onChange={v=>updateForm({fatherName:v})}/><Input label="Mother Name" value={form.motherName} onChange={v=>updateForm({motherName:v})}/><Input label="Address" value={form.address} onChange={v=>updateForm({address:v})}/><Input label="City" value={form.city} onChange={v=>updateForm({city:v})}/><Input label="State" value={form.state} onChange={v=>updateForm({state:v})}/><Input label="Pincode" value={form.pincode} onChange={v=>updateForm({pincode:v})}/></>}
+      </div>
+      <div className="form-actions"><button className="primary" onClick={save} disabled={saving}>{saving?(editingId?"Updating...":"Adding..."):(editingId?"Update Student":"Add Student")}</button></div>
+    </section>
+    <section className="panel"><div className="panel-head"><div><h3>Student Directory</h3><p>Search and filter students by their academic mapping and status.</p></div><span className="status-badge approved">{list.length} shown</span></div><div className="view-filter student-directory-filters"><input placeholder="Search name, admission, roll, email or phone..." value={q} onChange={e=>setQ(e.target.value)}/><select value={programFilter} onChange={e=>{setProgramFilter(e.target.value);setSemesterFilter("");setSectionFilter("")}}><option value="">All Programs</option>{programs.map(p=><option key={p._id} value={p._id}>{p.name}</option>)}</select><select value={semesterFilter} onChange={e=>{setSemesterFilter(e.target.value);setSectionFilter("")}}><option value="">All Semesters</option>{filterSemesters.map(s=><option key={s}>{s}</option>)}</select><select value={sectionFilter} onChange={e=>setSectionFilter(e.target.value)}><option value="">All Sections</option>{filterSections.map(s=><option key={s._id} value={s._id}>{s.name} · Sem {s.semester}</option>)}</select><select value={statusFilter} onChange={e=>setStatusFilter(e.target.value)}><option value="ALL">All Status</option><option value="ACTIVE">Active</option><option value="INACTIVE">Inactive</option></select></div><div className="table-wrap"><table><thead><tr><th>Student</th><th>Admission / Roll</th><th>Program</th><th>Semester</th><th>Section</th><th>Status</th><th>Actions</th></tr></thead><tbody>{list.map(s=><tr key={s._id}><td><strong>{s.name}</strong><div className="muted">{s.email||s.phone||""}</div></td><td>{s.admissionNo}<br/><span className="muted">{s.rollNo}</span></td><td>{s.section?.program||"—"}</td><td>{s.section?.semester||"—"}</td><td>{s.section?.name||"—"}</td><td>{s.active!==false?<span className="status-badge approved">ACTIVE</span>:<span className="status-badge">INACTIVE</span>}</td><td><div style={{display:"flex",gap:6}}><button className="secondary" onClick={()=>edit(s)}>Edit</button>{s.active!==false&&<button className="secondary" onClick={()=>deactivate(s._id)}>Deactivate</button>}</div></td></tr>)}{!list.length&&<tr><td colSpan="7">No students found.</td></tr>}</tbody></table></div></section>
+  </div>
+}
+
+function StudentMapping({data,reload,setMessage}){
+  const [programId,setProgramId]=useState("");
+  const [semester,setSemester]=useState("");
+  const [sectionId,setSectionId]=useState("");
+  const [q,setQ]=useState("");
+  const [selected,setSelected]=useState([]);
+  const [targetSection,setTargetSection]=useState("");
+  const [saving,setSaving]=useState(false);
+  const programs=data.programs||[], sections=data.sections||[], students=data.students||[];
+  const programForSection=s=>{
+    const raw=String(s?.program||"").toLowerCase();
+    return programs.find(p=>refId(p)===String(s?.programId||"") || String(p.name||"").toLowerCase()===raw || String(p.code||"").toLowerCase()===raw);
+  };
+  const programSections=sections.filter(s=>!programId||String(s.programId||"")===programId || programForSection(s)?._id===programId || String(s.program||"").toLowerCase()===(programs.find(p=>refId(p)===programId)?.name||"").toLowerCase() || String(s.program||"").toLowerCase()===(programs.find(p=>refId(p)===programId)?.code||"").toLowerCase());
+  const semesters=[...new Set(programSections.map(s=>String(s.semester||"")).filter(Boolean))];
+  const visibleSections=programSections.filter(s=>!semester||String(s.semester)===semester);
+  const list=students.filter(s=>!sectionId||refId(s.section)===sectionId).filter(s=>!q||`${s.name} ${s.admissionNo} ${s.rollNo}`.toLowerCase().includes(q.toLowerCase()));
+  const destinationProgram=programs.find(p=>refId(p)===programId);
+  const destinationSections=sections.filter(s=>{
+    const matchesProgram=destinationProgram && (String(s.programId||"")===programId || String(s.program||"").toLowerCase()===String(destinationProgram.name||"").toLowerCase() || String(s.program||"").toLowerCase()===String(destinationProgram.code||"").toLowerCase());
+    return matchesProgram && (!semester || String(s.semester)===String(semester));
+  });
+  const destinationSemesters=[...new Set(sections.filter(s=>destinationProgram && (String(s.programId||"")===programId || String(s.program||"").toLowerCase()===String(destinationProgram.name||"").toLowerCase() || String(s.program||"").toLowerCase()===String(destinationProgram.code||"").toLowerCase())).map(s=>String(s.semester||"")).filter(Boolean))];
+  const toggle=id=>setSelected(a=>a.includes(id)?a.filter(x=>x!==id):[...a,id]);
+  const selectAll=()=>setSelected(selected.length===list.length&&list.length?[]:list.map(s=>s._id));
+  async function mapSelected(){
+    if(!targetSection)return setMessage("Select a target section.");
+    if(!selected.length)return setMessage("Select at least one student.");
+    setSaving(true);
+    try{const r=await axios.post(`${API}/students/bulk-map`,{studentIds:selected,section:targetSection});setMessage(r.data?.message||"Students mapped successfully.");setSelected([]);await reload();}
+    catch(e){setMessage(e.response?.data?.message||e.message)}finally{setSaving(false)}
+  }
+  return <div className="student-mapping-page">
+    <section className="student-mapping-hero"><div><span className="master-settings-eyebrow">PEOPLE & STUDENTS</span><h2>Student Mapping</h2><p>Map students to the correct Program, Semester and Section in bulk without editing each student individually.</p></div><div className="student-mapping-stat"><strong>{students.filter(s=>s.active!==false).length}</strong><span>active students</span></div></section>
+    <section className="panel"><div className="panel-head"><div><h3>Source Mapping</h3><p>Filter students by their current academic mapping.</p></div><span className="status-badge approved">{selected.length} selected</span></div>
+      <div className="form-grid student-map-filters">
+        <Select label="Program" value={programId} options={[["","All Programs"],...programs.filter(p=>p.active!==false).map(p=>[p._id,`${p.name}${p.code?` (${p.code})`:""}`])]} onChange={v=>{setProgramId(v);setSemester("");setSectionId("")}}/>
+        <Select label="Semester" value={semester} options={[["","All Semesters"],...semesters.map(x=>[x,x])]} onChange={v=>{setSemester(v);setSectionId("")}}/>
+        <Select label="Current Section" value={sectionId} options={[["","All Sections"],...visibleSections.map(s=>[s._id,`${s.name} · Sem ${s.semester}`])]} onChange={setSectionId}/>
+        <Input label="Search Student" value={q} onChange={setQ}/>
+      </div>
+    </section>
+    <section className="panel"><div className="panel-head"><div><h3>Student Roster</h3><p>{list.length} students match the current filters.</p></div><button className="secondary" onClick={selectAll}>{selected.length===list.length&&list.length?"Clear Selection":"Select All"}</button></div>
+      <div className="table-wrap"><table><thead><tr><th><input type="checkbox" checked={!!list.length&&selected.length===list.length} onChange={selectAll}/></th><th>Student</th><th>Admission / Roll</th><th>Current Program</th><th>Semester</th><th>Section</th></tr></thead><tbody>{list.map(s=><tr key={s._id}><td><input type="checkbox" checked={selected.includes(s._id)} onChange={()=>toggle(s._id)}/></td><td><strong>{s.name}</strong><div className="muted">{s.email||s.phone||""}</div></td><td>{s.admissionNo} · {s.rollNo}</td><td>{s.section?.program||"—"}</td><td>{s.section?.semester||"—"}</td><td>{s.section?.name||"—"}</td></tr>)}{!list.length&&<tr><td colSpan="6">No students found.</td></tr>}</tbody></table></div>
+    </section>
+    <section className="panel student-map-target"><div className="panel-head"><div><h3>Map Selected Students</h3><p>Select the destination Program/Section. Students will be moved together and the existing promotion history remains available.</p></div></div><div className="form-grid"><Select label="Destination Program" value={programId} options={[["","Select Program"],...programs.filter(p=>p.active!==false).map(p=>[p._id,`${p.name}${p.code?` (${p.code})`:""}`])]} onChange={v=>{setProgramId(v);setSemester("");setTargetSection("")}}/><Select label="Destination Semester" value={semester} options={[["","Select Semester"],...destinationSemesters.map(x=>[x,x])]} onChange={v=>{setSemester(v);setTargetSection("")}}/><Select label="Destination Section" value={targetSection} options={[["","Select Section"],...destinationSections.map(x=>[x._id,`${x.name} · Semester ${x.semester}`])]} onChange={setTargetSection}/><div className="form-actions"><button className="primary" onClick={mapSelected} disabled={saving||!selected.length}>{saving?"Mapping...":`Map ${selected.length||0} Student${selected.length===1?"":"s"}`}</button></div></div></section>
+  </div>;
+}
+
+>>>>>>> 62a144d (Phase 18 QA fixes and Link2 runtime fix)
 function StudentProfile({data,setMessage}){
   const [q,setQ]=useState("");
   const [sectionId,setSectionId]=useState("");
@@ -1992,6 +2102,10 @@ function FeeManagement({data,sessions,auth,setMessage}){
 function FullSessionTimetable({sessions,activeSession,role}){
   const [sessionId,setSessionId]=useState(activeSession?._id||"");
   const [holidays,setHolidays]=useState("");
+<<<<<<< HEAD
+=======
+  const [holidayDate,setHolidayDate]=useState("");
+>>>>>>> 62a144d (Phase 18 QA fixes and Link2 runtime fix)
   const [plans,setPlans]=useState([]);
   const [plan,setPlan]=useState(null);
   const [weekIndex,setWeekIndex]=useState(0);
@@ -2000,7 +2114,11 @@ function FullSessionTimetable({sessions,activeSession,role}){
   const [busy,setBusy]=useState(false);
   const [error,setError]=useState("");
   useEffect(()=>{if(activeSession?._id&&!sessionId)setSessionId(activeSession._id)},[activeSession?._id]);
+<<<<<<< HEAD
   useEffect(()=>{setPlan(null);setWeekIndex(0);if(!sessionId)return;axios.get(`${API}/session-plans?sessionId=${sessionId}`).then(r=>setPlans(r.data||[])).catch(e=>setError(e.response?.data?.message||e.message))},[sessionId]);
+=======
+  useEffect(()=>{setPlan(null);setWeekIndex(0);if(!sessionId)return;Promise.all([axios.get(`${API}/session-plans?sessionId=${sessionId}`),axios.get(`${API}/academic-sessions/${sessionId}`)]).then(([r,sr])=>{setPlans(r.data||[]);setHolidays((sr.data?.holidayDates||[]).join(", "))}).catch(e=>setError(e.response?.data?.message||e.message))},[sessionId]);
+>>>>>>> 62a144d (Phase 18 QA fixes and Link2 runtime fix)
   async function openPlan(id){setBusy(true);setError("");try{const r=await axios.get(`${API}/session-plans/${id}`);setPlan(r.data);setWeekIndex(0)}catch(e){setError(e.response?.data?.message||e.message)}finally{setBusy(false)}}
   async function generateFull(){if(!window.confirm('Generate and save a new full academic session plan? Existing plans will be preserved.'))return;setBusy(true);setError("");try{const dates=holidays.split(/[\s,;]+/).map(x=>x.trim()).filter(Boolean);const r=await axios.post(`${API}/session-plans/generate`,{sessionId,holidays:dates});const p=await axios.get(`${API}/session-plans?sessionId=${sessionId}`);setPlans(p.data||[]);await openPlan(r.data.id)}catch(e){setError(e.response?.data?.message||e.message)}finally{setBusy(false)}}
   async function publish(){if(!plan||!window.confirm('Publish this full-session timetable version?'))return;setBusy(true);try{await axios.patch(`${API}/session-plans/${plan._id}/publish`);const r=await axios.get(`${API}/session-plans?sessionId=${sessionId}`);setPlans(r.data||[]);await openPlan(plan._id)}catch(e){setError(e.response?.data?.message||e.message)}finally{setBusy(false)}}
@@ -2015,7 +2133,24 @@ function FullSessionTimetable({sessions,activeSession,role}){
       <h2>Full Academic Session Timetable</h2><p>Generate and store the complete date-wise timetable for the academic session. Each week may have a different arrangement, while subject totals are controlled for the entire session.</p>
       <div style={{display:'flex',gap:12,flexWrap:'wrap',alignItems:'end'}}>
         <label>Academic Session<br/><select value={sessionId} onChange={e=>setSessionId(e.target.value)}><option value="">Select session</option>{sessions.map(s=><option key={s._id} value={s._id}>{s.name} ({String(s.startDate||'').slice(0,10)} to {String(s.endDate||'').slice(0,10)})</option>)}</select></label>
+<<<<<<< HEAD
         {['ADMIN','SCHEDULER'].includes(role)&&<><label>Holiday dates (YYYY-MM-DD, separated by commas)<br/><textarea rows={2} style={{minWidth:300}} value={holidays} onChange={e=>setHolidays(e.target.value)} placeholder="2026-08-15, 2026-10-02"/></label><button className="primary" disabled={!sessionId||busy} onClick={generateFull}>{busy?'Generating...':'Generate Full Session'}</button></>}
+=======
+        {['ADMIN','SCHEDULER'].includes(role)&&<>
+          <div style={{display:'flex',flexDirection:'column',gap:8,minWidth:320}}>
+            <label>Holiday date</label>
+            <div style={{display:'flex',gap:8,alignItems:'center'}}>
+              <input type="date" value={holidayDate} onChange={e=>setHolidayDate(e.target.value)} />
+              <button className="secondary" type="button" disabled={!holidayDate||new Date(`${holidayDate}T00:00:00Z`).getUTCDay()===0} onClick={()=>{if(!holidayDate)return;const vals=holidays.split(/[,;\s]+/).map(x=>x.trim()).filter(Boolean);if(!vals.includes(holidayDate)){vals.push(holidayDate);vals.sort();setHolidays(vals.join(', '));}setHolidayDate('')}}>Add Holiday</button>
+            </div>
+            <small style={{color:'#64748b'}}>Sunday is automatically a holiday and cannot be added as a separate date.</small>
+            <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
+              {holidays.split(/[,;\s]+/).map(x=>x.trim()).filter(Boolean).map(d=><span key={d} style={{padding:'5px 9px',borderRadius:999,background:'#fff7ed',color:'#9a3412',fontSize:12}}>{d} <button type="button" onClick={()=>setHolidays(holidays.split(/[,;\s]+/).map(x=>x.trim()).filter(Boolean).filter(v=>v!==d).join(', '))} style={{border:0,background:'transparent',cursor:'pointer',color:'#9a3412'}}>×</button></span>)}
+            </div>
+          </div>
+          <button className="primary" disabled={!sessionId||busy} onClick={generateFull}>{busy?'Generating...':'Generate Full Session'}</button>
+        </>}
+>>>>>>> 62a144d (Phase 18 QA fixes and Link2 runtime fix)
       </div>
       {error&&<p style={{color:'#b91c1c',whiteSpace:'pre-wrap'}}>{error}</p>}
       <p style={{fontSize:12,color:'#64748b'}}>The generator does not repeat one fixed weekly timetable. It distributes each subject’s Total Sessions across the academic weeks, respects Max Classes / Week, handles holidays, and saves every dated class in the session plan. No partial plan is saved.</p>

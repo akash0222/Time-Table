@@ -225,7 +225,11 @@ router.post("/bulk", allowRoles("ADMIN", "SCHEDULER"), upload.single("file"), as
         admissionNo, rollNo, name, email: value("email"), phone: value("phone"), gender: value("gender"),
         dateOfBirth, fatherName: value("fatherName"), motherName: value("motherName"), category: value("category"),
         address: value("address"), city: value("city"), state: value("state"), pincode: value("pincode"),
+<<<<<<< HEAD
         section: section._id, active: parseBoolean(value("active"), true), admissionDate
+=======
+        section: section._id, program: section.program || value("program") || "", semester: section.semester || value("semester") || "", active: parseBoolean(value("active"), true), admissionDate
+>>>>>>> 62a144d (Phase 18 QA fixes and Link2 runtime fix)
       });
     }
 
@@ -249,6 +253,25 @@ router.post("/bulk", allowRoles("ADMIN", "SCHEDULER"), upload.single("file"), as
   }
 });
 
+<<<<<<< HEAD
+=======
+
+router.post("/bulk-map", allowRoles("ADMIN", "SCHEDULER"), async (req, res) => {
+  try {
+    const studentIds = Array.isArray(req.body?.studentIds) ? req.body.studentIds.filter(Boolean) : [];
+    const sectionId = req.body?.section || req.body?.toSection;
+    if (!studentIds.length) return res.status(400).json({ message: "Select at least one student." });
+    if (!sectionId) return res.status(400).json({ message: "Destination section is required." });
+    const section = await Section.findById(sectionId).populate("programId", "name code").lean();
+    if (!section) return res.status(400).json({ message: "Destination section does not exist." });
+    const result = await Student.updateMany({ _id: { $in: studentIds } }, { $set: { section: section._id, program: section.program || section.programId?.name || "", semester: section.semester || "" } });
+    res.json({ ok: true, updated: result.modifiedCount ?? result.nModified ?? 0, message: `${result.modifiedCount ?? result.nModified ?? 0} student(s) mapped to ${section.program || section.programId?.name || "the selected program"} · Semester ${section.semester} · ${section.name}.` });
+  } catch (e) {
+    res.status(400).json({ message: e.message });
+  }
+});
+
+>>>>>>> 62a144d (Phase 18 QA fixes and Link2 runtime fix)
 router.get("/", async (req, res) => {
   try {
     const filter = {};
@@ -265,7 +288,11 @@ router.get("/", async (req, res) => {
     if (req.query.active !== undefined) filter.active = String(req.query.active) !== "false";
     const rows = await Student.find(filter)
       .sort({ section: 1, rollNo: 1, name: 1 })
+<<<<<<< HEAD
       .populate("section", "name program semester")
+=======
+      .populate("section", "name program programId semester")
+>>>>>>> 62a144d (Phase 18 QA fixes and Link2 runtime fix)
       .lean();
     res.json(rows);
   } catch (e) { res.status(500).json({ message: e.message }); }
@@ -273,11 +300,20 @@ router.get("/", async (req, res) => {
 
 router.post("/", allowRoles("ADMIN", "SCHEDULER"), async (req, res) => {
   try {
+<<<<<<< HEAD
     const { admissionNo, rollNo, name, email = "", phone = "", gender = "", dateOfBirth = null, fatherName = "", motherName = "", category = "", address = "", city = "", state = "", pincode = "", section, active = true, admissionDate = null } = req.body || {};
     if (!admissionNo || !rollNo || !name || !section) return res.status(400).json({ message: "Admission No, Roll No, Name and Section are required." });
     if (!await Section.exists({ _id: section })) return res.status(400).json({ message: "Selected section does not exist." });
     const created = await Student.create({ admissionNo, rollNo, name, email, phone, gender, dateOfBirth: dateOfBirth || null, fatherName, motherName, category, address, city, state, pincode, section, active, admissionDate: admissionDate || null });
     res.status(201).json(await Student.findById(created._id).populate("section", "name program semester"));
+=======
+    const { admissionNo, rollNo, name, email = "", phone = "", gender = "", dateOfBirth = null, fatherName = "", motherName = "", category = "", address = "", city = "", state = "", pincode = "", section, program = "", semester = "", active = true, admissionDate = null } = req.body || {};
+    if (!admissionNo || !rollNo || !name || !section) return res.status(400).json({ message: "Admission No, Roll No, Name and Section are required." });
+    if (!await Section.exists({ _id: section })) return res.status(400).json({ message: "Selected section does not exist." });
+    const sectionDoc = await Section.findById(section).populate("programId", "name code").lean();
+    const created = await Student.create({ admissionNo, rollNo, name, email, phone, gender, dateOfBirth: dateOfBirth || null, fatherName, motherName, category, address, city, state, pincode, section, program: sectionDoc?.program || sectionDoc?.programId?.name || program || "", semester: sectionDoc?.semester || semester || "", active, admissionDate: admissionDate || null });
+    res.status(201).json(await Student.findById(created._id).populate("section", "name program programId semester"));
+>>>>>>> 62a144d (Phase 18 QA fixes and Link2 runtime fix)
   } catch (e) { res.status(400).json({ message: e.code === 11000 ? "Admission No must be unique." : e.message }); }
 });
 
@@ -286,7 +322,11 @@ router.put("/:id", allowRoles("ADMIN", "SCHEDULER"), async (req, res) => {
     const body = { ...req.body };
     delete body._id; delete body.createdAt; delete body.updatedAt;
     if (body.section && !await Section.exists({ _id: body.section })) return res.status(400).json({ message: "Selected section does not exist." });
+<<<<<<< HEAD
     const updated = await Student.findByIdAndUpdate(req.params.id, body, { new: true, runValidators: true }).populate("section", "name program semester");
+=======
+    const updated = await Student.findByIdAndUpdate(req.params.id, body, { new: true, runValidators: true }).populate("section", "name program programId semester");
+>>>>>>> 62a144d (Phase 18 QA fixes and Link2 runtime fix)
     if (!updated) return res.status(404).json({ message: "Student not found." });
     res.json(updated);
   } catch (e) { res.status(400).json({ message: e.code === 11000 ? "Admission No must be unique." : e.message }); }
@@ -294,7 +334,11 @@ router.put("/:id", allowRoles("ADMIN", "SCHEDULER"), async (req, res) => {
 
 router.delete("/:id", allowRoles("ADMIN", "SCHEDULER"), async (req, res) => {
   try {
+<<<<<<< HEAD
     const updated = await Student.findByIdAndUpdate(req.params.id, { active: false }, { new: true }).populate("section", "name program semester");
+=======
+    const updated = await Student.findByIdAndUpdate(req.params.id, { active: false }, { new: true }).populate("section", "name program programId semester");
+>>>>>>> 62a144d (Phase 18 QA fixes and Link2 runtime fix)
     if (!updated) return res.status(404).json({ message: "Student not found." });
     res.json({ ok: true, student: updated, message: "Student marked inactive. Historical attendance is retained." });
   } catch (e) { res.status(400).json({ message: e.message }); }
