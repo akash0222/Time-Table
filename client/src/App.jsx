@@ -1,22 +1,8 @@
 import React, {useEffect, useMemo, useState} from "react";
 import axios from "axios";
+import {API} from "./core/api";
 import {CalendarDays, CalendarOff, Users, BookOpen, DoorOpen, Clock3, WandSparkles, Database, Trash2, Settings2, Check, X, FileSpreadsheet, Upload, Lock, Send, RotateCcw, ShieldCheck,BarChart3,Activity,Bell,UserCheck,RefreshCw,Copy,QrCode,History,ClipboardCheck,UserPlus,DollarSign,GraduationCap,Search,ArrowRight,UsersRound,ChevronLeft,ChevronRight,AlertTriangle,CheckCircle2,Link2} from "lucide-react";
 
-const API=(import.meta.env.VITE_API_URL||"http://localhost:5000/api").replace(/\/$/,"");
-axios.defaults.timeout=20000;
-axios.interceptors.request.use(config=>{
-  const token=localStorage.getItem("tt_token");
-  if(token) config.headers.Authorization=`Bearer ${token}`;
-  return config;
-});
-axios.interceptors.response.use(r=>r,err=>{
-  if(err.response?.status===401 && localStorage.getItem("tt_token")){
-    localStorage.removeItem("tt_token");
-    localStorage.removeItem("tt_user");
-    window.location.reload();
-  }
-  return Promise.reject(err);
-});
 const days=["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
 const apiName={programs:"Programs",faculty:"Faculty",subjects:"Subjects",sections:"Sections",rooms:"Rooms",timeslots:"Time Slots"};
 function refId(v){return String(v?._id??v??"");}

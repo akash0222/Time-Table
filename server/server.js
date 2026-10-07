@@ -33,6 +33,10 @@ import Student from "./models/Student.js";
 
 const app = express();
 
+if (String(process.env.TRUST_PROXY).toLowerCase() === "true") {
+  app.set("trust proxy", 1);
+}
+
 const isProduction = process.env.NODE_ENV === "production";
 const configuredOrigins = String(process.env.CORS_ORIGINS || process.env.CLIENT_URL || "")
   .split(",")
@@ -1878,5 +1882,5 @@ process.on("SIGTERM", () => shutdown("SIGTERM"));
 
 connectDB().then(async () => {
   await ensureDefaultAdmin();
-  server = app.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}`));
+  server = app.listen(PORT, "0.0.0.0", () => console.log(`Server listening on port ${PORT}`));
 }).catch(err => { console.error("MongoDB connection failed:", err.message); process.exit(1); });
