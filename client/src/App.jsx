@@ -1327,7 +1327,7 @@ function AcademicSessions({sessions,programs,activeSession,setSessions,setActive
       const old=(f.programDates||[]).find(x=>String(x.program)===String(p._id));
       return old||{program:p._id,startDate:"",endDate:""};
     })}));
-  },[programs?.length,editingId]);
+  },[activePrograms.map(p=>p._id).join(","),editingId]);
 
   function dateValue(v){return v?String(v).slice(0,10):""}
   function updateProgramDate(program,field,value){
@@ -1362,13 +1362,23 @@ function AcademicSessions({sessions,programs,activeSession,setSessions,setActive
   }
   function editSession(s){
     setEditingId(s._id);
+    const hasProgramDates=Array.isArray(s.programDates)&&s.programDates.length>0;
+    const legacyStart=dateValue(s.startDate);
+    const legacyEnd=dateValue(s.endDate);
     setForm({
       name:s.name||"",description:s.description||"",
       programDates:activePrograms.map(p=>{
         const x=(s.programDates||[]).find(d=>String(d.program?._id||d.program)===String(p._id));
-        return {program:p._id,startDate:dateValue(x?.startDate),endDate:dateValue(x?.endDate)};
+        return {
+          program:p._id,
+          startDate:dateValue(x?.startDate)||(hasProgramDates?"":legacyStart),
+          endDate:dateValue(x?.endDate)||(hasProgramDates?"":legacyEnd)
+        };
       })
     });
+    setMessage(hasProgramDates
+      ? "Editing program-wise dates."
+      : "This session uses legacy overall dates. They have been prefilled for each active program; save to convert them to program-wise calendars.");
     window.scrollTo({top:0,behavior:"smooth"});
   }
   function reset(){setEditingId(null);setForm({name:"",description:"",programDates:blankDates()})}
@@ -1385,6 +1395,9 @@ function AcademicSessions({sessions,programs,activeSession,setSessions,setActive
       <Input label="Description" value={form.description} onChange={v=>setForm({...form,description:v})}/>
     </div>
     <div className="message success" style={{marginTop:14}}><strong>Program-wise academic calendar:</strong> Each program can start and end on different dates. Full-session generation will use the date window of the program assigned to each section/subject.</div>
+    {editingId && form.programDates.some(x=>x.startDate&&x.endDate) && !((sessions.find(s=>s._id===editingId)?.programDates||[]).length) && (
+      <div className="message" style={{marginTop:10}}><strong>Legacy session detected:</strong> The existing overall session dates were copied into the program rows. Review them and click <b>Update Academic Session</b> to save the new program-wise calendar.</div>
+    )}
     <div className="table-wrap" style={{marginTop:14}}><table><thead><tr><th>Program</th><th>Code</th><th>Session Start</th><th>Session End</th></tr></thead><tbody>
       {activePrograms.map(p=>{const x=(form.programDates||[]).find(d=>String(d.program)===String(p._id))||{};return <tr key={p._id}><td><strong>{p.name}</strong></td><td>{p.code||"—"}</td><td><input type="date" value={x.startDate||""} onChange={e=>updateProgramDate(p._id,"startDate",e.target.value)}/></td><td><input type="date" value={x.endDate||""} onChange={e=>updateProgramDate(p._id,"endDate",e.target.value)}/></td></tr>})}
       {!activePrograms.length&&<tr><td colSpan="4">No active programs found. Add Programs first.</td></tr>}
