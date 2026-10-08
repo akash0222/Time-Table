@@ -4,6 +4,8 @@ export const ROLE_PERMISSIONS = Object.freeze({
     "timetable:generate",
     "timetable:edit",
     "timetable:submit",
+    "timetable:approve",
+    "timetable:publish",
     "master:manage",
     "academic:manage",
     "student:manage",
