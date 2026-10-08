@@ -97,7 +97,16 @@ app.get("/api/settings", requireAuth, async (_req, res) => {
     const session = sessionId && Array.isArray(baseSettings?.sessionOverrides)
       ? baseSettings.sessionOverrides.find(x => String(x.academicSession) === sessionId)
       : null;
-    return res.json({ ...defaults, ...(settings || {}), ...(session || {}), key: "default", academicSession: sessionId || null });
+    return res.json({
+      ...defaults,
+      ...(baseSettings || {}),
+      ...(session || {}),
+      key: "default",
+      academicSession: sessionId || null,
+      generationRuns: Number(session?.generationRuns ?? baseSettings?.generationRuns ?? env.schedulerGenerationRuns),
+      generationTimeLimitMs: Number(session?.generationTimeLimitMs ?? baseSettings?.generationTimeLimitMs ?? env.schedulerGenerationTimeLimitMs),
+      generationAttempts: Number(session?.generationAttempts ?? baseSettings?.generationAttempts ?? env.schedulerGenerationAttempts)
+    });
   } catch (e) {
     console.error("GET /api/settings failed:", e.message);
     return res.json({ ...defaults, warning: "Scheduler settings could not be loaded; defaults are being used." });
@@ -113,7 +122,10 @@ app.put("/api/settings", requireAuth, allowRoles("ADMIN", "SCHEDULER"), async (r
       distributeSubjectAcrossDays: Boolean(req.body.distributeSubjectAcrossDays),
       avoidFirstLastPeriod: Boolean(req.body.avoidFirstLastPeriod),
       holidayDays: ["Sunday", ...(Array.isArray(req.body.holidayDays) ? req.body.holidayDays.map(x=>String(x).trim()).filter(Boolean) : [])]
-        .filter((v,i,a)=>a.indexOf(v)===i)
+        .filter((v,i,a)=>a.indexOf(v)===i),
+      generationRuns: Math.max(1, Math.min(30, Number(req.body.generationRuns || env.schedulerGenerationRuns))),
+      generationTimeLimitMs: Math.max(1000, Math.min(120000, Number(req.body.generationTimeLimitMs || env.schedulerGenerationTimeLimitMs))),
+      generationAttempts: Math.max(50, Math.min(5000, Number(req.body.generationAttempts || env.schedulerGenerationAttempts)))
     };
 
     const sessionId = String(req.body?.academicSessionId || req.query?.sessionId || "").trim();
