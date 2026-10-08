@@ -161,8 +161,36 @@ export function generateBestTimetable({
     const score=Number(result?.score||0);
     const entryCount=Array.isArray(result?.entries)?result.entries.length:0;
     const bestEntryCount=Array.isArray(best?.entries)?best.entries.length:0;
-    if(!best || entryCount>bestEntryCount || (entryCount===bestEntryCount && score>Number(best.score||0))){
-      best=result;
+    let candidate=result;
+    if (Array.isArray(result?.entries) && result.entries.length) {
+      const validation = validateTimetable({
+        entries: result.entries,
+        faculty,
+        sections,
+        subjects,
+        rooms,
+        slots,
+        programs,
+        settings,
+        holidayDays: settings?.holidayDays || ["Sunday"]
+      });
+      candidate = {
+        ...result,
+        validation,
+        warnings: [...new Set([...(result.warnings || []), ...(validation.warnings || [])])]
+      };
+    }
+
+    const candidateValid = candidate?.validation?.valid !== false;
+    const candidateScore = Number(candidate?.score || 0);
+    const candidateEntryCount = Array.isArray(candidate?.entries) ? candidate.entries.length : 0;
+    if (
+      !best ||
+      candidateValid > (best.validation?.valid ? 1 : 0) ||
+      candidateEntryCount > bestEntryCount ||
+      (candidateEntryCount === bestEntryCount && candidateScore > Number(best.score || 0))
+    ) {
+      best = candidate;
     }
 
     if(result?.warnings?.some(w=>String(w).startsWith('No valid subjects'))){
