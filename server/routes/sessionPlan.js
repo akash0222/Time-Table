@@ -302,6 +302,10 @@ router.post('/generate',allowRoles('ADMIN','SCHEDULER'),async(req,res)=>{
       }).lean(),
       Room.find().lean(),TimeSlot.find().lean(),SchedulerSetting.findOne({key:'default'}).lean(),Program.find().lean()
     ]);
+    const sessionOverride = settings && Array.isArray(settings.sessionOverrides)
+      ? settings.sessionOverrides.find(x=>String(x.academicSession)===String(session._id))
+      : null;
+    const effectiveSettings = { ...(settings || {}), ...(sessionOverride || {}) };
 
     if(!faculty.length||!subjects.length||!sections.length||!rooms.length||!slots.length)return res.status(400).json({message:'Complete faculty, subjects, sections, rooms and time slots first for the selected academic session.'});
 
@@ -352,7 +356,7 @@ router.post('/generate',allowRoles('ADMIN','SCHEDULER'),async(req,res)=>{
     const totalRequired=subjects.reduce((n,s)=>n+subjectTarget(s,subjectEligibleWeeks(s,allWeeks)),0);
     if(!totalRequired)return res.status(422).json({message:'Set Total Sessions or Classes / Week for your subjects.'});
 
-    const result=await generatePlan({session,holidays,faculty,subjects,sections,rooms,slots,settings:settings||{},weeks:allWeeks});
+    const result=await generatePlan({session,holidays,faculty,subjects,sections,rooms,slots,settings:effectiveSettings,weeks:allWeeks});
     if(result.error)return res.status(422).json({message:result.error});
 
     const last=await SessionPlan.findOne({academicSession:session._id}).sort({version:-1}).select('version');
