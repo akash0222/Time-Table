@@ -5,7 +5,8 @@
   "scripts": {
     "start": "node server.js",
     "dev": "nodemon server.js",
-    "qa": "node qa/smoke.mjs"
+    "qa": "node qa/smoke.mjs",
+    "test:qa": "node qa/smoke.mjs"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
