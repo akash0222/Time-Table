@@ -9,6 +9,9 @@ const schedulerSettingSchema = new mongoose.Schema({
   distributeSubjectAcrossDays: { type: Boolean, default: true },
   avoidFirstLastPeriod: { type: Boolean, default: false },
   holidayDays: { type: [String], default: ["Sunday"] },
+  generationRuns: { type: Number, default: 8, min: 1, max: 30 },
+  generationTimeLimitMs: { type: Number, default: 30000, min: 1000, max: 120000 },
+  generationAttempts: { type: Number, default: 500, min: 50, max: 5000 },
   sessionOverrides: {
     type: [{
       academicSession: { type: mongoose.Schema.Types.ObjectId, ref: "AcademicSession", required: true },
@@ -17,7 +20,10 @@ const schedulerSettingSchema = new mongoose.Schema({
       avoidSameSubjectSameDay: { type: Boolean },
       distributeSubjectAcrossDays: { type: Boolean },
       avoidFirstLastPeriod: { type: Boolean },
-      holidayDays: { type: [String] }
+      holidayDays: { type: [String] },
+      generationRuns: { type: Number, min: 1, max: 30 },
+      generationTimeLimitMs: { type: Number, min: 1000, max: 120000 },
+      generationAttempts: { type: Number, min: 50, max: 5000 }
     }],
     default: []
   }
