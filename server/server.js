@@ -612,6 +612,12 @@ app.post("/api/import/excel", requireAuth, allowRoles("ADMIN", "SCHEDULER"), upl
       return res.status(400).json({ message: `Missing sheets: ${missing.join(", ")}` });
     }
 
+    const importAcademicSessionId = String(req.body?.academicSessionId || req.body?.sessionId || "").trim();
+    if (importAcademicSessionId) {
+      const importSession = await AcademicSession.findById(importAcademicSessionId).lean();
+      if (!importSession) return res.status(404).json({ message: "Selected academic session was not found." });
+    }
+
     const topologyType = String(mongoose.connection.getClient?.()?.topology?.description?.type || "");
     const transactional = topologyType.includes("ReplicaSet") || isProduction;
     if (transactional) {
@@ -687,9 +693,10 @@ app.post("/api/import/excel", requireAuth, allowRoles("ADMIN", "SCHEDULER"), upl
       const programName = programDoc?.name || r.Program;
 
       const doc = await Section.findOneAndUpdate(
-        { program: r.Program, semester: r.Semester, name: r.Section },
+        { program: r.Program, semester: r.Semester, name: r.Section, academicSession: importAcademicSessionId || null },
         {
           programId: programDoc?._id || null,
+          academicSession: importAcademicSessionId || null,
           program: programName,
           semester: r.Semester,
           name: r.Section,
@@ -780,6 +787,8 @@ app.post("/api/import/excel", requireAuth, allowRoles("ADMIN", "SCHEDULER"), upl
         {
           name,
           code,
+          academicSession: importAcademicSessionId || sectionDoc.academicSession || null,
+          programId: sectionDoc.programId || null,
           faculty: facultyDoc._id,
           section: sectionDoc._id,
           classesPerWeek: Number(classesPerWeek || 1),
@@ -981,6 +990,8 @@ app.post("/api/timetable/generate", requireAuth, allowRoles("ADMIN", "SCHEDULER"
     let settings = null;
     try {
       settings = await SchedulerSetting.findOne({ key: "default" }).lean();
+      const override = settings?.sessionOverrides?.find(x => String(x.academicSession) === String(academicSessionId));
+      if (override) settings = { ...settings, ...override };
     } catch (settingsError) {
       console.error("Scheduler settings unavailable:", settingsError.message);
     }
@@ -1336,11 +1347,45 @@ app.patch("/api/timetable/move", requireAuth, allowRoles("ADMIN", "SCHEDULER"), 
       return res.status(409).json({message:"Section consecutive-class limit would be exceeded."});
     }
 
+    const previousPosition = {
+      day: entry.day,
+      startTime: entry.startTime,
+      endTime: entry.endTime,
+      order: entry.order,
+      duration: entry.duration
+    };
+
     entry.day=day;
     entry.startTime=targetBlock[0].startTime;
     entry.endTime=targetBlock.at(-1).endTime;
     entry.order=Number(targetBlock[0].order);
     entry.duration=duration;
+
+    const programs = await Program.find().lean();
+    const validation = validateTimetable({
+      entries: timetable.entries.map(x => x.toObject ? x.toObject() : x),
+      faculty: await Faculty.find().lean(),
+      sections: await Section.find().lean(),
+      subjects: await Subject.find().lean(),
+      rooms: await Room.find().lean(),
+      slots: allSlots,
+      programs,
+      settings: settings || {},
+      holidayDays: settings?.holidayDays || ["Sunday"]
+    });
+
+    if (!validation.valid) {
+      entry.day = previousPosition.day;
+      entry.startTime = previousPosition.startTime;
+      entry.endTime = previousPosition.endTime;
+      entry.order = previousPosition.order;
+      entry.duration = previousPosition.duration;
+      return res.status(409).json({
+        message: "Move rejected by the timetable hard-constraint validator.",
+        validation
+      });
+    }
+
     await timetable.save();
 
     const populated=await Timetable.findById(timetable._id)
@@ -1863,7 +1908,7 @@ app.get("/api/public/share/:token/qr", async (req,res)=>{
     if(row.expiresAt&&row.expiresAt<new Date())return res.status(410).send("Expired");
     if(!row.timetable || !["PUBLISHED","LOCKED"].includes(row.timetable.status)) return res.status(404).send("Unavailable");
     const QRCode=(await import("qrcode")).default;
-    const publicBase=String(process.env.PUBLIC_APP_URL||`${req.protocol}://${req.get("host")}`).replace(/\/$/,"");
+    const publicBase=String(env.publicAppUrl||`${req.protocol}://${req.get("host")}`).replace(/\/$/,"");
     const png=await QRCode.toBuffer(`${publicBase}/share/${row.token}`);
     res.type("png").send(png);
   }catch(e){res.status(500).send("QR generation failed");}
@@ -1889,7 +1934,7 @@ async function ensureDefaultAdmin() {
   console.log("Default administrator created from DEFAULT_ADMIN_PASSWORD.");
 }
 
-const PORT = process.env.PORT || 5000;
+const PORT = env.port;
 let server;
 
 app.get("/api/readiness", async (_req, res) => {
@@ -1908,7 +1953,7 @@ app.get("/api/system/health", requireAuth, allowRoles("ADMIN"), async (_req, res
   } catch {}
   res.status(database ? 200 : 503).json({
     ok: database,
-    environment: process.env.NODE_ENV || "development",
+    environment: env.nodeEnv,
     node: process.version,
     uptimeSeconds: Math.floor((Date.now()-startedAt)/1000),
     database: database ? "connected" : "disconnected",
@@ -1917,14 +1962,9 @@ app.get("/api/system/health", requireAuth, allowRoles("ADMIN"), async (_req, res
   });
 });
 
-// Keep API failures JSON-shaped and avoid leaking stack traces in production.
-app.use((err, _req, res, _next) => {
-  console.error(err?.stack || err?.message || err);
-  const status = err?.message === "CORS origin not allowed." ? 403 : (err?.statusCode || 500);
-  res.status(status).json({ message: isProduction && status >= 500 ? "Internal server error." : (err?.message || "Request failed.") });
-});
-
-app.use("/api", (_req, res) => res.status(404).json({ message: "API endpoint not found." }));
+// Keep API failures JSON-shaped and avoid stack traces in production.
+app.use(notFoundHandler);
+app.use(errorHandler);
 
 async function shutdown(signal) {
   console.log(`${signal} received. Shutting down gracefully...`);
