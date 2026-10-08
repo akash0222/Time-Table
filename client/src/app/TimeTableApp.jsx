@@ -370,7 +370,7 @@ function App(){
       {tab==="Validation" && <Validation/>}
       {tab==="Timetable" && <TimetableView timetable={latest} data={data} onMoved={load} timetableStatus={timetableStatus} setTimetableStatus={setTimetableStatus} setMessage={setMessage} approvalHistory={approvalHistory} activeSession={activeSession} role={auth.role}/>}
       {tab==="Timetable" && <TimetableVersions activeSession={activeSession} versionList={versionList} setVersionList={setVersionList} setLatest={setLatest} setMessage={setMessage}/>}
-      {tab==="Settings" && <SchedulerSettings settings={settings} setSettings={setSettings} setMessage={setMessage}/>} 
+      {tab==="Settings" && <SchedulerSettings settings={settings} setSettings={setSettings} setMessage={setMessage} activeSession={activeSession}/>} 
       {tab==="Master Data Settings" && <MasterDataSettings data={data} setData={setData} reload={load} setMessage={setMessage}/>}
       {(tab==="Subject & Faculty Mapping") && <SubjectFacultyMapping data={data} sessions={sessions} activeSession={activeSession} reload={load} setMessage={setMessage}/>}
       {(tab==="Program & Section Mapping" || tab==="Academic Structure") && <AcademicStructure sessions={sessions} activeSession={activeSession} programs={data.programs} data={data} reload={load} setMessage={setMessage}/>}
@@ -2206,7 +2206,7 @@ function ExcelImport({reload,setMessage}){
 }
 
 
-function SchedulerSettings({settings,setSettings,setMessage}){
+function SchedulerSettings({settings,setSettings,setMessage,activeSession}){
   const [saving,setSaving]=useState(false);
 
   const update=(key,value)=>{
@@ -2227,7 +2227,7 @@ function SchedulerSettings({settings,setSettings,setMessage}){
         generationRuns:Number(settings.generationRuns||8),
         generationTimeLimitMs:Number(settings.generationTimeLimitMs||30000)
       };
-      const r=await axios.put(`${API}/settings`,payload);
+      const r=await axios.put(`${API}/settings`,{...payload,academicSessionId:activeSession?._id||""});
       setSettings(r.data);
       setMessage("Scheduler settings saved successfully.");
     }catch(e){
