@@ -1,12 +1,8 @@
 import jwt from "jsonwebtoken";
 import { hasPermission } from "../config/permissions.js";
+import { env } from "../config/env.js";
 
-const isProduction = process.env.NODE_ENV === "production";
-const secret = process.env.JWT_SECRET || (isProduction ? "" : "local-timetable-secret-change-me");
-
-if (isProduction && secret.length < 32) {
-  throw new Error("JWT_SECRET must be configured with at least 32 characters in production.");
-}
+const secret = env.jwtSecret;
 
 export function signUser(user) {
   return jwt.sign({ id: user._id.toString(), username: user.username, role: user.role, name: user.name, faculty: user.faculty ? (user.faculty._id || user.faculty).toString() : null }, secret, { expiresIn: "8h" });
