@@ -783,7 +783,7 @@ app.post("/api/import/excel", requireAuth, allowRoles("ADMIN", "SCHEDULER"), upl
       }
 
       await Subject.findOneAndUpdate(
-        { name, section: sectionDoc._id },
+        { name, code: code || "", section: sectionDoc._id, academicSession: importAcademicSessionId || sectionDoc.academicSession || null },
         {
           name,
           code,
@@ -1596,8 +1596,9 @@ function analyticsLabel(section){
 
 app.get("/api/analytics", requireAuth, async (req,res) => {
   try {
-    const filter={};
-    if(req.query.sessionId) filter.academicSession=req.query.sessionId;
+    const filter=req.query.sessionId
+      ? { academicSession:req.query.sessionId, isCurrent:true }
+      : { isCurrent:true };
     const timetable=await Timetable.findOne(filter).sort({createdAt:-1}).populate("entries.section entries.subject entries.faculty entries.room").lean();
     if(!timetable) return res.json({hasTimetable:false,summary:{requiredSessions:0,scheduledSessions:0,coverage:0,unscheduledSessions:0},faculty:[],rooms:[],sections:[],daily:[],conflicts:[],quality:null,warnings:[]});
 
@@ -1812,7 +1813,9 @@ app.get("/api/timetable/change-history", requireAuth, async (req,res)=>{
 // Reports use the same authoritative timetable data as Analytics.
 app.get("/api/reports/summary", requireAuth, async (req,res)=>{
   try{
-    const filter=req.query.sessionId?{academicSession:req.query.sessionId}:{isCurrent:true};
+    const filter=req.query.sessionId
+      ? { academicSession:req.query.sessionId, isCurrent:true }
+      : { isCurrent:true };
     const t=await populatedTimetableQuery(Timetable.findOne(filter).sort({createdAt:-1})).lean();
     if(!t) return res.json({timetable:null,summary:{requiredSessions:0,scheduledSessions:0,coverage:0,unscheduledSessions:0},faculty:[],rooms:[],sections:[],daily:[],issues:[]});
     const entries=t.entries||[], metrics=t.optimizationMetrics||{};
