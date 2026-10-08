@@ -10,7 +10,7 @@ if (!API && import.meta.env.PROD) {
   console.error("VITE_API_URL is not configured. Set it in Vercel before deploying the client.");
 }
 
-axios.defaults.timeout = 20000;
+axios.defaults.timeout = 30000;
 axios.interceptors.request.use(config => {
   const token = localStorage.getItem("tt_token");
   if (token) config.headers.Authorization = `Bearer ${token}`;
