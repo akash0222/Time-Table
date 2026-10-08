@@ -31,7 +31,10 @@ function App(){
     }));
     const next={}; keys.forEach((k,i)=>next[k]=Array.isArray(results[i])?results[i]:(results[i]?.data||[])); setData(next);
     const t=await axios.get(`${API}/timetable/latest`,{params:{sessionId:activeSession?._id||""}}); setLatest(t.data);
-    try { const sr=await axios.get(`${API}/settings`); setSettings(sr.data); } catch {}
+    try {
+      const sr=await axios.get(API + "/settings", { params: { sessionId: activeSession?._id || "" } });
+      setSettings(sr.data);
+    } catch {}
     try { const st=await axios.get(`${API}/timetable/status`,{params:{sessionId:activeSession?._id||""}}); setTimetableStatus(st.data?.status||"DRAFT"); setApprovalHistory(st.data?.approvalHistory||[]); } catch {}
     try {
       const ss=await axios.get(`${API}/sessions`);
