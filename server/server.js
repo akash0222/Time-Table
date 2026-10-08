@@ -3,6 +3,9 @@ import express from "express";
 import cors from "cors";
 import mongoose from "mongoose";
 import { connectDB } from "./config/db.js";
+import { env } from "./config/env.js";
+import { errorHandler, notFoundHandler } from "./middleware/errorHandler.js";
+import { validateTimetable } from "./services/timetable/validator.js";
 import Faculty from "./models/Faculty.js";
 import Subject from "./models/Subject.js";
 import Section from "./models/Section.js";
@@ -34,15 +37,12 @@ import Student from "./models/Student.js";
 const app = express();
 globalThis.__APP_STARTED_AT = Date.now();
 
-if (String(process.env.TRUST_PROXY).toLowerCase() === "true") {
+if (env.trustProxy) {
   app.set("trust proxy", 1);
 }
 
-const isProduction = process.env.NODE_ENV === "production";
-const configuredOrigins = String(process.env.CORS_ORIGINS || process.env.CLIENT_URL || "")
-  .split(",")
-  .map(v => v.trim())
-  .filter(Boolean);
+const isProduction = env.isProduction;
+const configuredOrigins = env.corsOrigins;
 
 app.use(cors({
   origin(origin, callback) {
@@ -53,7 +53,7 @@ app.use(cors({
   },
   credentials: false
 }));
-app.use(express.json({ limit: process.env.JSON_BODY_LIMIT || "2mb" }));
+app.use(express.json({ limit: env.jsonBodyLimit }));
 app.disable("x-powered-by");
 app.use((req, res, next) => {
   res.setHeader("X-Content-Type-Options", "nosniff");
@@ -92,8 +92,12 @@ app.get("/api/settings", requireAuth, async (_req, res) => {
     holidayDays: ["Sunday"]
   };
   try {
+    const sessionId = String(_req.query?.sessionId || "").trim();
     const settings = await SchedulerSetting.findOne({ key: "default" }).lean();
-    return res.json(settings || defaults);
+      const override = settings?.sessionOverrides?.find(x => String(x.academicSession) === String(academicSessionId));
+      if (override) settings = { ...settings, ...override };
+    const session = sessionId && settings?.sessionOverrides ? settings.sessionOverrides.find(x => String(x.academicSession) === sessionId) : null;
+    return res.json({ ...defaults, ...(settings || {}), ...(session || {}), key: "default", academicSession: sessionId || null });
   } catch (e) {
     console.error("GET /api/settings failed:", e.message);
     return res.json({ ...defaults, warning: "Scheduler settings could not be loaded; defaults are being used." });
@@ -112,12 +116,29 @@ app.put("/api/settings", requireAuth, allowRoles("ADMIN", "SCHEDULER"), async (r
         .filter((v,i,a)=>a.indexOf(v)===i)
     };
 
-    const settings = await SchedulerSetting.findOneAndUpdate(
-      { key: "default" },
-      { ...body, key: "default" },
-      { new: true, upsert: true, runValidators: true, setDefaultsOnInsert: true }
-    );
-
+    const sessionId = String(req.body?.academicSessionId || req.query?.sessionId || "").trim();
+    const current = await SchedulerSetting.findOne({ key: "default" }).lean();
+    let settings = current;
+    if (!sessionId) {
+      settings = await SchedulerSetting.findOneAndUpdate(
+        { key: "default" },
+        { ...body, key: "default" },
+        { new: true, upsert: true, runValidators: true, setDefaultsOnInsert: true }
+      );
+    } else {
+      const base = current || { key: "default", holidayDays: ["Sunday"] };
+      const overrides = Array.isArray(base.sessionOverrides) ? [...base.sessionOverrides] : [];
+      const index = overrides.findIndex(x => String(x.academicSession) === sessionId);
+      const override = { academicSession: sessionId, ...body };
+      if (index >= 0) overrides[index] = override;
+      else overrides.push(override);
+      settings = await SchedulerSetting.findOneAndUpdate(
+        { key: "default" },
+        { ...body, key: "default", sessionOverrides: overrides },
+        { new: true, upsert: true, runValidators: true, setDefaultsOnInsert: true }
+      );
+      return res.json({ ...settings.toObject(), ...override, key: "default", academicSession: sessionId });
+    }
     res.json(settings);
   } catch (e) {
     res.status(400).json({ message: e.message });
@@ -1016,8 +1037,8 @@ app.post("/api/timetable/generate", requireAuth, allowRoles("ADMIN", "SCHEDULER"
       });
     }
 
-    const generationRuns = Math.max(1, Math.min(30, Number(req.body?.generationRuns || settings?.generationRuns || 8)));
-    const generationTimeLimitMs = Math.max(1000, Math.min(120000, Number(req.body?.generationTimeLimitMs || settings?.generationTimeLimitMs || 30000)));
+    const generationRuns = Math.max(1, Math.min(30, Number(req.body?.generationRuns || settings?.generationRuns || env.schedulerGenerationRuns)));
+    const generationTimeLimitMs = Math.max(1000, Math.min(120000, Number(req.body?.generationTimeLimitMs || settings?.generationTimeLimitMs || env.schedulerGenerationTimeLimitMs)));
     const result = generateBestTimetable({
       faculty,
       subjects: validSubjects,
@@ -1029,7 +1050,7 @@ app.post("/api/timetable/generate", requireAuth, allowRoles("ADMIN", "SCHEDULER"
       runs: generationRuns,
       totalMaxMillis: generationTimeLimitMs,
       perRunMillis: Math.max(750, Math.floor(generationTimeLimitMs / generationRuns)),
-      attemptsPerRun: 80
+      attemptsPerRun: env.schedulerGenerationAttempts
     });
 
     console.log("Timetable generation:", {
@@ -1038,11 +1059,40 @@ app.post("/api/timetable/generate", requireAuth, allowRoles("ADMIN", "SCHEDULER"
       warnings: result.warnings || []
     });
 
+    const requiredSessions = validSubjects.reduce((n,s)=>n+Number(s.classesPerWeek||0),0);
+    const validation = validateTimetable({
+      entries: result.entries || [],
+      faculty,
+      sections,
+      subjects: validSubjects,
+      rooms,
+      slots: usableSlots,
+      programs,
+      settings: settings || {},
+      holidayDays: settings?.holidayDays || ["Sunday"]
+    });
+
     if (!(result.entries?.length)) {
       return res.status(422).json({
         message: "No timetable entries could be generated.",
         warnings: result.warnings || [],
         diagnostics: invalidSubjects.slice(0,50)
+      });
+    }
+
+    if (result.entries.length < requiredSessions) {
+      return res.status(422).json({
+        message: `Timetable generation is incomplete: ${result.entries.length}/${requiredSessions} required weekly sessions were scheduled. Nothing was saved.`,
+        warnings: result.warnings || [],
+        validation
+      });
+    }
+
+    if (!validation.valid) {
+      return res.status(422).json({
+        message: "Generated timetable failed hard-constraint validation. Nothing was saved.",
+        warnings: result.warnings || [],
+        validation
       });
     }
 
