@@ -6,3 +6,9 @@ dist/
 *.log
 .DS_Store
 Thumbs.db
+server/.env
+client/.env
+node_modules
+dist
+client/dist
+server/uploads
