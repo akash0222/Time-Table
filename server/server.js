@@ -93,10 +93,10 @@ app.get("/api/settings", requireAuth, async (_req, res) => {
   };
   try {
     const sessionId = String(_req.query?.sessionId || "").trim();
-    const settings = await SchedulerSetting.findOne({ key: "default" }).lean();
-      const override = settings?.sessionOverrides?.find(x => String(x.academicSession) === String(academicSessionId));
-      if (override) settings = { ...settings, ...override };
-    const session = sessionId && settings?.sessionOverrides ? settings.sessionOverrides.find(x => String(x.academicSession) === sessionId) : null;
+    const baseSettings = await SchedulerSetting.findOne({ key: "default" }).lean();
+    const session = sessionId && Array.isArray(baseSettings?.sessionOverrides)
+      ? baseSettings.sessionOverrides.find(x => String(x.academicSession) === sessionId)
+      : null;
     return res.json({ ...defaults, ...(settings || {}), ...(session || {}), key: "default", academicSession: sessionId || null });
   } catch (e) {
     console.error("GET /api/settings failed:", e.message);
