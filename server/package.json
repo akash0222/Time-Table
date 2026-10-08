@@ -1,6 +1,6 @@
 {
   "name": "timetable-generator-server",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "type": "module",
   "scripts": {
     "start": "node server.js",
@@ -23,5 +23,5 @@
   "devDependencies": {
     "nodemon": "^3.1.9"
   },
-  "description": "Local college timetable generator - Phase 27 change history"
+  "description": "Production college academic timetable management API"
 }

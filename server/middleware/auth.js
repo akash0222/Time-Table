@@ -1,4 +1,5 @@
 import jwt from "jsonwebtoken";
+import { hasPermission } from "../config/permissions.js";
 
 const isProduction = process.env.NODE_ENV === "production";
 const secret = process.env.JWT_SECRET || (isProduction ? "" : "local-timetable-secret-change-me");
@@ -26,6 +27,15 @@ export function requireAuth(req, res, next) {
 export function allowRoles(...roles) {
   return (req, res, next) => {
     if (!req.user || !roles.includes(req.user.role)) return res.status(403).json({ message: "You do not have permission for this action." });
+    next();
+  };
+}
+
+export function allowPermission(permission) {
+  return (req, res, next) => {
+    if (!req.user || !hasPermission(req.user.role, permission)) {
+      return res.status(403).json({ message: "You do not have permission for this action." });
+    }
     next();
   };
 }

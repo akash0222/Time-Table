@@ -2,7 +2,7 @@ import process from "node:process";
 
 const base = String(process.env.QA_BASE_URL || "http://localhost:5000").replace(/\/$/, "");
 const username = String(process.env.QA_ADMIN_USERNAME || "admin");
-const password = String(process.env.QA_ADMIN_PASSWORD || process.env.DEFAULT_ADMIN_PASSWORD || "admin123");
+const password = String(process.env.QA_ADMIN_PASSWORD || process.env.DEFAULT_ADMIN_PASSWORD);
 const strictLogin = String(process.env.QA_REQUIRE_LOGIN || "true").toLowerCase() !== "false";
 
 const failures = [];

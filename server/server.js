@@ -32,6 +32,7 @@ import ShareLink from "./models/ShareLink.js";
 import Student from "./models/Student.js";
 
 const app = express();
+globalThis.__APP_STARTED_AT = Date.now();
 
 if (String(process.env.TRUST_PROXY).toLowerCase() === "true") {
   app.set("trust proxy", 1);
@@ -355,8 +356,38 @@ function crud(path, Model) {
     }
   });
   app.delete(`/api/${path}/:id`, requireAuth, allowRoles("ADMIN", "SCHEDULER"), async (req,res) => {
-    try { await Model.findByIdAndDelete(req.params.id); res.json({ok:true}); }
-    catch(e) { res.status(400).json({message:e.message}); }
+    try {
+      const id = req.params.id;
+      const dependencyMap = {
+        faculty: [
+          [Subject, {faculty:id}, "subject assignment(s)"],
+          [Timetable, {"entries.faculty":id}, "timetable entry/entries"]
+        ],
+        subjects: [
+          [Timetable, {"entries.subject":id}, "timetable entry/entries"]
+        ],
+        sections: [
+          [Student, {section:id, active:{$ne:false}}, "active student(s)"],
+          [Subject, {section:id}, "subject assignment(s)"],
+          [Timetable, {"entries.section":id}, "timetable entry/entries"]
+        ],
+        rooms: [
+          [Timetable, {"entries.room":id}, "timetable entry/entries"]
+        ],
+        timeslots: [],
+        programs: [
+          [Section, {programId:id}, "section(s)"],
+          [AcademicSession, {"programDates.program":id}, "academic-session program date(s)"]
+        ]
+      };
+      for(const [Dep, filter, label] of (dependencyMap[path]||[])){
+        const count = await Dep.countDocuments(filter);
+        if(count) return res.status(409).json({message:`Cannot delete this ${path.slice(0,-1)} because ${count} ${label} depend on it. Resolve the dependencies first.`});
+      }
+      const deleted = await Model.findByIdAndDelete(id);
+      if(!deleted) return res.status(404).json({message:"Record not found"});
+      res.json({ok:true});
+    } catch(e) { res.status(400).json({message:e.message}); }
   });
 }
 crud("faculty", Faculty);
@@ -547,6 +578,7 @@ app.get("/api/import/template", requireAuth, async (_req, res) => {
 });
 
 app.post("/api/import/excel", requireAuth, allowRoles("ADMIN", "SCHEDULER"), upload.single("file"), async (req, res) => {
+  let dbSession = null;
   try {
     if (!req.file) return res.status(400).json({ message: "Please select an Excel file." });
 
@@ -557,6 +589,13 @@ app.post("/api/import/excel", requireAuth, allowRoles("ADMIN", "SCHEDULER"), upl
     const missing = required.filter(name => !wb.getWorksheet(name));
     if (missing.length) {
       return res.status(400).json({ message: `Missing sheets: ${missing.join(", ")}` });
+    }
+
+    const topologyType = String(mongoose.connection.getClient?.()?.topology?.description?.type || "");
+    const transactional = topologyType.includes("ReplicaSet") || isProduction;
+    if (transactional) {
+      dbSession = await mongoose.startSession();
+      dbSession.startTransaction();
     }
 
     const readRows = name => {
@@ -594,7 +633,7 @@ app.post("/api/import/excel", requireAuth, allowRoles("ADMIN", "SCHEDULER"), upl
           durationYears: Number(r.DurationYears || 4),
           active: excelBool(r.Active)
         },
-        { upsert: true, new: true, setDefaultsOnInsert: true }
+        { upsert: true, new: true, setDefaultsOnInsert: true, session: dbSession }
       );
 
       programMap.set((r.Code || r.Name).toLowerCase(), doc);
@@ -612,7 +651,7 @@ app.post("/api/import/excel", requireAuth, allowRoles("ADMIN", "SCHEDULER"), upl
           maxWorkingDays: Number(r.MaxWorkingDays || 5),
           maxClassesPerDay: Number(r.MaxClassesPerDay || 4)
         },
-        { upsert: true, new: true, setDefaultsOnInsert: true }
+        { upsert: true, new: true, setDefaultsOnInsert: true, session: dbSession }
       );
       facultyMap.set(r.Name.toLowerCase(), doc);
     }
@@ -635,7 +674,7 @@ app.post("/api/import/excel", requireAuth, allowRoles("ADMIN", "SCHEDULER"), upl
           name: r.Section,
           maxClassesPerDay: Number(r.MaxClassesPerDay || 5)
         },
-        { upsert: true, new: true, setDefaultsOnInsert: true }
+        { upsert: true, new: true, setDefaultsOnInsert: true, session: dbSession }
       );
       sectionMap.set(`${r.Program}|${r.Semester}|${r.Section}`.toLowerCase(), doc);
     }
@@ -645,7 +684,7 @@ app.post("/api/import/excel", requireAuth, allowRoles("ADMIN", "SCHEDULER"), upl
       await Room.findOneAndUpdate(
         { name: r.Name },
         { name: r.Name, type: r.Type || "Classroom", capacity: Number(r.Capacity || 60) },
-        { upsert: true, new: true, setDefaultsOnInsert: true }
+        { upsert: true, new: true, setDefaultsOnInsert: true, session: dbSession }
       );
     }
 
@@ -665,7 +704,7 @@ app.post("/api/import/excel", requireAuth, allowRoles("ADMIN", "SCHEDULER"), upl
           order: Number(r.Order || 1),
           isBreak: excelBool(r.IsBreak)
         },
-        { upsert: true, new: true, setDefaultsOnInsert: true }
+        { upsert: true, new: true, setDefaultsOnInsert: true, session: dbSession }
       );
     }
 
@@ -675,14 +714,14 @@ app.post("/api/import/excel", requireAuth, allowRoles("ADMIN", "SCHEDULER"), upl
     // Build additional lookup maps so imports work with either names or codes.
     const facultyLookup = new Map();
     for (const [k,v] of facultyMap) facultyLookup.set(norm(k),v);
-    for (const f of await Faculty.find()) {
+    for (const f of await Faculty.find().session(dbSession)) {
       if (f.name) facultyLookup.set(norm(f.name),f);
       if (f.code) facultyLookup.set(norm(f.code),f);
     }
 
     const sectionLookup = new Map();
     for (const [k,v] of sectionMap) sectionLookup.set(norm(k),v);
-    for (const s of await Section.find()) {
+    for (const s of await Section.find().session(dbSession)) {
       sectionLookup.set(norm(`${s.program}|${s.semester}|${s.name}`),s);
       sectionLookup.set(norm(s.name),s);
     }
@@ -726,7 +765,7 @@ app.post("/api/import/excel", requireAuth, allowRoles("ADMIN", "SCHEDULER"), upl
           duration: Math.min(3,Math.max(1,Number(duration || 1))),
           roomType: ["Classroom","Lab","Any"].includes(roomType) ? roomType : "Classroom"
         },
-        { upsert: true, new: true, setDefaultsOnInsert: true }
+        { upsert: true, new: true, setDefaultsOnInsert: true, session: dbSession }
       );
       subjectsImported++;
     }
@@ -747,7 +786,12 @@ app.post("/api/import/excel", requireAuth, allowRoles("ADMIN", "SCHEDULER"), upl
       await Faculty.findByIdAndUpdate(fid, {
         availableDays: [...a.availableDays],
         unavailableSlots: a.unavailableSlots
-      });
+      }, { session: dbSession });
+    }
+
+    if (dbSession) {
+      await dbSession.commitTransaction();
+      await dbSession.endSession();
     }
 
     res.json({
@@ -765,81 +809,11 @@ app.post("/api/import/excel", requireAuth, allowRoles("ADMIN", "SCHEDULER"), upl
     });
   } catch (e) {
     console.error(e);
+    try { if (dbSession) { await dbSession.abortTransaction(); await dbSession.endSession(); } } catch {}
     res.status(500).json({ message: `Excel import failed: ${e.message}` });
   }
 });
 
-app.post("/api/seed", requireAuth, allowRoles("ADMIN", "SCHEDULER"), async (_req,res) => {
-  try {
-    await Promise.all([
-      Program.deleteMany({}),
-      Faculty.deleteMany({}),
-      Subject.deleteMany({}),
-      Section.deleteMany({}),
-      Room.deleteMany({}),
-      TimeSlot.deleteMany({}),
-      Timetable.deleteMany({}),
-      AcademicSession.deleteMany({})
-    ]);
-
-    await SchedulerSetting.findOneAndUpdate(
-      { key: "default" },
-      {
-        key: "default",
-        maxConsecutiveFaculty: 2,
-        maxConsecutiveSection: 3,
-        avoidSameSubjectSameDay: true,
-        distributeSubjectAcrossDays: true,
-        avoidFirstLastPeriod: false
-      },
-      { upsert: true, new: true, setDefaultsOnInsert: true }
-    );
-
-    const days = ["Monday","Tuesday","Wednesday","Thursday","Friday"];
-    const slots = [
-      ["09:00","10:00",1],["10:00","11:00",2],["11:00","12:00",3],
-      ["12:00","13:00",4],["14:00","15:00",5],["15:00","16:00",6]
-    ];
-    const ts = await TimeSlot.insertMany(days.flatMap(day => slots.map(([startTime,endTime,order]) => ({day,startTime,endTime,order,isBreak: order===4}))));
-    const rooms = await Room.insertMany([
-      {name:"Room 101",type:"Classroom",capacity:60},
-      {name:"Room 102",type:"Classroom",capacity:60},
-      {name:"Lab 1",type:"Lab",capacity:40}
-    ]);
-    const faculty = await Faculty.insertMany([
-      {name:"Dr. Amit Sharma",code:"F001",maxWorkingDays:3,maxClassesPerDay:3,availableDays:["Monday","Tuesday","Wednesday"]},
-      {name:"Ms. Priya Verma",code:"F002",maxWorkingDays:4,maxClassesPerDay:3,availableDays:["Monday","Tuesday","Thursday","Friday"]},
-      {name:"Mr. Rahul Singh",code:"F003",maxWorkingDays:5,maxClassesPerDay:4,availableDays:days}
-    ]);
-    const [demoProgram] = await Program.insertMany([
-      {name:"Bachelor of Business Administration",code:"BBA",department:"Management",durationYears:4,active:true}
-    ]);
-    const demoSession = await AcademicSession.create({
-      name:"2026-27",
-      description:"Demo academic session",
-      active:true,
-      startDate:new Date("2026-07-01T00:00:00Z"),
-      endDate:new Date("2027-06-30T00:00:00Z"),
-      holidayDates:[]
-    });
-
-    const sections = await Section.insertMany([
-      {programId:demoProgram._id,academicSession:demoSession._id,program:"BBA",semester:"III",name:"CB (Gr A)",maxClassesPerDay:5},
-      {programId:demoProgram._id,academicSession:demoSession._id,program:"BBA",semester:"III",name:"CB (Gr B)",maxClassesPerDay:5}
-    ]);
-    const subjects = await Subject.insertMany([
-      {academicSession:demoSession._id,programId:demoProgram._id,subjectType:"CORE",name:"Marketing Management",code:"MKT",faculty:faculty[0]._id,section:sections[0]._id,classesPerWeek:3,duration:1,roomType:"Classroom"},
-      {academicSession:demoSession._id,programId:demoProgram._id,subjectType:"CORE",name:"Financial Management",code:"FIN",faculty:faculty[1]._id,section:sections[0]._id,classesPerWeek:3,duration:1,roomType:"Classroom"},
-      {academicSession:demoSession._id,programId:demoProgram._id,subjectType:"CORE",name:"Human Resource Management",code:"HRM",faculty:faculty[2]._id,section:sections[0]._id,classesPerWeek:2,duration:1,roomType:"Classroom"},
-      {academicSession:demoSession._id,programId:demoProgram._id,subjectType:"LAB",name:"Business Analytics",code:"BA",faculty:faculty[2]._id,section:sections[1]._id,classesPerWeek:3,duration:1,roomType:"Lab"},
-      {academicSession:demoSession._id,programId:demoProgram._id,subjectType:"CORE",name:"Economics",code:"ECO",faculty:faculty[1]._id,section:sections[1]._id,classesPerWeek:3,duration:1,roomType:"Classroom"}
-    ]);
-    res.json({ok:true, counts:{programs:1,faculty:faculty.length,subjects:subjects.length,sections:sections.length,rooms:rooms.length,timeslots:ts.length,academicSessions:1}});
-  } catch(e) { res.status(500).json({message:e.message}); }
-});
-
-
-// ---------------- Phase 4: Pre-generation Readiness & Constraint Diagnostics ----------------
 app.get("/api/timetable/readiness", requireAuth, async (req,res) => {
   try {
     const sessionId=String(req.query.sessionId||"").trim();
@@ -1167,7 +1141,7 @@ app.post("/api/timetable/clone", requireAuth, async (req,res)=>{
   }catch(e){res.status(400).json({message:e.message});}
 });
 
-app.patch("/api/timetable/move", requireAuth, async (req, res) => {
+app.patch("/api/timetable/move", requireAuth, allowRoles("ADMIN", "SCHEDULER"), async (req, res) => {
   try {
     const { entryId, day, startTime } = req.body || {};
     if (!entryId || !day || !startTime) {
@@ -1175,7 +1149,7 @@ app.patch("/api/timetable/move", requireAuth, async (req, res) => {
     }
 
     const [timetable, allSlots, settings] = await Promise.all([
-      Timetable.findOne().sort({ createdAt: -1 }),
+      Timetable.findOne({ "entries._id": entryId }),
       TimeSlot.find({ isBreak: { $ne: true } }).sort({ day: 1, order: 1 }),
       SchedulerSetting.findOne({ key: "default" }).lean()
     ]);
@@ -1396,12 +1370,9 @@ app.patch("/api/timetable/status", requireAuth, async (req, res) => {
 
 app.get("/api/timetable/status", requireAuth, async (req, res) => {
   try {
-    const filter = req.query.timetableId
-      ? { _id: req.query.timetableId }
-      : { ...(req.query.sessionId ? { academicSession: req.query.sessionId } : {}), isCurrent: true };
-    const timetable = await Timetable.findOne(filter).sort({ createdAt: -1 })
-      .populate("approvalHistory.user", "name username role")
-      .lean();
+    const timetable = req.query.timetableId
+      ? await Timetable.findById(req.query.timetableId).populate("approvalHistory.user", "name username role").lean()
+      : await currentTimetableFor(req);
     res.json({
       timetableId: timetable?._id || null,
       version: timetable?.version || null,
@@ -1416,8 +1387,7 @@ app.get("/api/timetable/status", requireAuth, async (req, res) => {
 
 app.get("/api/timetable/workflow", requireAuth, async (req, res) => {
   try {
-    const filter = req.query.sessionId ? { academicSession: req.query.sessionId, isCurrent: true } : { isCurrent: true };
-    const timetable = await Timetable.findOne(filter).sort({ createdAt: -1 }).lean();
+    const timetable = await currentTimetableFor(req);
     const status = timetable?.status || "DRAFT";
     const role = req.user?.role || "";
     const actions = {
@@ -1441,11 +1411,10 @@ app.get("/api/timetable/workflow", requireAuth, async (req, res) => {
 });
 
 
-app.get("/api/timetable/export/excel", requireAuth, async (_req, res) => {
+app.get("/api/timetable/export/excel", requireAuth, async (req, res) => {
   try {
     const XLSX = (await import("xlsx")).default;
-    const t = await Timetable.findOne().sort({createdAt:-1})
-      .populate("entries.section entries.subject entries.faculty entries.room");
+    const t = await currentTimetableFor(req);
     if (!t) return res.status(404).json({message:"No generated timetable found."});
 
     const rows = t.entries.map(e => ({
@@ -1470,11 +1439,10 @@ app.get("/api/timetable/export/excel", requireAuth, async (_req, res) => {
   } catch(e) { res.status(500).json({message:e.message}); }
 });
 
-app.get("/api/timetable/export/pdf", requireAuth, async (_req, res) => {
+app.get("/api/timetable/export/pdf", requireAuth, async (req, res) => {
   try {
     const PDFDocument = (await import("pdfkit")).default;
-    const t = await Timetable.findOne().sort({createdAt:-1})
-      .populate("entries.section entries.subject entries.faculty entries.room");
+    const t = await currentTimetableFor(req);
     if (!t) return res.status(404).json({message:"No generated timetable found."});
 
     res.setHeader("Content-Disposition", 'attachment; filename="generated-timetable.pdf"');
@@ -1583,9 +1551,12 @@ app.get("/api/analytics/conflicts", requireAuth, async (req,res) => {
 });
 
 app.get("/api/timetable/latest", requireAuth, async (req,res) => {
-  const filter=req.query.sessionId?{academicSession:req.query.sessionId,isCurrent:true}:{};
-  const t = await Timetable.findOne(filter).sort({createdAt:-1}).populate("entries.section entries.subject entries.faculty entries.room").populate("approvalHistory.user","name username role");
-  res.json(t || {entries:[],warnings:[],status:"DRAFT"});
+  try {
+    const t = await currentTimetableFor(req);
+    res.json(t || {entries:[],warnings:[],status:"DRAFT"});
+  } catch (e) {
+    res.status(500).json({message:e.message});
+  }
 });
 
 
@@ -1631,8 +1602,15 @@ function timetableConflicts(entries){
 }
 
 async function currentTimetableFor(req){
-  const filter=req?.query?.sessionId ? {academicSession:req.query.sessionId,isCurrent:true} : {isCurrent:true};
-  return populatedTimetableQuery(Timetable.findOne(filter).sort({createdAt:-1})).lean();
+  let sessionId = String(req?.query?.sessionId || "").trim();
+  if(!sessionId){
+    const active = await AcademicSession.findOne({active:true}).select("_id").lean();
+    sessionId = active?._id ? String(active._id) : "";
+  }
+  if(!sessionId) return null;
+  return populatedTimetableQuery(
+    Timetable.findOne({academicSession:sessionId,isCurrent:true}).sort({createdAt:-1})
+  ).lean();
 }
 
 // Personal timetable for Faculty/Viewer users.
@@ -1812,7 +1790,10 @@ app.get("/api/public/share/:token", async (req,res)=>{
     if(!row||!row.active)return res.status(404).json({message:"This public timetable link is unavailable."});
     if(row.expiresAt&&row.expiresAt<new Date())return res.status(410).json({message:"This public timetable link has expired."});
     const t=await populatedTimetableQuery(Timetable.findById(row.timetable._id)).lean();
-    let entries=t?.entries||[];
+    if(!t || !["PUBLISHED","LOCKED"].includes(t.status)){
+      return res.status(404).json({message:"This public timetable link is unavailable."});
+    }
+    let entries=t.entries||[];
     if(row.scope==="SECTION") entries=entries.filter(e=>String(e.section?._id||e.section)===String(row.section?._id||row.section));
     if(row.scope==="FACULTY") entries=entries.filter(e=>String(e.faculty?._id||e.faculty)===String(row.faculty?._id||row.faculty));
     row.accessCount++;row.lastAccessedAt=new Date();await row.save();
@@ -1821,8 +1802,9 @@ app.get("/api/public/share/:token", async (req,res)=>{
 });
 app.get("/api/public/share/:token/qr", async (req,res)=>{
   try{
-    const row=await ShareLink.findOne({token:req.params.token}); if(!row||!row.active)return res.status(404).send("Unavailable");
+    const row=await ShareLink.findOne({token:req.params.token}).populate("timetable","status"); if(!row||!row.active)return res.status(404).send("Unavailable");
     if(row.expiresAt&&row.expiresAt<new Date())return res.status(410).send("Expired");
+    if(!row.timetable || !["PUBLISHED","LOCKED"].includes(row.timetable.status)) return res.status(404).send("Unavailable");
     const QRCode=(await import("qrcode")).default;
     const publicBase=String(process.env.PUBLIC_APP_URL||`${req.protocol}://${req.get("host")}`).replace(/\/$/,"");
     const png=await QRCode.toBuffer(`${publicBase}/share/${row.token}`);
@@ -1835,9 +1817,9 @@ async function ensureDefaultAdmin() {
   const existing = await User.findOne({ username });
   if (existing) return;
 
-  const defaultPassword = String(process.env.DEFAULT_ADMIN_PASSWORD || "admin123");
-  if (isProduction && (!process.env.DEFAULT_ADMIN_PASSWORD || defaultPassword === "admin123" || defaultPassword.length < 10)) {
-    throw new Error("DEFAULT_ADMIN_PASSWORD must be configured to a non-default value of at least 10 characters in production.");
+  const defaultPassword = String(process.env.DEFAULT_ADMIN_PASSWORD || "").trim();
+  if (!defaultPassword || defaultPassword.length < 10 || defaultPassword === "admin123") {
+    throw new Error("DEFAULT_ADMIN_PASSWORD must be configured to a non-default value of at least 10 characters.");
   }
   const passwordHash = await bcrypt.hash(defaultPassword, 12);
   await User.create({
@@ -1856,6 +1838,26 @@ let server;
 app.get("/api/readiness", async (_req, res) => {
   const database = mongoose.connection.readyState === 1;
   res.status(database ? 200 : 503).json({ ok: database, database: database ? "connected" : "disconnected" });
+});
+
+app.get("/api/system/health", requireAuth, allowRoles("ADMIN"), async (_req, res) => {
+  const startedAt = Number(globalThis.__APP_STARTED_AT || Date.now());
+  const database = mongoose.connection.readyState === 1;
+  let session = null;
+  let timetable = null;
+  try {
+    session = await AcademicSession.findOne({active:true}).select("name _id").lean();
+    if(session) timetable = await Timetable.findOne({academicSession:session._id,isCurrent:true}).select("version versionLabel status generatedAt").sort({createdAt:-1}).lean();
+  } catch {}
+  res.status(database ? 200 : 503).json({
+    ok: database,
+    environment: process.env.NODE_ENV || "development",
+    node: process.version,
+    uptimeSeconds: Math.floor((Date.now()-startedAt)/1000),
+    database: database ? "connected" : "disconnected",
+    activeSession: session,
+    currentTimetable: timetable
+  });
 });
 
 // Keep API failures JSON-shaped and avoid leaking stack traces in production.

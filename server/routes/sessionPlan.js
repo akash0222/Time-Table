@@ -94,7 +94,7 @@ function subjectWeeklyMax(subject,weekCount){
 
 // Create a balanced but non-identical weekly distribution for every subject.
 // It deliberately does not require the same number of sessions every week.
-function buildAllocation(subjects,weeks,seed=0){
+function buildAllocation(subjects,weeks,slots,seed=0){
   const allocation=weeks.map(()=>new Map());
   const rng=()=>{
     let x=(seed+1)*1103515245+12345;
@@ -109,7 +109,18 @@ function buildAllocation(subjects,weeks,seed=0){
     const maxPerWeek=subjectWeeklyMax(subject,eligibleWeekCount);
     const start=subject._programStartDate ? String(subject._programStartDate).slice(0,10) : null;
     const end=subject._programEndDate ? String(subject._programEndDate).slice(0,10) : null;
-    const eligible=weeks.map((w,i)=>({i,capacity:w.workingDates.filter(d=>!start || (d>=start && d<=end)).length*4})).filter(x=>x.capacity>0);
+    const activeSlots = (slots||[]).filter(s=>!s.isBreak && String(s.day)!=="Sunday");
+    const slotsPerDay = new Map();
+    for(const slot of activeSlots){
+      const day=String(slot.day||"");
+      slotsPerDay.set(day,(slotsPerDay.get(day)||0)+1);
+    }
+    const eligible=weeks.map((w,i)=>({
+      i,
+      capacity:w.workingDates
+        .filter(d=>!start || (d>=start && d<=end))
+        .reduce((n,d)=>n+(slotsPerDay.get(weekdays[parseDate(d).getUTCDay()])||0),0)
+    })).filter(x=>x.capacity>0);
     if(!eligible.length) throw Error(`${subject.name}: no working dates are available in the academic session.`);
 
     const counts=Array(weeks.length).fill(0);
@@ -147,7 +158,7 @@ async function generatePlan({session,holidays,faculty,subjects,sections,rooms,sl
 
   for(let allocationAttempt=0;allocationAttempt<attempts;allocationAttempt++){
     let allocation;
-    try{allocation=buildAllocation(subjects,weeks,allocationAttempt*7919+17);}catch(e){return {error:e.message};}
+    try{allocation=buildAllocation(subjects,weeks,activeSlots,allocationAttempt*7919+17);}catch(e){return {error:e.message};}
 
     const planned=[];
     let previous=new Set();

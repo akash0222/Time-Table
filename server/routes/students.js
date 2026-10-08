@@ -91,17 +91,11 @@ router.get("/bulk-template", allowRoles("ADMIN", "SCHEDULER"), async (_req, res)
   sheet.getRow(1).font = { bold: true, color: { argb: "FFFFFFFF" } };
   sheet.getRow(1).fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF2563EB" } };
   sheet.views = [{ state: "frozen", ySplit: 1 }];
-  const example = workbook.addWorksheet("Example");
-  example.columns = sheet.columns.map(c => ({ header: c.header, key: c.key, width: c.width }));
-  example.addRow({
-    admissionNo: "ADM001", rollNo: "001", name: "Sample Student", email: "student@example.com",
-    phone: "9876543210", gender: "Male", dateOfBirth: "2006-01-15", fatherName: "Parent Name",
-    motherName: "Parent Name", category: "General", address: "Sample Address", city: "Ghaziabad",
-    state: "Uttar Pradesh", pincode: "201001", sectionId: "", program: "BBA", semester: "1",
-    sectionName: "A", active: "Yes", admissionDate: "2026-07-01"
-  });
-  example.getRow(1).font = { bold: true, color: { argb: "FFFFFFFF" } };
-  example.getRow(1).fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF2563EB" } };
+  // Production template intentionally contains no sample/demo student data.
+  const example = workbook.addWorksheet("Data Entry Guide");
+  example.getCell(1, 1).value = "Enter student records in the Students sheet. Do not upload this guide sheet.";
+  example.getCell(1, 1).font = { italic: true, color: { argb: "FF64748B" } };
+  example.getColumn(1).width = 90;
   example.views = [{ state: "frozen", ySplit: 1 }];
   const instructions = workbook.addWorksheet("Instructions");
   instructions.getColumn(1).width = 110;

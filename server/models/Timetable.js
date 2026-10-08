@@ -41,4 +41,9 @@ const timetableSchema = new mongoose.Schema({
   approvalHistory: { type: [approvalHistorySchema], default: [] }
 }, { timestamps: true });
 
+// Session-aware lookups are used throughout the application. Keep this index
+// aligned with the current-timetable query pattern without forcing a unique
+// index until existing production data has been reconciled.
+timetableSchema.index({ academicSession: 1, isCurrent: 1, createdAt: -1 });
+
 export default mongoose.model("Timetable", timetableSchema);

@@ -1,7 +1,7 @@
 import React, {useEffect, useMemo, useState} from "react";
 import axios from "axios";
 import {API} from "./core/api";
-import {CalendarDays, CalendarOff, Users, BookOpen, DoorOpen, Clock3, WandSparkles, Database, Trash2, Settings2, Check, X, FileSpreadsheet, Upload, Lock, Send, RotateCcw, ShieldCheck,BarChart3,Activity,Bell,UserCheck,RefreshCw,Copy,QrCode,History,ClipboardCheck,UserPlus,DollarSign,GraduationCap,Search,ArrowRight,UsersRound,ChevronLeft,ChevronRight,AlertTriangle,CheckCircle2,Link2} from "lucide-react";
+import {CalendarDays, CalendarOff, Users, BookOpen, DoorOpen, Clock3, WandSparkles, Trash2, Settings2, Check, X, FileSpreadsheet, Upload, Lock, Send, RotateCcw, ShieldCheck,BarChart3,Activity,Bell,UserCheck,RefreshCw,Copy,QrCode,History,ClipboardCheck,UserPlus,DollarSign,GraduationCap,Search,ArrowRight,UsersRound,ChevronLeft,ChevronRight,AlertTriangle,CheckCircle2,Link2} from "lucide-react";
 
 const days=["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
 const apiName={programs:"Programs",faculty:"Faculty",subjects:"Subjects",sections:"Sections",rooms:"Rooms",timeslots:"Time Slots"};
@@ -64,11 +64,6 @@ function App(){
 
   if(!auth) return <Login onLogin={u=>setAuth(u)} />;
 
-  async function seed(){
-    setLoading(true); setMessage("");
-    try { const r=await axios.post(`${API}/seed`); setMessage(`Demo data loaded: ${Object.entries(r.data.counts).map(([k,v])=>`${k} ${v}`).join(", ")}`); await load(); }
-    catch(e){setMessage(e.response?.data?.message||e.message)} finally{setLoading(false)}
-  }
   async function generate(){
     setLoading(true);
     setMessage("");
@@ -319,15 +314,14 @@ function App(){
         </div>)}
       </nav>
       <div className="side-bottom">
-        {auth.role==="ADMIN" && <button className="secondary full" onClick={seed} disabled={loading}><Database size={17}/> Load Demo Data</button>}
         {(["ADMIN","SCHEDULER"].includes(auth.role)) && <button className="primary full" onClick={generate} disabled={loading}><WandSparkles size={17}/> Generate Timetable</button>}
         <div style={{padding:"10px 4px",fontSize:12,color:"#64748b"}}>{auth.name} · {auth.role}</div>
         <button className="secondary full" onClick={()=>{localStorage.removeItem("tt_token");localStorage.removeItem("tt_user");window.location.reload()}}>Logout</button>
       </div>
     </aside>
     <main>
-      <header><div><h1>{tab}</h1><p>Constraint-based timetable generator with local MongoDB.</p></div>
-        <div className="status"><span></span> Local Database</div>
+      <header><div><h1>{tab}</h1><p>Production academic timetable management workspace.</p></div>
+        <div className="status"><span></span> Production</div>
       </header>
       {message && <div className={`message ${/error|network|failed|unable|cannot|start the backend/i.test(message)?"error":"success"}`}>{message}</div>}
 
@@ -345,7 +339,7 @@ function App(){
       {tab==="Holiday Management" && <HolidayManagement sessions={sessions} activeSession={activeSession} role={auth.role} setMessage={setMessage}/> }
       {tab==="Templates & Clone" && <TimetableTemplates sessions={sessions} activeSession={activeSession} setLatest={setLatest} setMessage={setMessage}/>}
       {tab==="Public Sharing" && <PublicSharing data={data} setMessage={setMessage}/>}
-      {tab==="Dashboard" && <Dashboard cards={cards} generate={generate} seed={seed} loading={loading} latest={latest} role={auth.role}/>}
+      {tab==="Dashboard" && <Dashboard cards={cards} generate={generate} loading={loading} latest={latest} role={auth.role}/>}
       {tab==="My Timetable" && <PersonalTimetable auth={auth} data={data}/> }
       {tab==="Calendar View" && <CalendarView timetable={latest} data={data} role={auth.role} onMoved={load} setMessage={setMessage}/>}
       {tab==="Faculty Portal" && <FacultyPortal/>}
@@ -440,30 +434,30 @@ export function Root(){
 
 function navGroupsForRole(role){
   const base = [
-    {label:"Overview", items:["Dashboard"]},
-    {label:"Academic", items:["Academic Sessions","Academic Structure","Holiday Management","Full Session Timetable","All Program Timetables","Timetable","Calendar View","My Timetable"]},
-    {label:"People & Attendance", items:["Students","Student Mapping","Student Profile","Student Promotion","Attendance","Faculty Portal","Section Portal"]},
-    {label:"Fees", items:["Fees"]},
-    {label:"Master Data", items:["Master Data Settings","Subject & Faculty Mapping","Program & Section Mapping"]},
-    {label:"Tools", items:["Import Center","Excel Import","Templates & Clone","Public Sharing"]},
-    {label:"Insights", items:["Reports","Analytics","Notifications","Change History","Generation Readiness","Validation","Optimization","Audit Logs"]}
+    {label:"Overview",items:["Dashboard"]},
+    {label:"Academic",items:["Academic Sessions","Academic Structure","Holiday Management","Generation Readiness","Full Session Timetable","All Program Timetables","Timetable","Calendar View","My Timetable"]},
+    {label:"People & Attendance",items:["Students","Student Mapping","Student Profile","Student Promotion","Attendance","Faculty Portal","Section Portal"]},
+    {label:"Master Data",items:["Master Data Settings","Subject & Faculty Mapping","Program & Section Mapping"]},
+    {label:"Tools",items:["Excel Import","Templates & Clone","Public Sharing"]},
+    {label:"Insights",items:["Reports","Analytics","Validation","Change History","Audit Logs"]}
   ];
   if(role==="ADMIN") base.push({label:"Administration",items:["User Management","Settings"]});
   else if(role==="SCHEDULER") base.push({label:"Administration",items:["Settings"]});
-  const allowed=new Set(navForRole(role));
+
+  const allowed = new Set(
+    role === "ADMIN" || role === "SCHEDULER"
+      ? base.flatMap(g=>g.items)
+      : role === "FACULTY"
+        ? ["Dashboard","Attendance","Student Profile","Full Session Timetable","All Program Timetables","My Timetable","Faculty Portal","Section Portal","Analytics","Validation","Timetable"]
+        : ["Dashboard","Attendance","Student Profile","Full Session Timetable","All Program Timetables","My Timetable","Calendar View","Section Portal","Analytics","Validation","Timetable"]
+  );
   const icons={
-    Dashboard:Activity, "Academic Sessions":CalendarDays, "Academic Structure":GraduationCap, "Holiday Management":CalendarOff, "Full Session Timetable":CalendarDays, "All Program Timetables":GraduationCap, Timetable:CalendarDays, "Calendar View":CalendarDays, "My Timetable":CalendarDays,
-    Students:UserPlus, "Student Mapping":UsersRound, "Student Profile":UsersRound, "Student Promotion":GraduationCap, Attendance:UserCheck, "Faculty Portal":Users, "Section Portal":Users, Fees:DollarSign, "Master Data Settings":Settings2, "Subject & Faculty Mapping":BookOpen, "Program & Section Mapping":Link2, "Import Center":FileSpreadsheet, Programs:BookOpen, Faculty:Users, Subjects:BookOpen, Sections:Users, Rooms:DoorOpen, "Time Slots":Clock3, Availability:Activity,
-    "Excel Import":FileSpreadsheet, "Templates & Clone":Copy, "Public Sharing":QrCode, Reports:BarChart3, Analytics:BarChart3, Notifications:Bell, "Change History":History, "Generation Readiness":ShieldCheck, Validation:ShieldCheck, Optimization:Activity, "Audit Logs":History, "User Management":Users, Settings:Settings2
+    Dashboard:Activity,"Academic Sessions":CalendarDays,"Academic Structure":GraduationCap,"Holiday Management":CalendarOff,"Generation Readiness":ShieldCheck,"Full Session Timetable":CalendarDays,"All Program Timetables":GraduationCap,Timetable:Clock3,"Calendar View":CalendarDays,"My Timetable":CalendarDays,
+    Students:UserPlus,"Student Mapping":UsersRound,"Student Profile":UsersRound,"Student Promotion":GraduationCap,Attendance:UserCheck,"Faculty Portal":Users,"Section Portal":Users,
+    "Master Data Settings":Settings2,"Subject & Faculty Mapping":BookOpen,"Program & Section Mapping":Link2,"Excel Import":FileSpreadsheet,"Templates & Clone":Copy,"Public Sharing":QrCode,
+    Reports:BarChart3,Analytics:BarChart3,Validation:ShieldCheck,"Change History":History,"Audit Logs":History,"User Management":Users,Settings:Settings2
   };
   return base.map(g=>({...g,items:g.items.filter(name=>allowed.has(name)).map(name=>({name,Icon:icons[name]||Activity}))})).filter(g=>g.items.length);
-}
-
-function navForRole(role){
-  if(role==="ADMIN") return ["Dashboard","Attendance","Students","Student Mapping","Student Profile","Student Promotion","Fees","Full Session Timetable","All Program Timetables","My Timetable","Calendar View","Section Portal","Notifications","Change History","Reports","Audit Logs","Optimization","Academic Sessions","Academic Structure","Holiday Management","Templates & Clone","Public Sharing","Analytics","Generation Readiness","Validation","Master Data Settings","Subject & Faculty Mapping","Program & Section Mapping","Settings","Import Center","Excel Import","Timetable","User Management"];
-  if(role==="SCHEDULER") return ["Dashboard","Attendance","Students","Student Mapping","Student Profile","Student Promotion","Fees","Full Session Timetable","All Program Timetables","My Timetable","Calendar View","Section Portal","Notifications","Change History","Reports","Audit Logs","Optimization","Academic Sessions","Academic Structure","Holiday Management","Templates & Clone","Public Sharing","Analytics","Generation Readiness","Validation","Master Data Settings","Subject & Faculty Mapping","Program & Section Mapping","Settings","Import Center","Excel Import","Timetable"];
-  if(role==="FACULTY") return ["Dashboard","Attendance","Student Profile","Full Session Timetable","All Program Timetables","My Timetable","Faculty Portal","Section Portal","Notifications","Change History","Analytics","Validation","Timetable"];
-  return ["Dashboard","Attendance","Student Profile","Full Session Timetable","All Program Timetables","My Timetable","Calendar View","Section Portal","Notifications","Change History","Analytics","Validation","Timetable"];
 }
 
 function CalendarView({timetable,data,role,onMoved,setMessage}){
@@ -528,7 +522,7 @@ function CalendarView({timetable,data,role,onMoved,setMessage}){
 }
 
 function Login({onLogin}){
-  const [form,setForm]=useState({username:"admin",password:"admin123"});
+  const [form,setForm]=useState({username:"",password:""});
   const [error,setError]=useState(""); const [busy,setBusy]=useState(false);
   async function submit(e){e.preventDefault();setBusy(true);setError("");try{const r=await axios.post(`${API}/auth/login`,form);localStorage.setItem("tt_token",r.data.token);localStorage.setItem("tt_user",JSON.stringify(r.data.user));onLogin(r.data.user)}catch(e){setError(e.response?.data?.message||"Unable to login.")}finally{setBusy(false)}}
   return <div className="login-page"><form className="login-card" onSubmit={submit}><div className="login-brand"><div className="login-brand-icon"><CalendarDays size={28}/></div><h1>Time Table</h1><p>Secure academic timetable management</p></div><div className="login-form"><label>Username<input value={form.username} onChange={e=>setForm({...form,username:e.target.value})} autoFocus /></label><label>Password<input type="password" value={form.password} onChange={e=>setForm({...form,password:e.target.value})} /></label>{error&&<div className="message error">{error}</div>}<button className="primary login-submit" disabled={busy}>{busy?"Signing in...":"Sign In"}</button><p className="login-help">Use the administrator credentials configured by the system administrator.</p></div></form></div>;
@@ -1086,7 +1080,7 @@ function Analytics({activeSession}){
 function Metric({label,value}){return <div className="card"><div className="icon"><Activity/></div><div><span>{label}</span><strong>{value}</strong></div></div>}
 function Progress({value}){return <div className="progress-wrap"><div className="progress"><span style={{width:`${Math.min(100,Math.max(0,value||0))}%`}}></span></div><small>{value}%</small></div>}
 
-function Dashboard({cards,generate,seed,loading,latest,role}){
+function Dashboard({cards,generate,loading,latest,role}){
   const quick=[
     {label:"Academic Sessions",icon:CalendarDays,desc:"Manage program-wise calendars",tab:"Academic Sessions"},
     {label:"Holiday Management",icon:CalendarOff,desc:"Define holidays and block class scheduling",tab:"Holiday Management"},
@@ -1094,7 +1088,6 @@ function Dashboard({cards,generate,seed,loading,latest,role}){
     {label:"All Program Timetables",icon:GraduationCap,desc:"View every program timetable in one place",tab:"All Program Timetables"},
     {label:"Students",icon:UserPlus,desc:"Manage student records",tab:"Students"},
     {label:"Attendance",icon:UserCheck,desc:"Mark and review attendance",tab:"Attendance"},
-    {label:"Fees",icon:DollarSign,desc:"Invoices and collections",tab:"Fees"},
     {label:"Reports",icon:BarChart3,desc:"View academic reports",tab:"Reports"}
   ];
   const constraints=["Faculty availability","Faculty workload limits","No faculty double-booking","No section double-booking","No room double-booking","Weekly subject requirements","Room type matching","Program-wise session dates"];
@@ -1103,10 +1096,9 @@ function Dashboard({cards,generate,seed,loading,latest,role}){
       <div className="dashboard-welcome-copy">
         <span className="eyebrow">ACADEMIC OPERATIONS</span>
         <h2>Everything you need to run the timetable.</h2>
-        <p>Manage sessions, people, attendance, fees and scheduling from one clean workspace.</p>
+        <p>Manage academic sessions, people, master data and timetable operations from one production workspace.</p>
       </div>
       <div className="dashboard-actions">
-        {role==="ADMIN"&&<button className="secondary" onClick={seed} disabled={loading}><Database size={17}/> Load Demo Data</button>}
         {["ADMIN","SCHEDULER"].includes(role)&&<button className="primary" onClick={generate} disabled={loading}><WandSparkles size={17}/> {loading?"Generating...":"Generate Timetable"}</button>}
       </div>
     </section>
