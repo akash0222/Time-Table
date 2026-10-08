@@ -53,12 +53,17 @@ function App(){
     if(!auth || !activeSession?._id) return;
     (async()=>{
       try{
-        const [t,st,vr]=await Promise.all([
+        const [t,st,vr,sr]=await Promise.all([
           axios.get(`${API}/timetable/latest`,{params:{sessionId:activeSession._id}}),
           axios.get(`${API}/timetable/status`,{params:{sessionId:activeSession._id}}),
-          axios.get(`${API}/timetable/versions?sessionId=${activeSession._id}`)
+          axios.get(`${API}/timetable/versions?sessionId=${activeSession._id}`),
+          axios.get(API + "/settings", { params: { sessionId: activeSession._id } })
         ]);
-        setLatest(t.data); setTimetableStatus(st.data?.status||"DRAFT"); setApprovalHistory(st.data?.approvalHistory||[]); setVersionList(vr.data||[]);
+        setLatest(t.data);
+        setTimetableStatus(st.data?.status||"DRAFT");
+        setApprovalHistory(st.data?.approvalHistory||[]);
+        setVersionList(vr.data||[]);
+        setSettings(sr.data||{});
       }catch{}
     })();
   },[auth,activeSession?._id]);
