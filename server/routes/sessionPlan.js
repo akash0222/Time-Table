@@ -289,11 +289,21 @@ router.post('/generate',allowRoles('ADMIN','SCHEDULER'),async(req,res)=>{
     const persistedHolidayDates=[...new Set([...sessionHolidays,...requestedHolidays])].filter(d=>{const x=parseDate(d); return x.getUTCDay()!==0;}).sort();
     await AcademicSession.findByIdAndUpdate(session._id,{holidayDates:persistedHolidayDates});
 
-    const [faculty,subjects,sections,rooms,slots,settings,programs]=await Promise.all([
-      Faculty.find().lean(),Subject.find().lean(),Section.find().lean(),Room.find().lean(),TimeSlot.find().lean(),SchedulerSetting.findOne({key:'default'}).lean(),Program.find().lean()
+    const sections=await Section.find({ academicSession:session._id }).lean();
+    const sectionIds=sections.map(x=>x._id);
+    const [faculty,subjects,rooms,slots,settings,programs]=await Promise.all([
+      Faculty.find().lean(),
+      Subject.find({
+        $and:[
+          {$or:[{academicSession:session._id},{academicSession:null}]},
+          {section:{$in:sectionIds}},
+          {active:{$ne:false}}
+        ]
+      }).lean(),
+      Room.find().lean(),TimeSlot.find().lean(),SchedulerSetting.findOne({key:'default'}).lean(),Program.find().lean()
     ]);
 
-    if(!faculty.length||!subjects.length||!sections.length||!rooms.length||!slots.length)return res.status(400).json({message:'Complete faculty, subjects, sections, rooms and time slots first.'});
+    if(!faculty.length||!subjects.length||!sections.length||!rooms.length||!slots.length)return res.status(400).json({message:'Complete faculty, subjects, sections, rooms and time slots first for the selected academic session.'});
 
     const fids=new Set(faculty.map(x=>String(x._id)));
     const sids=new Set(sections.map(x=>String(x._id)));
@@ -308,7 +318,15 @@ router.post('/generate',allowRoles('ADMIN','SCHEDULER'),async(req,res)=>{
     }
     const programDateMap=new Map((programDates||[]).map(x=>[String(x.program),x]));
     if(programDates.length){
-      const missingPrograms=programs.filter(p=>p.active!==false).filter(p=>!programDateMap.has(String(p._id)));
+      const sessionProgramIds=new Set();
+      for(const section of sections){
+        if(section.programId) sessionProgramIds.add(String(section.programId));
+        else {
+          const match=programs.find(p=>String(p.name||'').trim().toLowerCase()===String(section.program||'').trim().toLowerCase() || String(p.code||'').trim().toLowerCase()===String(section.program||'').trim().toLowerCase());
+          if(match) sessionProgramIds.add(String(match._id));
+        }
+      }
+      const missingPrograms=programs.filter(p=>p.active!==false && sessionProgramIds.has(String(p._id))).filter(p=>!programDateMap.has(String(p._id)));
       if(missingPrograms.length)return res.status(422).json({message:`Configure session dates for these programs: ${missingPrograms.map(p=>p.name).join(', ')}.`});
     }
     for(const subject of subjects){

@@ -821,9 +821,16 @@ app.get("/api/timetable/readiness", requireAuth, async (req,res) => {
     const session=await AcademicSession.findById(sessionId).lean();
     if(!session) return res.status(404).json({message:"Academic session not found."});
 
-    const [sections, subjects, faculty, rooms, slots]=await Promise.all([
-      Section.find({academicSession:sessionId}).lean(),
-      Subject.find({academicSession:sessionId,active:{$ne:false}}).lean(),
+    const sections = await Section.find({ academicSession: sessionId }).lean();
+    const sectionIds = sections.map(s => s._id);
+    const [subjects, faculty, rooms, slots]=await Promise.all([
+      Subject.find({
+        $and: [
+          { $or: [{ academicSession: sessionId }, { academicSession: null }] },
+          { section: { $in: sectionIds } },
+          { active: { $ne: false } }
+        ]
+      }).lean(),
       Faculty.find().lean(),
       Room.find().lean(),
       TimeSlot.find().sort({day:1,order:1}).lean()
