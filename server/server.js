@@ -1679,9 +1679,13 @@ function analyticsLabel(section){
 
 app.get("/api/analytics", requireAuth, async (req,res) => {
   try {
-    const filter=req.query.sessionId
-      ? { academicSession:req.query.sessionId, isCurrent:true }
-      : { isCurrent:true };
+    const requestedSessionId=String(req.query.sessionId||"").trim();
+    const selectedSession=requestedSessionId
+      ? await AcademicSession.findById(requestedSessionId).select("_id").lean()
+      : await AcademicSession.findOne({active:true}).select("_id").lean();
+    if(requestedSessionId && !selectedSession) return res.status(404).json({message:"Academic session not found."});
+    if(!selectedSession) return res.json({hasTimetable:false,summary:{requiredSessions:0,scheduledSessions:0,coverage:0,unscheduledSessions:0},faculty:[],rooms:[],sections:[],daily:[],conflicts:[],quality:null,warnings:[]});
+    const filter={academicSession:selectedSession._id,isCurrent:true};
     const timetable=await Timetable.findOne(filter).sort({createdAt:-1}).populate("entries.section entries.subject entries.faculty entries.room").lean();
     if(!timetable) return res.json({hasTimetable:false,summary:{requiredSessions:0,scheduledSessions:0,coverage:0,unscheduledSessions:0},faculty:[],rooms:[],sections:[],daily:[],conflicts:[],quality:null,warnings:[]});
 
@@ -1721,7 +1725,13 @@ app.get("/api/analytics", requireAuth, async (req,res) => {
 
 app.get("/api/analytics/conflicts", requireAuth, async (req,res) => {
   try{
-    const filter={}; if(req.query.sessionId) filter.academicSession=req.query.sessionId;
+    const requestedSessionId=String(req.query.sessionId||"").trim();
+    const selectedSession=requestedSessionId
+      ? await AcademicSession.findById(requestedSessionId).select("_id").lean()
+      : await AcademicSession.findOne({active:true}).select("_id").lean();
+    if(requestedSessionId && !selectedSession) return res.status(404).json({message:"Academic session not found."});
+    if(!selectedSession) return res.json({hasTimetable:false,conflicts:[]});
+    const filter={academicSession:selectedSession._id,isCurrent:true};
     const t=await Timetable.findOne(filter).sort({createdAt:-1}).populate("entries.section entries.subject entries.faculty entries.room").lean();
     if(!t) return res.json({hasTimetable:false,conflicts:[]});
     const entries=t.entries||[], groups=new Map(), conflicts=[];
@@ -1905,12 +1915,21 @@ app.get("/api/reports/summary", requireAuth, async (req,res)=>{
       return res.status(404).json({message:"Academic session not found."});
     }
 
-    const sessionId=String(session?._id||"");
-    const filter=sessionId
-      ? {academicSession:sessionId,isCurrent:true}
-      : {isCurrent:true};
-    const t=await populatedTimetableQuery(Timetable.findOne(filter).sort({createdAt:-1})).lean();
     const sessionSummary=session?{_id:session._id,name:session.name,active:session.active}:null;
+    if(!session) {
+      return res.json({
+        session:null,
+        timetable:null,
+        summary:{requiredSessions:0,scheduledSessions:0,coverage:0,unscheduledSessions:0,periods:0},
+        faculty:[],rooms:[],sections:[],daily:[],issues:[],
+        validation:{errors:0,warnings:0,issues:[]},
+        subjects:[],warnings:[]
+      });
+    }
+
+    const sessionId=String(session._id);
+    const filter={academicSession:sessionId,isCurrent:true};
+    const t=await populatedTimetableQuery(Timetable.findOne(filter).sort({createdAt:-1})).lean();
 
     if(!t) {
       return res.json({
