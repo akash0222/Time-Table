@@ -1528,7 +1528,8 @@ app.get("/api/timetable/workflow", requireAuth, async (req, res) => {
 function filterTimetableExportEntries(timetable, req) {
   const view = String(req.query.view || "all").trim().toLowerCase();
   const selectedId = String(req.query.selectedId || "").trim();
-  const sectionId = String(req.query.sectionId || (view === "section" ? selectedId : "")).trim();
+  const rawSectionId = String(req.query.sectionId || (view === "section" ? selectedId : "")).trim();
+  const sectionId = rawSectionId.toUpperCase() === "ALL" ? "" : rawSectionId;
   const programFilter = String(req.query.program || "ALL").trim();
   const semesterFilter = String(req.query.semester || "ALL").trim();
   const search = String(req.query.search || "").trim().toLowerCase();
