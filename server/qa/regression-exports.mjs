@@ -58,6 +58,47 @@ function semesterOf(entry) {
   return String(section.semester ?? section.year ?? "");
 }
 
+function scalar(value) {
+  return String(value ?? "").trim();
+}
+
+function expectedRowSignature(entry) {
+  return [
+    entry.day,
+    entry.startTime,
+    entry.endTime,
+    programOf(entry),
+    semesterOf(entry),
+    entry.section?.name || "",
+    entry.subject?.name || "",
+    entry.subject?.code || "",
+    entry.faculty?.name || "",
+    entry.room?.name || ""
+  ].map(scalar).join("\\u001f");
+}
+
+function exportedRowSignature(row) {
+  return [
+    row.Day,
+    row.Start,
+    row.End,
+    row.Program,
+    row.Semester,
+    row.Section,
+    row.Subject,
+    row.SubjectCode,
+    row.Faculty,
+    row.Room
+  ].map(scalar).join("\\u001f");
+}
+
+function sameMultiset(a, b) {
+  if (a.length !== b.length) return false;
+  const left = [...a].sort();
+  const right = [...b].sort();
+  return left.every((value, index) => value === right[index]);
+}
+
 function matches(entry, filters) {
   const program = programOf(entry);
   const semester = semesterOf(entry);
@@ -118,6 +159,46 @@ try {
     check("Current session timetable endpoint", latest.response.status === 200, "HTTP " + latest.response.status);
     const entries = Array.isArray(latest.body?.entries) ? latest.body.entries : [];
 
+    const status = await api("/api/timetable/status?sessionId=" + encodeURIComponent(sessionId));
+    check("Timetable status endpoint", status.response.status === 200 && typeof status.body?.status === "string",
+      "HTTP " + status.response.status);
+    if (status.response.status === 200) {
+      check("Timetable status matches latest timetable",
+        status.body.status === (latest.body?.status || "DRAFT"),
+        "status " + status.body.status);
+    }
+
+    const workflow = await api("/api/timetable/workflow?sessionId=" + encodeURIComponent(sessionId));
+    check("Timetable workflow read", workflow.response.status === 200 &&
+      typeof workflow.body?.status === "string" && Array.isArray(workflow.body?.actions),
+      "HTTP " + workflow.response.status);
+    if (workflow.response.status === 200) {
+      check("Workflow and timetable statuses agree",
+        workflow.body.status === (latest.body?.status || "DRAFT"),
+        "workflow status " + workflow.body.status);
+    }
+
+    const validation = await api("/api/timetable/validation?sessionId=" + encodeURIComponent(sessionId));
+    check("Validation Center read", validation.response.status === 200 &&
+      typeof validation.body?.hasTimetable === "boolean" &&
+      Array.isArray(validation.body?.issues) &&
+      typeof validation.body?.summary?.errors === "number" &&
+      typeof validation.body?.summary?.warnings === "number",
+      "HTTP " + validation.response.status);
+    if (validation.response.status === 200 && entries.length) {
+      check("Validation Center recognizes current timetable", validation.body.hasTimetable === true,
+        validation.body.summary.errors + " error(s), " + validation.body.summary.warnings + " warning(s)");
+    }
+
+    const versions = await api("/api/timetable/versions?sessionId=" + encodeURIComponent(sessionId));
+    check("Timetable versions read", versions.response.status === 200 && Array.isArray(versions.body),
+      "HTTP " + versions.response.status);
+    if (versions.response.status === 200 && entries.length) {
+      check("Version history includes a current timetable",
+        versions.body.some(version => version.isCurrent === true),
+        versions.body.length + " version(s)");
+    }
+
     if (!entries.length) {
       skip("Filtered Excel/PDF exports", "No timetable entries exist for the active session.");
     } else {
@@ -145,6 +226,12 @@ try {
       }
       check("Excel row count matches current session", exportedRows.length === entries.length,
         "expected " + entries.length + ", received " + exportedRows.length);
+      check("Excel row contents match current timetable",
+        sameMultiset(
+          entries.map(expectedRowSignature),
+          exportedRows.map(exportedRowSignature)
+        ),
+        "compared Day, time, program, semester, section, subject, faculty and room");
 
       const sample = entries.find(e => e?.section?._id || e?.section) || entries[0];
       const sampleSectionId = idOf(sample?.section?._id || sample?.section);
@@ -152,6 +239,8 @@ try {
       const sampleSemester = semesterOf(sample);
       const sampleSubject = String(sample?.subject?.name || "").trim();
 
+      const distinctPrograms = [...new Set(entries.map(programOf).filter(Boolean))];
+      const distinctSemesters = [...new Set(entries.map(semesterOf).filter(Boolean))];
       const filterCases = [
         ...(sampleProgram ? [{ name: "Program filter", filters: { program: sampleProgram } }] : []),
         ...(sampleSemester ? [{ name: "Semester filter", filters: { semester: sampleSemester } }] : []),
@@ -159,6 +248,22 @@ try {
         ...(sampleSubject ? [{ name: "Search filter", filters: { search: sampleSubject } }] : []),
         ...(sampleProgram && sampleSemester ? [{ name: "Combined program + semester", filters: { program: sampleProgram, semester: sampleSemester } }] : [])
       ];
+      if (distinctPrograms.length > 1) {
+        const restrictiveProgram = distinctPrograms
+          .map(program => ({ program, count: entries.filter(e => programOf(e) === program).length }))
+          .sort((a, b) => a.count - b.count)[0];
+        filterCases.push({name:"Program filter narrows multi-program data",filters:{program:restrictiveProgram.program}});
+      } else {
+        skip("Program filter narrows multi-program data", "Current session contains only one distinct program.");
+      }
+      if (distinctSemesters.length > 1) {
+        const restrictiveSemester = distinctSemesters
+          .map(semester => ({ semester, count: entries.filter(e => semesterOf(e) === semester).length }))
+          .sort((a, b) => a.count - b.count)[0];
+        filterCases.push({name:"Semester filter narrows multi-semester data",filters:{semester:restrictiveSemester.semester}});
+      } else {
+        skip("Semester filter narrows multi-semester data", "Current session contains only one distinct semester/year.");
+      }
 
       for (const testCase of filterCases) {
         const expected = entries.filter(entry => matches(entry, testCase.filters));
@@ -174,6 +279,11 @@ try {
         check(testCase.name + " restricts Excel rows",
           file.response.status === 200 && isZip && rows.length === expected.length,
           "expected " + expected.length + ", received " + rows.length + ", HTTP " + file.response.status);
+        if (file.response.status === 200 && isZip) {
+          check(testCase.name + " exports exactly the matching entries",
+            sameMultiset(expected.map(expectedRowSignature), rows.map(exportedRowSignature)),
+            "content comparison across all exported columns");
+        }
       }
 
       const pdf = await download("pdf", sessionId, sampleSectionId ? { sectionId: sampleSectionId } : {});
