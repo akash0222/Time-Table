@@ -2565,8 +2565,11 @@ function AllProgramTimetables({timetable,data,activeSession}){
         responseType: "blob",
         params: {
           sessionId: activeSession?._id || "",
-          view: sectionFilter !== "ALL" ? "section" : "all",
-          selectedId: sectionFilter !== "ALL" ? sectionFilter : ""
+          view: "all",
+          program: programFilter,
+          semester: semesterFilter,
+          sectionId: sectionFilter,
+          search: query.trim()
         }
       });
       const url = URL.createObjectURL(new Blob([response.data], {
