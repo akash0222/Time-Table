@@ -7,7 +7,8 @@ function isTruthy(value, fallback = false) {
 
 function required(name, { productionOnly = false, minLength = 0 } = {}) {
   const value = String(process.env[name] || "").trim();
-  if (productionOnly && process.env.NODE_ENV !== "production" && !value) return "";
+  const configuredEnvironment = String(process.env.NODE_ENV || "development").trim().toLowerCase();
+  if (productionOnly && configuredEnvironment !== "production" && !value) return "";
   if (!value) throw new Error(`${name} must be configured.`);
   if (minLength && value.length < minLength) {
     throw new Error(`${name} must be at least ${minLength} characters.`);
