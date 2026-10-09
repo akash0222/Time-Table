@@ -1976,7 +1976,6 @@ app.get("/api/reports/summary", requireAuth, async (req,res)=>{
       dayMap.set(e.day,(dayMap.get(e.day)||0)+d);
     }
 
-    const sectionIds=[...sectionMap.keys()];
     const scheduleSections=sessionId
       ? await Section.find({academicSession:sessionId}).populate("programId","name code").lean()
       : [];
