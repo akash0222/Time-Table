@@ -1234,7 +1234,7 @@ app.post("/api/timetable/clone", requireAuth, allowRoles("ADMIN", "SCHEDULER"), 
       }).lean()
     ]);
 
-    const normalize = value => String(value??"").trim().toLowerCase().replace(/\\s+/g," ");
+    const normalize = value => String(value??"").trim().toLowerCase().replace(/\s+/g," ");
     const idOf = value => String(value?._id??value??"");
     const programTokens = section => new Set([
       section?.programId?.code,
