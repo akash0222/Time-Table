@@ -2759,6 +2759,38 @@ function TimetableView({timetable, data, onMoved, timetableStatus, setTimetableS
       (timetableStatus === "LOCKED" && status === "PUBLISHED");
   }
 
+  async function downloadTimetable(format){
+    const extension = format === "excel" ? "xlsx" : "pdf";
+    try {
+      setMoveMessage("");
+      const response = await axios.get(`${API}/timetable/export/${format}`, {
+        responseType: "blob",
+        params: { sessionId: activeSession?._id || "" }
+      });
+      const blobUrl = URL.createObjectURL(new Blob([response.data], {
+        type: format === "excel"
+          ? "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+          : "application/pdf"
+      }));
+      const anchor = document.createElement("a");
+      anchor.href = blobUrl;
+      anchor.download = `timetable.${extension}`;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      window.setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+    } catch (error) {
+      let message = error.response?.data?.message || error.message || "Unable to export timetable.";
+      if (error.response?.data instanceof Blob) {
+        try {
+          const payload = JSON.parse(await error.response.data.text());
+          message = payload.message || message;
+        } catch {}
+      }
+      setMoveMessage(message);
+    }
+  }
+
   async function changeStatus(status){
     const note=approvalNote.trim();
     if(needsApprovalNote(status) && note.length<3){
@@ -2779,8 +2811,8 @@ function TimetableView({timetable, data, onMoved, timetableStatus, setTimetableS
     <div className="toolbar">
       <div><h3>{viewLabel} Timetable</h3><p>View the generated schedule by section, faculty or room. Multi-period classes occupy consecutive periods.</p></div>
       <div className="toolbar-actions">
-        <button className="secondary" onClick={()=>window.open(`${API}/timetable/export/excel`,"_blank")}>Excel</button>
-        <button className="secondary" onClick={()=>window.open(`${API}/timetable/export/pdf`,"_blank")}>PDF</button>
+        <button className="secondary" onClick={()=>downloadTimetable("excel")}>Excel</button>
+        <button className="secondary" onClick={()=>downloadTimetable("pdf")}>PDF</button>
       </div>
     </div>
 
