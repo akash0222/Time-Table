@@ -1896,24 +1896,134 @@ app.get("/api/timetable/change-history", requireAuth, async (req,res)=>{
 // Reports use the same authoritative timetable data as Analytics.
 app.get("/api/reports/summary", requireAuth, async (req,res)=>{
   try{
-    const filter=req.query.sessionId
-      ? { academicSession:req.query.sessionId, isCurrent:true }
-      : { isCurrent:true };
+    const requestedSessionId=String(req.query.sessionId||"").trim();
+    const session=requestedSessionId
+      ? await AcademicSession.findById(requestedSessionId).select("_id name active").lean()
+      : await AcademicSession.findOne({active:true}).select("_id name active").lean();
+
+    if(requestedSessionId && !session) {
+      return res.status(404).json({message:"Academic session not found."});
+    }
+
+    const sessionId=String(session?._id||"");
+    const filter=sessionId
+      ? {academicSession:sessionId,isCurrent:true}
+      : {isCurrent:true};
     const t=await populatedTimetableQuery(Timetable.findOne(filter).sort({createdAt:-1})).lean();
-    if(!t) return res.json({timetable:null,summary:{requiredSessions:0,scheduledSessions:0,coverage:0,unscheduledSessions:0},faculty:[],rooms:[],sections:[],daily:[],issues:[]});
-    const entries=t.entries||[], metrics=t.optimizationMetrics||{};
+    const sessionSummary=session?{_id:session._id,name:session.name,active:session.active}:null;
+
+    if(!t) {
+      return res.json({
+        session:sessionSummary,
+        timetable:null,
+        summary:{requiredSessions:0,scheduledSessions:0,coverage:0,unscheduledSessions:0,periods:0},
+        faculty:[],rooms:[],sections:[],daily:[],issues:[],
+        validation:{errors:0,warnings:0,issues:[]},
+        subjects:[],warnings:[]
+      });
+    }
+
+    const entries=t.entries||[];
+    const metrics=t.optimizationMetrics||{};
     const facultyMap=new Map(),roomMap=new Map(),sectionMap=new Map(),dayMap=new Map();
     for(const e of entries){
       const d=Math.max(1,Number(e.duration||1));
-      const f=String(e.faculty?._id||e.faculty||""); if(f){const x=facultyMap.get(f)||{id:f,name:e.faculty?.name||"Unknown",classes:0,periods:0};x.classes++;x.periods+=d;facultyMap.set(f,x);}
-      const r=String(e.room?._id||e.room||""); if(r){const x=roomMap.get(r)||{id:r,name:e.room?.name||"Unknown",type:e.room?.type||"—",classes:0,periods:0};x.classes++;x.periods+=d;roomMap.set(r,x);}
-      const s=String(e.section?._id||e.section||""); if(s){const x=sectionMap.get(s)||{id:s,label:[e.section?.program,e.section?.semester,e.section?.name].filter(Boolean).join(" · "),classes:0,periods:0,required:0};x.classes++;x.periods+=d;sectionMap.set(s,x);}
+      const f=String(e.faculty?._id||e.faculty||"");
+      if(f){
+        const x=facultyMap.get(f)||{id:f,name:e.faculty?.name||"Unknown",classes:0,periods:0,workingDays:new Set()};
+        x.classes++;x.periods+=d;x.workingDays.add(String(e.day));facultyMap.set(f,x);
+      }
+      const r=String(e.room?._id||e.room||"");
+      if(r){
+        const x=roomMap.get(r)||{id:r,name:e.room?.name||"Unknown",type:e.room?.type||"—",classes:0,periods:0};
+        x.classes++;x.periods+=d;roomMap.set(r,x);
+      }
+      const sid=String(e.section?._id||e.section||"");
+      if(sid){
+        const x=sectionMap.get(sid)||{id:sid,label:[e.section?.program,e.section?.semester,e.section?.name].filter(Boolean).join(" · "),classes:0,periods:0,required:0};
+        x.classes++;x.periods+=d;sectionMap.set(sid,x);
+      }
       dayMap.set(e.day,(dayMap.get(e.day)||0)+d);
     }
-    const required=Number(metrics.requiredSessions||entries.length), scheduled=Number(metrics.scheduledSessions||entries.length);
-    const daily=["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"].map(day=>({day,classes:entries.filter(e=>e.day===day).length,periods:dayMap.get(day)||0}));
-    const issues=timetableConflicts(entries).map(c=>({severity:"error",category:`${c.type} conflict`,message:`${c.resource} has overlapping classes on ${c.day} at ${c.startTime}.`}));
-    res.json({timetable:{_id:t._id,status:t.status,version:t.version,versionLabel:t.versionLabel,createdAt:t.createdAt},summary:{requiredSessions:required,scheduledSessions:scheduled,coverage:Number((required?scheduled/required*100:100).toFixed(1)),unscheduledSessions:Math.max(0,required-scheduled)},faculty:[...facultyMap.values()],rooms:[...roomMap.values()],sections:[...sectionMap.values()],daily,issues,quality:t.optimizationMetrics||null,warnings:t.warnings||[]});
+
+    const sectionIds=[...sectionMap.keys()];
+    const scheduleSections=sessionId
+      ? await Section.find({academicSession:sessionId}).select("_id").lean()
+      : [];
+    const scopedSectionIds=scheduleSections.map(x=>x._id);
+    const subjectRows=scopedSectionIds.length
+      ? await Subject.find({
+          section:{$in:scopedSectionIds},
+          active:{$ne:false},
+          $or:[{academicSession:sessionId},{academicSession:null}]
+        }).populate("faculty","name code").populate("section","program semester name").lean()
+      : [];
+
+    const scheduledBySubject=new Map();
+    for(const entry of entries){
+      const id=String(entry.subject?._id||entry.subject||"");
+      if(id) scheduledBySubject.set(id,(scheduledBySubject.get(id)||0)+1);
+    }
+    const subjects=subjectRows.map(subject=>{
+      const id=String(subject._id);
+      const required=Math.max(0,Number(subject.classesPerWeek||0));
+      const scheduled=scheduledBySubject.get(id)||0;
+      return {
+        id,
+        name:subject.name||"Unnamed subject",
+        code:subject.code||"",
+        faculty:subject.faculty?.name||"",
+        section:[subject.section?.program,subject.section?.semester,subject.section?.name].filter(Boolean).join(" · "),
+        required,
+        scheduled,
+        unscheduled:Math.max(0,required-scheduled)
+      };
+    });
+
+    const requiredFromMetrics=Number(metrics.requiredSessions);
+    const required=Number.isFinite(requiredFromMetrics)&&requiredFromMetrics>0
+      ? requiredFromMetrics
+      : (subjects.reduce((n,s)=>n+s.required,0)||entries.length);
+    const scheduledFromMetrics=Number(metrics.scheduledSessions);
+    const scheduled=Number.isFinite(scheduledFromMetrics)&&scheduledFromMetrics>0
+      ? scheduledFromMetrics
+      : entries.length;
+    const periods=entries.reduce((n,e)=>n+Math.max(1,Number(e.duration||1)),0);
+    const unscheduledSessions=Math.max(
+      Number(metrics.unscheduledSessions||0),
+      subjects.reduce((n,s)=>n+s.unscheduled,0),
+      Math.max(0,required-scheduled)
+    );
+    const daily=["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"].map(day=>({
+      day,classes:entries.filter(e=>e.day===day).length,periods:dayMap.get(day)||0
+    }));
+    const issues=timetableConflicts(entries).map(c=>({
+      severity:"error",category:`${c.type} conflict`,
+      message:`${c.resource} has overlapping classes on ${c.day} at ${c.startTime}.`
+    }));
+    if(unscheduledSessions>0){
+      issues.push({severity:"error",category:"Unscheduled sessions",message:`${unscheduledSessions} required session(s) remain unscheduled.`});
+    }
+    (t.warnings||[]).forEach(w=>issues.push({severity:"warning",category:"Generation warning",message:String(w)}));
+    const validation={
+      errors:issues.filter(x=>x.severity==="error").length,
+      warnings:issues.filter(x=>x.severity==="warning").length,
+      issues
+    };
+    const faculty=[...facultyMap.values()].map(x=>({...x,workingDays:x.workingDays.size}));
+    res.json({
+      session:sessionSummary||t.academicSession||null,
+      timetable:{_id:t._id,academicSession:t.academicSession?._id||t.academicSession,status:t.status,version:t.version,versionLabel:t.versionLabel,createdAt:t.createdAt},
+      summary:{
+        requiredSessions:required,
+        scheduledSessions:scheduled,
+        coverage:Number((required?scheduled/required*100:100).toFixed(1)),
+        unscheduledSessions,
+        periods
+      },
+      faculty,rooms:[...roomMap.values()],sections:[...sectionMap.values()],daily,issues,validation,
+      subjects,quality:t.optimizationMetrics||null,warnings:t.warnings||[]
+    });
   }catch(e){res.status(500).json({message:e.message});}
 });
 app.get("/api/reports/export/:type", requireAuth, async (req,res)=>{
