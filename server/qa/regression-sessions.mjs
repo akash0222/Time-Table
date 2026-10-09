@@ -89,6 +89,43 @@ try {
     "HTTP " + sessionsResponse.response.status);
   const sessions = Array.isArray(sessionsResponse.body) ? sessionsResponse.body : [];
 
+  const activeSessionResponse = await request("/api/sessions/active");
+  check("Active session endpoint", activeSessionResponse.response.status === 200, "HTTP " + activeSessionResponse.response.status);
+  const activeSession = activeSessionResponse.body;
+  const activeSessionId = String(activeSession?._id || "");
+  if (activeSessionId) {
+    const activeQuery = "?sessionId=" + encodeURIComponent(activeSessionId);
+    const [specificLatest, defaultLatest, defaultAnalytics, defaultConflicts, defaultReport] = await Promise.all([
+      request("/api/timetable/latest" + activeQuery),
+      request("/api/timetable/latest"),
+      request("/api/analytics"),
+      request("/api/analytics/conflicts"),
+      request("/api/reports/summary")
+    ]);
+    const specificId = String(specificLatest.body?._id || "");
+    const defaultId = String(defaultLatest.body?._id || "");
+    check("Default latest timetable uses active session",
+      specificLatest.response.status === 200 && defaultLatest.response.status === 200 && defaultId === specificId,
+      "active timetable " + (specificId || "none") + ", default " + (defaultId || "none"));
+    check("Default analytics uses active session",
+      defaultAnalytics.response.status === 200 &&
+        Boolean(defaultAnalytics.body?.hasTimetable) === Boolean(specificId) &&
+        (!specificId || String(defaultAnalytics.body?.timetableId || "") === specificId),
+      "HTTP " + defaultAnalytics.response.status);
+    check("Default conflict report uses active session",
+      defaultConflicts.response.status === 200 &&
+        Boolean(defaultConflicts.body?.hasTimetable) === Boolean(specificId) &&
+        (!specificId || String(defaultConflicts.body?.timetableId || "") === specificId),
+      "HTTP " + defaultConflicts.response.status);
+    check("Default reports page uses active session",
+      defaultReport.response.status === 200 &&
+        String(defaultReport.body?.session?._id || "") === activeSessionId &&
+        String(defaultReport.body?.timetable?._id || "") === specificId,
+      "HTTP " + defaultReport.response.status);
+  } else {
+    skip("Default active-session routing", "There is no active academic session.");
+  }
+
   if (!sessions.length) {
     skip("Session isolation checks", "No academic sessions are configured.");
   } else {
