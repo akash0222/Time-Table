@@ -2558,6 +2558,43 @@ function AllProgramTimetables({timetable,data,activeSession}){
   const classCount=filtered.length;
   const sectionCount=new Set(filtered.map(e=>refId(e.section)).filter(Boolean)).size;
 
+  async function exportAllPrograms(format){
+    const extension = format === "excel" ? "xlsx" : "pdf";
+    try {
+      const response = await axios.get(`${API}/timetable/export/${format}`, {
+        responseType: "blob",
+        params: {
+          sessionId: activeSession?._id || "",
+          view: sectionFilter !== "ALL" ? "section" : "all",
+          selectedId: sectionFilter !== "ALL" ? sectionFilter : ""
+        }
+      });
+      const url = URL.createObjectURL(new Blob([response.data], {
+        type: format === "excel"
+          ? "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+          : "application/pdf"
+      }));
+      const link = document.createElement("a");
+      link.href = url;
+      const disposition = response.headers?.["content-disposition"] || "";
+      const serverFilename = disposition.match(/filename="?([^";]+)"?/i)?.[1];
+      link.download = serverFilename || `all-program-timetables.${extension}`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch (error) {
+      let message = error.response?.data?.message || error.message || "Unable to export timetables.";
+      if (error.response?.data instanceof Blob) {
+        try {
+          const payload = JSON.parse(await error.response.data.text());
+          message = payload.message || message;
+        } catch {}
+      }
+      window.alert(message);
+    }
+  }
+
   return <div className="all-program-page">
     <section className="all-program-hero">
       <div>
@@ -2596,6 +2633,10 @@ function AllProgramTimetables({timetable,data,activeSession}){
         <div className="field all-program-search"><label>Search</label>
           <input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Subject, faculty, room, section..." />
         </div>
+      </div>
+      <div className="all-program-export-actions" style={{display:"flex",gap:8,justifyContent:"flex-end",marginTop:12,flexWrap:"wrap"}}>
+        <button className="secondary" onClick={()=>exportAllPrograms("excel")}><FileSpreadsheet size={15}/> Export Excel</button>
+        <button className="secondary" onClick={()=>exportAllPrograms("pdf")}><FileSpreadsheet size={15}/> Export PDF</button>
       </div>
     </section>
 
