@@ -181,14 +181,18 @@ export function generateBestTimetable({
       };
     }
 
-    const candidateValid = candidate?.validation?.valid !== false;
-    const candidateScore = Number(candidate?.score || 0);
     const candidateEntryCount = Array.isArray(candidate?.entries) ? candidate.entries.length : 0;
+    const candidateScore = Number(candidate?.score || 0);
+    // Only count a candidate as valid when it has entries and passed hard validation.
+    // A candidate with more classes must never displace a valid candidate if it violates constraints.
+    const candidateValid = candidateEntryCount > 0 && candidate?.validation?.valid === true;
+    const bestIsValid = bestEntryCount > 0 && best?.validation?.valid === true;
+
     if (
       !best ||
-      candidateValid > (best.validation?.valid ? 1 : 0) ||
-      candidateEntryCount > bestEntryCount ||
-      (candidateEntryCount === bestEntryCount && candidateScore > Number(best.score || 0))
+      (candidateValid && !bestIsValid) ||
+      (candidateValid === bestIsValid && candidateEntryCount > bestEntryCount) ||
+      (candidateValid === bestIsValid && candidateEntryCount === bestEntryCount && candidateScore > Number(best.score || 0))
     ) {
       best = candidate;
     }
