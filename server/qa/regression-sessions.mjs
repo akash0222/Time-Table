@@ -138,13 +138,22 @@ try {
       const report = await request("/api/reports/summary" + query);
       const reportId = String(report.body?.timetable?._id || "");
       const reportSessionId = String(report.body?.session?._id || report.body?.session || "");
+      const reportTimetableSessionId = idOf(report.body?.timetable?.academicSession);
       check("Reports summary is session-scoped: " + label, report.response.status === 200 &&
         reportId === currentId && reportSessionId === sessionId &&
+        (!currentId || reportTimetableSessionId === sessionId) &&
         typeof report.body?.validation?.errors === "number" &&
         typeof report.body?.validation?.warnings === "number" &&
         Array.isArray(report.body?.subjects) &&
         typeof report.body?.summary?.periods === "number",
         "HTTP " + report.response.status + (report.response.status === 200 ? ", report timetable " + (reportId || "none") : ""));
+
+      const structure = await request("/api/academic-structure" + query);
+      const knownSectionIds = new Set((structure.body?.sections || []).map(section => String(section._id)));
+      check("Report subject mappings belong to this session: " + label,
+        structure.response.status === 200 &&
+          (report.body?.subjects || []).every(subject => knownSectionIds.has(String(subject.sectionId))),
+        "HTTP " + structure.response.status + ", " + (report.body?.subjects || []).length + " subject mapping(s)");
 
       const versions = await request("/api/timetable/versions" + query);
       const versionRows = Array.isArray(versions.body) ? versions.body : [];
