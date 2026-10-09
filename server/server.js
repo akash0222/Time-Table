@@ -1165,7 +1165,8 @@ app.post("/api/timetable/:id/restore", requireAuth, async (req,res)=>{
   try{
     const source=await Timetable.findById(req.params.id).lean();
     if(!source)return res.status(404).json({message:"Timetable version not found."});
-    const filter=source.academicSession?{academicSession:source.academicSession}:{};
+    if(!source.academicSession) return res.status(409).json({message:"This legacy timetable version has no academic-session mapping and cannot be restored safely. Assign it to a session first."});
+    const filter={academicSession:source.academicSession};
     await Timetable.updateMany(filter,{$set:{isCurrent:false}});
     const last=await Timetable.findOne(filter).sort({version:-1}).select("version");
     const next=Number(last?.version||0)+1;
@@ -1427,12 +1428,22 @@ app.patch("/api/timetable/status", requireAuth, async (req, res) => {
       return res.status(403).json({ message: `Role ${role || "USER"} cannot change a timetable to ${status}.` });
     }
 
-    const filter = timetableId
-      ? { _id: timetableId }
-      : { ...(sessionId ? { academicSession: sessionId } : {}), isCurrent: true };
-    let timetable = await Timetable.findOne(filter).sort({ createdAt: -1 });
-    if (!timetable && sessionId) timetable = await Timetable.findOne({ academicSession: sessionId }).sort({ createdAt: -1 });
-    if (!timetable) return res.status(404).json({ message: "No timetable found for the selected academic session." });
+    let effectiveSessionId = String(sessionId || "").trim();
+    if (!timetableId && !effectiveSessionId) {
+      const activeSession = await AcademicSession.findOne({ active: true }).select("_id").lean();
+      effectiveSessionId = String(activeSession?._id || "");
+    }
+    if (!timetableId && !effectiveSessionId) {
+      return res.status(400).json({ message: "An academic session is required to change timetable status." });
+    }
+
+    const timetable = timetableId
+      ? await Timetable.findById(timetableId)
+      : await Timetable.findOne({ academicSession: effectiveSessionId, isCurrent: true }).sort({ createdAt: -1 });
+    if (!timetable) return res.status(404).json({ message: "No current timetable found for the selected academic session." });
+    if (timetable.isCurrent === false) {
+      return res.status(409).json({ message: "Only the current timetable version can change workflow status." });
+    }
 
     const current = timetable.status || "DRAFT";
     const transitions = {
