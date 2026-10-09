@@ -1243,6 +1243,8 @@ app.post("/api/timetable/clone", requireAuth, allowRoles("ADMIN", "SCHEDULER"), 
     ].map(normalize).filter(Boolean));
     const sameSection = (a,b) => {
       if(normalize(a?.semester)!==normalize(b?.semester) || normalize(a?.name)!==normalize(b?.name)) return false;
+      const aProgramId=idOf(a?.programId), bProgramId=idOf(b?.programId);
+      if(aProgramId && bProgramId) return aProgramId===bProgramId;
       const aTokens=programTokens(a), bTokens=programTokens(b);
       for(const token of aTokens) if(bTokens.has(token)) return true;
       return false;
