@@ -327,6 +327,12 @@ async function run() {
     cloned.status === "DRAFT" && cloned.isCurrent === true,
     "status " + cloned.status + ", current " + String(cloned.isCurrent));
 
+  const crossHistory = await api("/api/timetable/change-history?fromId=" +
+    encodeURIComponent(String(source._id)) + "&toId=" + encodeURIComponent(String(cloned._id)));
+  check("Change history rejects versions from different academic sessions",
+    crossHistory.response.status === 409,
+    "HTTP " + crossHistory.response.status);
+
   const versionsBeforeRejectedClone = await api("/api/timetable/versions?sessionId=" + encodeURIComponent(testSessionId));
   const versionRowsBefore = Array.isArray(versionsBeforeRejectedClone.body) ? versionsBeforeRejectedClone.body : [];
   check("Successful clone appears as the only current target version",
