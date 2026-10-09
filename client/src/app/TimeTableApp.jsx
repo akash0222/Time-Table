@@ -2761,11 +2761,16 @@ function TimetableView({timetable, data, onMoved, timetableStatus, setTimetableS
 
   async function downloadTimetable(format){
     const extension = format === "excel" ? "xlsx" : "pdf";
+    const exportView = viewMode.toLowerCase();
     try {
       setMoveMessage("");
       const response = await axios.get(`${API}/timetable/export/${format}`, {
         responseType: "blob",
-        params: { sessionId: activeSession?._id || "" }
+        params: {
+          sessionId: activeSession?._id || "",
+          view: exportView,
+          selectedId: selected
+        }
       });
       const blobUrl = URL.createObjectURL(new Blob([response.data], {
         type: format === "excel"
@@ -2774,7 +2779,9 @@ function TimetableView({timetable, data, onMoved, timetableStatus, setTimetableS
       }));
       const anchor = document.createElement("a");
       anchor.href = blobUrl;
-      anchor.download = `timetable.${extension}`;
+      const disposition = response.headers?.["content-disposition"] || "";
+      const filename = disposition.match(/filename="?([^";]+)"?/i)?.[1];
+      anchor.download = filename || `timetable-${exportView}.${extension}`;
       document.body.appendChild(anchor);
       anchor.click();
       anchor.remove();
