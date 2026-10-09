@@ -150,6 +150,42 @@ try {
       "Need timetable versions in at least two different academic sessions to run this data-dependent check.");
   }
 
+  const activeSessionId = String(activeResult.body?._id || "");
+  if (activeSessionId) {
+    const activeVersionsBefore = await request("/api/timetable/versions?sessionId=" + encodeURIComponent(activeSessionId));
+    const versionsBefore = Array.isArray(activeVersionsBefore.body) ? activeVersionsBefore.body : [];
+    const currentVersion = versionsBefore.find(version => version.isCurrent === true);
+    if (activeVersionsBefore.response.status === 200 && currentVersion?._id) {
+      const sameSessionClone = await request("/api/timetable/clone", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sourceTimetableId: String(currentVersion._id), targetSessionId: activeSessionId })
+      });
+      check("Clone rejects the same source and target academic session",
+        sameSessionClone.response.status === 400,
+        "HTTP " + sameSessionClone.response.status);
+
+      const activeVersionsAfter = await request("/api/timetable/versions?sessionId=" + encodeURIComponent(activeSessionId));
+      const versionsAfter = Array.isArray(activeVersionsAfter.body) ? activeVersionsAfter.body : [];
+      const currentBeforeIds = versionsBefore.filter(version => version.isCurrent === true).map(version => String(version._id)).sort();
+      const currentAfterIds = versionsAfter.filter(version => version.isCurrent === true).map(version => String(version._id)).sort();
+      check("Rejected same-session clone leaves current versions unchanged",
+        activeVersionsAfter.response.status === 200 &&
+          versionsBefore.length === versionsAfter.length &&
+          currentBeforeIds.length === currentAfterIds.length &&
+          currentBeforeIds.every((id, index) => id === currentAfterIds[index]),
+        "before " + versionsBefore.length + " version(s), after " + versionsAfter.length);
+    } else {
+      skip("Clone rejects the same source and target academic session",
+        "No current timetable version exists in the active session.");
+      skip("Rejected same-session clone leaves current versions unchanged",
+        "No current timetable version exists in the active session.");
+    }
+  } else {
+    skip("Clone rejects the same source and target academic session", "No active academic session.");
+    skip("Rejected same-session clone leaves current versions unchanged", "No active academic session.");
+  }
+
 } catch (error) {
   failures.push(error.message);
   console.error("ERROR  " + error.message);
