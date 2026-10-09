@@ -1525,17 +1525,51 @@ app.get("/api/timetable/workflow", requireAuth, async (req, res) => {
 });
 
 
+function filterTimetableExportEntries(timetable, req) {
+  const view = String(req.query.view || "all").trim().toLowerCase();
+  const selectedId = String(req.query.selectedId || "").trim();
+  const allowedViews = new Set(["all", "section", "faculty", "room"]);
+  if (!allowedViews.has(view)) {
+    const error = new Error("Invalid export view. Use section, faculty, room, or all.");
+    error.status = 400;
+    throw error;
+  }
+  if (view !== "all" && !selectedId) {
+    const error = new Error("Select a section, faculty, or room before exporting.");
+    error.status = 400;
+    throw error;
+  }
+  const key = view === "section" ? "section" : view === "faculty" ? "faculty" : view === "room" ? "room" : "";
+  const entries = (timetable.entries || []).filter(entry => {
+    if (!key) return true;
+    const value = entry[key]?._id || entry[key];
+    return String(value || "") === selectedId;
+  });
+  return { view, entries };
+}
+
+function exportFileBaseName(view, entries, selectedId) {
+  const selected = view === "section" ? entries[0]?.section
+    : view === "faculty" ? entries[0]?.faculty
+    : view === "room" ? entries[0]?.room : null;
+  const label = String(selected?.name || selected?.program || view || "all")
+    .replace(/[^a-z0-9_-]+/gi, "-").replace(/^-+|-+$/g, "").slice(0, 60);
+  return view === "all" ? "generated-timetable" : `timetable-${label || selectedId.slice(-8)}`;
+}
+
 app.get("/api/timetable/export/excel", requireAuth, async (req, res) => {
   try {
     const XLSX = (await import("xlsx")).default;
     const t = await currentTimetableFor(req);
     if (!t) return res.status(404).json({message:"No generated timetable found."});
+    const { view, entries } = filterTimetableExportEntries(t, req);
+    if (!entries.length) return res.status(404).json({message:"No timetable entries found for the selected filter."});
 
-    const rows = t.entries.map(e => ({
+    const rows = entries.map(e => ({
       Day: e.day,
       Start: e.startTime,
       End: e.endTime,
-      Program: e.section?.program || "",
+      Program: e.section?.program || e.section?.programId?.name || "",
       Semester: e.section?.semester || "",
       Section: e.section?.name || "",
       Subject: e.subject?.name || "",
@@ -1548,9 +1582,12 @@ app.get("/api/timetable/export/excel", requireAuth, async (req, res) => {
     const ws = XLSX.utils.json_to_sheet(rows);
     XLSX.utils.book_append_sheet(wb, ws, "Timetable");
     const buffer = XLSX.write(wb, {type:"buffer", bookType:"xlsx"});
-    res.setHeader("Content-Disposition", 'attachment; filename="generated-timetable.xlsx"');
+    const baseName = exportFileBaseName(view, entries, String(req.query.selectedId || ""));
+    res.setHeader("Content-Disposition", `attachment; filename="${baseName}.xlsx"`);
     res.type("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet").send(buffer);
-  } catch(e) { res.status(500).json({message:e.message}); }
+  } catch(e) {
+    res.status(e.status || 500).json({message:e.message});
+  }
 });
 
 app.get("/api/timetable/export/pdf", requireAuth, async (req, res) => {
@@ -1558,20 +1595,25 @@ app.get("/api/timetable/export/pdf", requireAuth, async (req, res) => {
     const PDFDocument = (await import("pdfkit")).default;
     const t = await currentTimetableFor(req);
     if (!t) return res.status(404).json({message:"No generated timetable found."});
+    const { view, entries } = filterTimetableExportEntries(t, req);
+    if (!entries.length) return res.status(404).json({message:"No timetable entries found for the selected filter."});
 
-    res.setHeader("Content-Disposition", 'attachment; filename="generated-timetable.pdf"');
+    const title = view === "all" ? "Generated Timetable"
+      : view === "section" ? "Section-wise Timetable"
+      : view === "faculty" ? "Faculty-wise Timetable" : "Room-wise Timetable";
+    const baseName = exportFileBaseName(view, entries, String(req.query.selectedId || ""));
+    res.setHeader("Content-Disposition", `attachment; filename="${baseName}.pdf"`);
     res.setHeader("Content-Type", "application/pdf");
 
     const doc = new PDFDocument({margin:36, size:"A4", layout:"landscape"});
     doc.pipe(res);
-    doc.fontSize(18).text("Generated Timetable", {align:"center"});
+    doc.fontSize(18).text(title, {align:"center"});
     doc.moveDown();
     doc.fontSize(9);
 
     const headers = ["Day","Time","Program","Semester","Section","Subject","Faculty","Room"];
     const widths = [55,65,65,55,60,150,105,65];
     let y = doc.y;
-
     const drawHeader = () => {
       let x = 36;
       doc.font("Helvetica-Bold");
@@ -1581,12 +1623,12 @@ app.get("/api/timetable/export/pdf", requireAuth, async (req, res) => {
     };
     drawHeader();
 
-    for (const e of t.entries) {
+    for (const e of entries) {
       if (y > 540) { doc.addPage(); y=36; drawHeader(); }
       const values = [
         e.day,
         `${e.startTime}-${e.endTime}`,
-        e.section?.program || "",
+        e.section?.program || e.section?.programId?.name || "",
         e.section?.semester || "",
         e.section?.name || "",
         e.subject?.name || "",
@@ -1598,9 +1640,10 @@ app.get("/api/timetable/export/pdf", requireAuth, async (req, res) => {
       y += 28;
     }
     doc.end();
-  } catch(e) { res.status(500).json({message:e.message}); }
+  } catch(e) {
+    res.status(e.status || 500).json({message:e.message});
+  }
 });
-
 
 function analyticsLabel(section){
   return [section?.program||section?.programId?.name||"",section?.semester||"",section?.name||""].filter(Boolean).join(" · ") || "Unassigned";
