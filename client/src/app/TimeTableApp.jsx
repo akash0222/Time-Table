@@ -48,7 +48,7 @@ function App(){
     } catch {}
 
   }
-  useEffect(()=>{if(auth) load().catch(e=>setMessage(e.response?.data?.message||"Start the backend server first."));},[auth]);
+  useEffect(()=>{if(auth) load().catch(e=>setMessage(e.response?.data?.message||"Start the backend server first."));},[auth?.username]);
   useEffect(()=>{
     if(!auth || !activeSession?._id) return;
     (async()=>{
@@ -66,7 +66,7 @@ function App(){
         setSettings(sr.data||{});
       }catch{}
     })();
-  },[auth,activeSession?._id]);
+  },[auth?.username,activeSession?._id]);
 
   useEffect(()=>{localStorage.setItem("tt_sidebar_collapsed",String(sidebarCollapsed));},[sidebarCollapsed]);
 
@@ -2568,7 +2568,7 @@ function AllProgramTimetables({timetable,data,activeSession}){
           view: "all",
           program: programFilter,
           semester: semesterFilter,
-          sectionId: sectionFilter,
+          sectionId: sectionFilter !== "ALL" ? sectionFilter : "",
           search: query.trim()
         }
       });
