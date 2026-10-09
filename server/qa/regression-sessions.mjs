@@ -172,6 +172,12 @@ try {
         (!hasTimetable || String(analytics.body?.timetableId || "") === currentId),
         "HTTP " + analytics.response.status);
 
+      const conflicts = await request("/api/analytics/conflicts" + query);
+      check("Conflict report is session-scoped: " + label, conflicts.response.status === 200 &&
+        Boolean(conflicts.body?.hasTimetable) === hasTimetable &&
+        (!hasTimetable || String(conflicts.body?.timetableId || "") === currentId),
+        "HTTP " + conflicts.response.status);
+
       const report = await request("/api/reports/summary" + query);
       const reportId = String(report.body?.timetable?._id || "");
       const reportSessionId = String(report.body?.session?._id || report.body?.session || "");
