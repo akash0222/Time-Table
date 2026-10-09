@@ -1948,15 +1948,28 @@ app.get("/api/reports/summary", requireAuth, async (req,res)=>{
 
     const sectionIds=[...sectionMap.keys()];
     const scheduleSections=sessionId
-      ? await Section.find({academicSession:sessionId}).select("_id").lean()
+      ? await Section.find({academicSession:sessionId}).populate("programId","name code").lean()
       : [];
+    for(const section of scheduleSections){
+      const sid=String(section._id);
+      if(!sectionMap.has(sid)){
+        const program=section.programId?.name||section.program||"";
+        sectionMap.set(sid,{
+          id:sid,
+          label:[program,section.semester,section.name].filter(Boolean).join(" · "),
+          classes:0,
+          periods:0,
+          required:0
+        });
+      }
+    }
     const scopedSectionIds=scheduleSections.map(x=>x._id);
     const subjectRows=scopedSectionIds.length
       ? await Subject.find({
           section:{$in:scopedSectionIds},
           active:{$ne:false},
           $or:[{academicSession:sessionId},{academicSession:null}]
-        }).populate("faculty","name code").populate("section","program semester name").lean()
+        }).populate("faculty","name code").populate("section","program programId semester name").lean()
       : [];
 
     const scheduledBySubject=new Map();
@@ -1973,12 +1986,17 @@ app.get("/api/reports/summary", requireAuth, async (req,res)=>{
         name:subject.name||"Unnamed subject",
         code:subject.code||"",
         faculty:subject.faculty?.name||"",
-        section:[subject.section?.program,subject.section?.semester,subject.section?.name].filter(Boolean).join(" · "),
+        section:[subject.section?.programId?.name||subject.section?.program,subject.section?.semester,subject.section?.name].filter(Boolean).join(" · "),
+        sectionId:String(subject.section?._id||subject.section||""),
         required,
         scheduled,
         unscheduled:Math.max(0,required-scheduled)
       };
     });
+    for(const subject of subjects){
+      const section=sectionMap.get(subject.sectionId);
+      if(section) section.required+=subject.required;
+    }
 
     const requiredFromMetrics=Number(metrics.requiredSessions);
     const required=Number.isFinite(requiredFromMetrics)&&requiredFromMetrics>0
@@ -2010,7 +2028,21 @@ app.get("/api/reports/summary", requireAuth, async (req,res)=>{
       warnings:issues.filter(x=>x.severity==="warning").length,
       issues
     };
-    const faculty=[...facultyMap.values()].map(x=>({...x,workingDays:x.workingDays.size}));
+    const maxFacultyPeriods=Math.max(1,...[...facultyMap.values()].map(x=>x.periods));
+    const faculty=[...facultyMap.values()].map(x=>({
+      ...x,
+      workingDays:x.workingDays.size,
+      utilization:Number((x.periods/maxFacultyPeriods*100).toFixed(1))
+    }));
+    const maxRoomPeriods=Math.max(1,...[...roomMap.values()].map(x=>x.periods));
+    const rooms=[...roomMap.values()].map(x=>({
+      ...x,
+      utilization:Number((x.periods/maxRoomPeriods*100).toFixed(1))
+    }));
+    const sectionSummaries=[...sectionMap.values()].map(x=>({
+      ...x,
+      coverage:Number((x.required?x.classes/x.required*100:(x.classes?100:0)).toFixed(1))
+    }));
     res.json({
       session:sessionSummary||t.academicSession||null,
       timetable:{_id:t._id,academicSession:t.academicSession?._id||t.academicSession,status:t.status,version:t.version,versionLabel:t.versionLabel,createdAt:t.createdAt},
@@ -2021,7 +2053,7 @@ app.get("/api/reports/summary", requireAuth, async (req,res)=>{
         unscheduledSessions,
         periods
       },
-      faculty,rooms:[...roomMap.values()],sections:[...sectionMap.values()],daily,issues,validation,
+      faculty,rooms,sections:sectionSummaries,daily,issues,validation,
       subjects,quality:t.optimizationMetrics||null,warnings:t.warnings||[]
     });
   }catch(e){res.status(500).json({message:e.message});}
