@@ -62,12 +62,12 @@ router.post("/preview", allowRoles("ADMIN","SCHEDULER"), async (req,res)=>{
     const details=students.map(s=>{
       const from=s.section;
       const same=String(from?._id||"")===String(target._id);
-      const sourceSession=sessionIdOfSection(from);
-      const targetSession=sessionIdOfSection(target);
+      const fromSessionId=sessionIdOfSection(from);
+      const targetSessionId=sessionIdOfSection(target);
       if(same) warnings.push(`${s.name} is already in ${sectionLabel(target)}.`);
-      if(sourceSession && targetSession && sourceSession===targetSession && action==="PROMOTED") warnings.push(`${s.name}: promotion is within the same academic session; use Transfer if this is intentional.`);
-      if(targetSession && targetSession!==String(session._id)) issues.push(`${s.name}: target section belongs to a different academic session than the selected session.`);
-      if(sourceAcademicSessionId && sourceSession && sourceSessionIdOfStudent(from)!==String(sourceSession._id)) issues.push(`${s.name}: source section does not belong to the selected source academic session.`);
+      if(fromSessionId && targetSessionId && fromSessionId===targetSessionId && action==="PROMOTED") warnings.push(`${s.name}: promotion is within the same academic session; use Transfer if this is intentional.`);
+      if(targetSessionId && targetSessionId!==String(session._id)) issues.push(`${s.name}: target section belongs to a different academic session than the selected session.`);
+      if(sourceAcademicSessionId && fromSessionId && fromSessionId!==String(sourceSession?._id||"")) issues.push(`${s.name}: source section does not belong to the selected source academic session.`);
       return {studentId:s._id,name:s.name,admissionNo:s.admissionNo,rollNo:s.rollNo,fromSection:from?{_id:from._id,label:sectionLabel(from)}:null,targetSection:{_id:target._id,label:sectionLabel(target)}};
     });
     if(capacity>0 && students.length>available) issues.push(`Target section capacity is ${capacity}; ${currentCount} active student(s) are already enrolled, leaving room for ${available}.`);
