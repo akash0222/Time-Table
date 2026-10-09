@@ -1189,37 +1189,252 @@ app.post("/api/timetable/:id/restore", requireAuth, async (req,res)=>{
   }catch(e){res.status(400).json({message:e.message});}
 });
 
-app.post("/api/timetable/clone", requireAuth, async (req,res)=>{
-  if(!["ADMIN","SCHEDULER"].includes(req.user?.role))return res.status(403).json({message:"Only Admin or Scheduler can clone timetables."});
+app.post("/api/timetable/clone", requireAuth, allowRoles("ADMIN", "SCHEDULER"), async (req,res)=>{
+  let createdCloneId = "";
+  let previousCurrentId = "";
+  let targetSessionId = "";
   try{
-    const source=await Timetable.findById(req.body?.sourceTimetableId).lean();
-    const target=await AcademicSession.findById(req.body?.targetSessionId);
-    if(!source)return res.status(404).json({message:"Source timetable version not found."});
-    if(!target)return res.status(404).json({message:"Target academic session not found."});
-    await Timetable.updateMany({academicSession:target._id},{$set:{isCurrent:false}});
+    const sourceId = String(req.body?.sourceTimetableId || "").trim();
+    targetSessionId = String(req.body?.targetSessionId || "").trim();
+    if(!sourceId || !targetSessionId) {
+      return res.status(400).json({message:"Source timetable and target academic session are required."});
+    }
+
+    const [source,target] = await Promise.all([
+      Timetable.findById(sourceId).lean(),
+      AcademicSession.findById(targetSessionId).lean()
+    ]);
+    if(!source) return res.status(404).json({message:"Source timetable version not found."});
+    if(!target) return res.status(404).json({message:"Target academic session not found."});
+    if(!source.academicSession) {
+      return res.status(409).json({message:"The source timetable has no academic-session mapping and cannot be cloned safely."});
+    }
+    if(String(source.academicSession)===String(target._id)) {
+      return res.status(400).json({message:"Source and target academic sessions must be different."});
+    }
+
+    const sourceEntries = Array.isArray(source.entries) ? source.entries : [];
+    if(!sourceEntries.length) {
+      return res.status(409).json({message:"The selected source timetable has no classes to clone."});
+    }
+
+    const sourceSectionIds = [...new Set(sourceEntries.map(e=>String(e.section||"")).filter(Boolean))];
+    const sourceSubjectIds = [...new Set(sourceEntries.map(e=>String(e.subject||"")).filter(Boolean))];
+    if(sourceSectionIds.length===0 || sourceSubjectIds.length===0) {
+      return res.status(409).json({message:"The source timetable contains entries without valid Section or Subject mappings."});
+    }
+
+    const [sourceSections,sourceSubjects,targetSections,allTargetSubjects] = await Promise.all([
+      Section.find({_id:{$in:sourceSectionIds}}).populate("programId","name code").lean(),
+      Subject.find({_id:{$in:sourceSubjectIds}}).lean(),
+      Section.find({academicSession:target._id}).populate("programId","name code").lean(),
+      Subject.find({
+        active:{$ne:false},
+        $or:[{academicSession:target._id},{academicSession:null}]
+      }).lean()
+    ]);
+
+    const normalize = value => String(value??"").trim().toLowerCase().replace(/\\s+/g," ");
+    const idOf = value => String(value?._id??value??"");
+    const programTokens = section => new Set([
+      section?.programId?.code,
+      section?.programId?.name,
+      section?.program
+    ].map(normalize).filter(Boolean));
+    const sameSection = (a,b) => {
+      if(normalize(a?.semester)!==normalize(b?.semester) || normalize(a?.name)!==normalize(b?.name)) return false;
+      const aTokens=programTokens(a), bTokens=programTokens(b);
+      for(const token of aTokens) if(bTokens.has(token)) return true;
+      return false;
+    };
+
+    const sourceSectionMap = new Map(sourceSections.map(section=>[String(section._id),section]));
+    const sourceSubjectMap = new Map(sourceSubjects.map(subject=>[String(subject._id),subject]));
+    const targetSectionMap = new Map();
+    const mappingIssues = [];
+
+    for(const sourceSectionId of sourceSectionIds){
+      const sourceSection=sourceSectionMap.get(sourceSectionId);
+      if(!sourceSection){
+        mappingIssues.push(`Source section ${sourceSectionId} no longer exists.`);
+        continue;
+      }
+      const matches=targetSections.filter(section=>sameSection(sourceSection,section));
+      if(matches.length!==1){
+        const label=[sourceSection.programId?.name||sourceSection.program,sourceSection.semester,sourceSection.name].filter(Boolean).join(" · ");
+        mappingIssues.push(matches.length
+          ? `Target session has more than one matching section for ${label}; make its Program/Semester/Section mapping unique.`
+          : `Target session is missing a matching section for ${label}. Create the target section first.`);
+        continue;
+      }
+      targetSectionMap.set(sourceSectionId,matches[0]);
+    }
+
+    const targetSectionsIds = new Set(targetSections.map(s=>String(s._id)));
+    const targetSubjectsBySection = new Map();
+    for(const subject of allTargetSubjects){
+      const sectionId=String(subject.section||"");
+      if(!targetSectionsIds.has(sectionId)) continue;
+      const rows=targetSubjectsBySection.get(sectionId)||[];
+      rows.push(subject);
+      targetSubjectsBySection.set(sectionId,rows);
+    }
+    const targetSubjectMap = new Map();
+
+    for(const sourceSubjectId of sourceSubjectIds){
+      const sourceSubject=sourceSubjectMap.get(sourceSubjectId);
+      if(!sourceSubject){
+        mappingIssues.push(`Source subject ${sourceSubjectId} no longer exists.`);
+        continue;
+      }
+
+      const sourceEntriesForSubject=sourceEntries.filter(e=>String(e.subject||"")===sourceSubjectId);
+      const sourceSectionId=String(sourceSubject.section||"");
+      if(sourceSectionId && sourceEntriesForSubject.some(e=>String(e.section||"")!==sourceSectionId)){
+        mappingIssues.push(`Source subject ${sourceSubject.name||sourceSubjectId} is scheduled against a different section than its master-data mapping.`);
+        continue;
+      }
+      const sourceEntrySectionIds=[...new Set(sourceEntriesForSubject.map(e=>String(e.section||"")).filter(Boolean))];
+      if(sourceEntrySectionIds.length!==1){
+        mappingIssues.push(`Source subject ${sourceSubject.name||sourceSubjectId} appears under multiple or missing sections.`);
+        continue;
+      }
+      const targetSection=targetSectionMap.get(sourceEntrySectionIds[0]);
+      if(!targetSection) continue;
+
+      const candidates=targetSubjectsBySection.get(String(targetSection._id))||[];
+      const code=normalize(sourceSubject.code);
+      const name=normalize(sourceSubject.name);
+      const codeMatches=code?candidates.filter(s=>normalize(s.code)===code):[];
+      let match=codeMatches.length===1?codeMatches[0]:null;
+      if(!match){
+        const nameMatches=candidates.filter(s=>normalize(s.name)===name &&
+          (!sourceSubject.subjectType || !s.subjectType || s.subjectType===sourceSubject.subjectType));
+        if(nameMatches.length===1) match=nameMatches[0];
+        else {
+          const label=`${sourceSubject.name||"Unnamed subject"} in ${targetSection.programId?.name||targetSection.program||""} · ${targetSection.semester} · ${targetSection.name}`;
+          mappingIssues.push(nameMatches.length || codeMatches.length>1
+            ? `Target mapping for ${label} is ambiguous. Ensure its subject code/name is unique within the section.`
+            : `Target session has no matching subject for ${label}. Map the subject to the target section first.`);
+          continue;
+        }
+      }
+      if(!match.faculty){
+        mappingIssues.push(`Target subject ${match.name||match.code||match._id} has no Faculty mapping.`);
+        continue;
+      }
+      targetSubjectMap.set(sourceSubjectId,match);
+    }
+
+    if(mappingIssues.length){
+      return res.status(409).json({
+        message:"Timetable cannot be cloned until target-session master data is mapped. No timetable version was changed.",
+        mappingIssues
+      });
+    }
+
+    const [faculty,rooms,slots,programs,settingDoc] = await Promise.all([
+      Faculty.find().lean(),
+      Room.find().lean(),
+      TimeSlot.find().sort({day:1,order:1}).lean(),
+      Program.find().lean(),
+      SchedulerSetting.findOne({key:"default"}).lean()
+    ]);
+    const facultyById = new Map(faculty.map(f=>[String(f._id),f]));
+    const roomIds = [...new Set(sourceEntries.map(e=>String(e.room||"")).filter(Boolean))];
+    const roomsById = new Map(rooms.map(r=>[String(r._id),r]));
+    const referenceIssues = [];
+    for(const entry of sourceEntries){
+      const subject=targetSubjectMap.get(String(entry.subject||""));
+      if(!subject || !facultyById.has(String(subject.faculty||""))){
+        referenceIssues.push(`Target Faculty reference is missing for ${subject?.name||entry.subject||"a scheduled subject"}.`);
+      }
+      if(!entry.room || !roomsById.has(String(entry.room))){
+        referenceIssues.push(`Room reference ${String(entry.room||"(empty)")} is missing from the master data.`);
+      }
+    }
+    if(referenceIssues.length){
+      return res.status(409).json({message:"Target-session mappings are incomplete. No timetable version was changed.",mappingIssues:[...new Set(referenceIssues)]});
+    }
+
+    const mappedEntries = sourceEntries.map(entry=>{
+      const targetSection=targetSectionMap.get(String(entry.section||""));
+      const targetSubject=targetSubjectMap.get(String(entry.subject||""));
+      return {
+        day:entry.day,
+        startTime:entry.startTime,
+        endTime:entry.endTime,
+        order:entry.order,
+        duration:entry.duration||1,
+        section:targetSection._id,
+        subject:targetSubject._id,
+        faculty:targetSubject.faculty,
+        room:entry.room
+      };
+    });
+
+    let effectiveSettings=settingDoc||{};
+    const override=settingDoc?.sessionOverrides?.find(x=>String(x.academicSession)===String(target._id));
+    if(override) effectiveSettings={...settingDoc,...override};
+    const validation=validateTimetable({
+      entries:mappedEntries,
+      faculty,
+      sections:targetSections,
+      subjects:allTargetSubjects,
+      rooms,
+      slots,
+      programs,
+      settings:effectiveSettings,
+      holidayDays:effectiveSettings?.holidayDays||["Sunday"],
+      holidayDates:target.holidayDates||[]
+    });
+    if(!validation.valid){
+      return res.status(409).json({
+        message:"The cloned timetable would violate target-session constraints. No timetable version was changed.",
+        validation
+      });
+    }
+
     const last=await Timetable.findOne({academicSession:target._id}).sort({version:-1}).select("version");
     const next=Number(last?.version||0)+1;
+    const previousCurrent=await Timetable.findOne({academicSession:target._id,isCurrent:true}).select("_id").lean();
+    previousCurrentId=String(previousCurrent?._id||"");
+
     const cloned=await Timetable.create({
-      entries:source.entries||[],
+      entries:mappedEntries,
       score:source.score,
       optimizationScore:source.optimizationScore,
       optimizationMetrics:source.optimizationMetrics,
       optimizationRuns:source.optimizationRuns,
       optimizationComparison:source.optimizationComparison||[],
-      warnings:source.warnings||[],
+      warnings:[...(source.warnings||[]),...validation.warnings],
       academicSession:target._id,
       version:next,
       versionLabel:String(req.body?.versionLabel||`Version ${next}`),
-      isCurrent:true,
+      isCurrent:false,
       createdBy:req.user?.username||"",
       notes:String(req.body?.notes||""),
       status:"DRAFT",
       statusChangedAt:new Date(),
       statusNote:"Cloned from another academic session."
     });
+    createdCloneId=String(cloned._id);
+
+    await Timetable.updateMany({_id:{$ne:cloned._id},academicSession:target._id},{$set:{isCurrent:false}});
+    const currentClone=await Timetable.findByIdAndUpdate(cloned._id,{$set:{isCurrent:true}},{new:true});
+    if(!currentClone) throw new Error("The cloned timetable could not be marked current.");
+
     const populated=await Timetable.findById(cloned._id).populate("academicSession entries.section entries.subject entries.faculty entries.room");
-    res.status(201).json(populated);
-  }catch(e){res.status(400).json({message:e.message});}
+    return res.status(201).json(populated);
+  }catch(e){
+    if(createdCloneId && targetSessionId){
+      try{await Timetable.deleteOne({_id:createdCloneId,academicSession:targetSessionId});}catch{}
+    }
+    if(previousCurrentId){
+      try{await Timetable.updateOne({_id:previousCurrentId,academicSession:targetSessionId},{$set:{isCurrent:true}});}catch{}
+    }
+    return res.status(400).json({message:e.message});
+  }
 });
 
 app.patch("/api/timetable/move", requireAuth, allowRoles("ADMIN", "SCHEDULER"), async (req, res) => {
