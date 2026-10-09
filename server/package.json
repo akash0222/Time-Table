@@ -8,7 +8,8 @@
     "qa": "node qa/smoke.mjs",
     "test:qa": "node qa/smoke.mjs",
     "reset:admin": "node scripts/reset-admin.mjs",
-    "test:regression:exports": "node qa/regression-exports.mjs"
+    "test:regression:exports": "node qa/regression-exports.mjs",
+    "test:regression:workflow": "node qa/regression-workflow.mjs"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
