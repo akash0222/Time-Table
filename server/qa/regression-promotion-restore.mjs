@@ -5,15 +5,10 @@ import { randomUUID } from "node:crypto";
 import { env } from "../config/env.js";
 import { connectDB } from "../config/db.js";
 import AcademicSession from "../models/AcademicSession.js";
-import Faculty from "../models/Faculty.js";
-import Program from "../models/Program.js";
-import Room from "../models/Room.js";
-import SchedulerSetting from "../models/SchedulerSetting.js";
 import Section from "../models/Section.js";
 import Student from "../models/Student.js";
 import StudentPromotion from "../models/StudentPromotion.js";
 import Subject from "../models/Subject.js";
-import TimeSlot from "../models/TimeSlot.js";
 import Timetable from "../models/Timetable.js";
 
 const base = String(process.env.QA_BASE_URL || "http://localhost:5000").replace(/\/$/, "");
