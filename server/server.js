@@ -1306,15 +1306,20 @@ app.post("/api/timetable/clone", requireAuth, allowRoles("ADMIN", "SCHEDULER"), 
       const code=normalize(sourceSubject.code);
       const name=normalize(sourceSubject.name);
       const codeMatches=code?candidates.filter(s=>normalize(s.code)===code):[];
-      let match=codeMatches.length===1?codeMatches[0]:null;
-      if(!match){
+      const label=`${sourceSubject.name||"Unnamed subject"} in ${targetSection.programId?.name||targetSection.program||""} · ${targetSection.semester} · ${targetSection.name}`;
+      let match=null;
+      if(codeMatches.length===1){
+        match=codeMatches[0];
+      }else if(codeMatches.length>1){
+        mappingIssues.push(`Target mapping for ${label} has a duplicated subject code. Ensure its subject code is unique within the section.`);
+        continue;
+      }else{
         const nameMatches=candidates.filter(s=>normalize(s.name)===name &&
           (!sourceSubject.subjectType || !s.subjectType || s.subjectType===sourceSubject.subjectType));
         if(nameMatches.length===1) match=nameMatches[0];
         else {
-          const label=`${sourceSubject.name||"Unnamed subject"} in ${targetSection.programId?.name||targetSection.program||""} · ${targetSection.semester} · ${targetSection.name}`;
-          mappingIssues.push(nameMatches.length || codeMatches.length>1
-            ? `Target mapping for ${label} is ambiguous. Ensure its subject code/name is unique within the section.`
+          mappingIssues.push(nameMatches.length
+            ? `Target mapping for ${label} is ambiguous. Ensure its subject name is unique within the section.`
             : `Target session has no matching subject for ${label}. Map the subject to the target section first.`);
           continue;
         }
