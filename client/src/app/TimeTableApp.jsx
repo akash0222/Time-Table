@@ -368,7 +368,7 @@ function App(){
       {tab==="Change History" && <ChangeHistory activeSession={activeSession} versionList={versionList}/>}
       {tab==="User Management" && <UserManagement data={data} setMessage={setMessage}/>}
       {tab==="Analytics" && <Analytics activeSession={activeSession}/>}
-      {tab==="Reports" && <Reports activeSession={activeSession}/>
+      {tab==="Reports" && <Reports activeSession={activeSession}/>}
       {tab==="Audit Logs" && <AuditLogs/>}
       {tab==="Optimization" && <Optimization/>}
       {tab==="Generation Readiness" && <GenerationReadiness activeSession={activeSession}/>}
