@@ -1528,6 +1528,10 @@ app.get("/api/timetable/workflow", requireAuth, async (req, res) => {
 function filterTimetableExportEntries(timetable, req) {
   const view = String(req.query.view || "all").trim().toLowerCase();
   const selectedId = String(req.query.selectedId || "").trim();
+  const sectionId = String(req.query.sectionId || (view === "section" ? selectedId : "")).trim();
+  const programFilter = String(req.query.program || "ALL").trim();
+  const semesterFilter = String(req.query.semester || "ALL").trim();
+  const search = String(req.query.search || "").trim().toLowerCase();
   const allowedViews = new Set(["all", "section", "faculty", "room"]);
   if (!allowedViews.has(view)) {
     const error = new Error("Invalid export view. Use section, faculty, room, or all.");
@@ -1539,11 +1543,34 @@ function filterTimetableExportEntries(timetable, req) {
     error.status = 400;
     throw error;
   }
+
   const key = view === "section" ? "section" : view === "faculty" ? "faculty" : view === "room" ? "room" : "";
   const entries = (timetable.entries || []).filter(entry => {
-    if (!key) return true;
-    const value = entry[key]?._id || entry[key];
-    return String(value || "") === selectedId;
+    if (key) {
+      const value = entry[key]?._id || entry[key];
+      if (String(value || "") !== selectedId) return false;
+    }
+
+    const section = entry.section && typeof entry.section === "object" ? entry.section : {};
+    const rawProgram = section.program && typeof section.program === "object"
+      ? (section.program.name || section.program.code || "")
+      : (section.programName || section.program || section.programId?.name || "");
+    const program = String(rawProgram || "").trim();
+    const semester = String(section.semester ?? section.year ?? "").trim();
+    const sectionName = String(section.name || "").trim();
+
+    if (sectionId && String(section._id || entry.section || "") !== sectionId) return false;
+    if (programFilter && programFilter !== "ALL" && program !== programFilter) return false;
+    if (semesterFilter && semesterFilter !== "ALL" && semester !== semesterFilter) return false;
+
+    if (search) {
+      const haystack = [
+        program, semester, sectionName, entry.day, entry.startTime, entry.endTime,
+        entry.subject?.name, entry.subject?.code, entry.faculty?.name, entry.room?.name
+      ].filter(Boolean).join(" ").toLowerCase();
+      if (!haystack.includes(search)) return false;
+    }
+    return true;
   });
   return { view, entries };
 }
