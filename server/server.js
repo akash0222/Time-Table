@@ -1897,10 +1897,14 @@ app.get("/api/timetable/validation", requireAuth, async (req,res)=>{
 });
 
 // Compare two timetable versions.
-app.get("/api/timetable/change-history", requireAuth, async (req,res)=>{
+app.get("/api/timetable/change-history", requireAuth, allowRoles("ADMIN", "SCHEDULER"), async (req,res)=>{
   try{
+    if(!req.query.fromId||!req.query.toId) return res.status(400).json({message:"Both timetable version IDs are required."});
     const [from,to]=await Promise.all([Timetable.findById(req.query.fromId).lean(),Timetable.findById(req.query.toId).lean()]);
     if(!from||!to) return res.status(404).json({message:"Both timetable versions are required."});
+    if(!from.academicSession||!to.academicSession||String(from.academicSession)!==String(to.academicSession)) {
+      return res.status(409).json({message:"Timetable changes can only be compared within the same academic session."});
+    }
     const key=e=>`${e.section}|${e.subject}|${e.faculty}|${e.room}`;
     const a=new Map((from.entries||[]).map(e=>[key(e),e])), b=new Map((to.entries||[]).map(e=>[key(e),e]));
     const changes=[];
