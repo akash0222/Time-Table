@@ -5,6 +5,7 @@ import { randomUUID } from "node:crypto";
 import { env } from "../config/env.js";
 import { connectDB } from "../config/db.js";
 import AcademicSession from "../models/AcademicSession.js";
+import Program from "../models/Program.js";
 import Section from "../models/Section.js";
 import Student from "../models/Student.js";
 import StudentPromotion from "../models/StudentPromotion.js";
@@ -149,9 +150,6 @@ async function cleanup() {
 }
 
 async function run() {
-  console.log("Time Table student-promotion and timetable-restore regression checks");
-  console.log("API: " + base);
-  console.log("Mongo host: " + (mongoHost || "(unparsed)") + "\n");
   console.log("Safety: mutating regression. It creates temporary QA students and a temporary academic session, and deletes those records in finally. The active session and its timetable are not changed. Use only an isolated local/staging database.\n");
 
   if (!localHosts.has(apiHost)) {
