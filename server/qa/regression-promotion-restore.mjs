@@ -281,11 +281,20 @@ async function run() {
       action: "PROMOTED"
     })
   });
+  const previewOk = preview.response.status === 200 &&
+    preview.body?.ok === true &&
+    preview.body?.students?.length === 1 &&
+    idOf(preview.body?.target?._id) === String(promotionTarget._id);
   check("Promotion preview validates correct source/target sessions",
-    preview.response.status === 200 && preview.body?.ok === true &&
-      preview.body?.students?.length === 1 &&
-      idOf(preview.body?.target?._id) === String(promotionTarget._id),
-    "HTTP " + preview.response.status);
+    previewOk,
+    "HTTP " + preview.response.status +
+      ", ok=" + String(preview.body?.ok) +
+      ", students=" + String(preview.body?.students?.length) +
+      ", target=" + idOf(preview.body?.target?._id) +
+      ", expectedTarget=" + String(promotionTarget._id) +
+      ", issues=" + JSON.stringify(preview.body?.issues || []) +
+      ", warnings=" + JSON.stringify(preview.body?.warnings || []) +
+      (preview.body?.message ? ", message=" + String(preview.body.message) : ""));
 
   const moved = await api("/api/student-promotions/bulk", {
     method: "POST",
