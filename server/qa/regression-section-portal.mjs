@@ -141,27 +141,26 @@ async function run() {
   unassignedUsername = "qa-nosection-" + nameSuffix;
   const passwordHash = await bcrypt.hash(fixturePassword, 10);
 
-  const [assigned, unassigned] = await Promise.all([
-    User.create({
-      name: "QA Section Portal Viewer",
-      username: assignedUsername,
-      passwordHash,
-      role: "VIEWER",
-      faculty: null,
-      section: section._id,
-      active: true
-    }),
-    User.create({
-      name: "QA Unassigned Viewer",
-      username: unassignedUsername,
-      passwordHash,
-      role: "VIEWER",
-      faculty: null,
-      section: null,
-      active: true
-    })
-  ]);
+  const assigned = await User.create({
+    name: "QA Section Portal Viewer",
+    username: assignedUsername,
+    passwordHash,
+    role: "VIEWER",
+    faculty: null,
+    section: section._id,
+    active: true
+  });
   assignedViewerId = String(assigned._id);
+
+  const unassigned = await User.create({
+    name: "QA Unassigned Viewer",
+    username: unassignedUsername,
+    passwordHash,
+    role: "VIEWER",
+    faculty: null,
+    section: null,
+    active: true
+  });
   unassignedViewerId = String(unassigned._id);
 
   const assignedLogin = await loginAs(assignedUsername, fixturePassword);
