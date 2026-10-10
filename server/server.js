@@ -1680,6 +1680,19 @@ app.patch("/api/timetable/status", requireAuth, async (req, res) => {
     }
     if (status === current) return res.status(409).json({ message: `Timetable is already ${status}.` });
 
+    // Recheck against current master-data constraints before progressing a timetable
+    // into a submitted/approved/published/locked state. Availability may have changed
+    // since this timetable version was generated.
+    if (["SUBMITTED", "APPROVED", "PUBLISHED", "LOCKED"].includes(status)) {
+      const validation = await validateStoredTimetable(timetable);
+      if (!validation.valid) {
+        return res.status(409).json({
+          message: `Timetable cannot be changed to ${status} because current master-data constraints are violated. Fix the listed issues and run Validation Center again. Nothing was changed.`,
+          validation
+        });
+      }
+    }
+
     const noteText = String(note || "").trim();
     const noteRequired = ["DRAFT", "APPROVED", "PUBLISHED"].includes(status) && ["SUBMITTED", "APPROVED", "LOCKED"].includes(current);
     if (noteRequired && noteText.length < 3) {
@@ -2042,6 +2055,56 @@ async function currentTimetableFor(req){
   ).lean();
 }
 
+// Validate a stored version against the latest faculty availability, sections,
+// rooms, time slots, holidays and scheduler constraints. This is intentionally
+// separate from generation validation because master data can change afterwards.
+async function validateStoredTimetable(timetable){
+  const academicSessionId=String(timetable?.academicSession?._id||timetable?.academicSession||"").trim();
+  const [
+    faculty,
+    sections,
+    subjects,
+    rooms,
+    slots,
+    programs,
+    settingDoc,
+    academicSession
+  ]=await Promise.all([
+    Faculty.find().lean(),
+    Section.find().lean(),
+    Subject.find().lean(),
+    Room.find().lean(),
+    TimeSlot.find().sort({day:1,order:1}).lean(),
+    Program.find().lean(),
+    SchedulerSetting.findOne({key:"default"}).lean(),
+    academicSessionId
+      ? AcademicSession.findById(academicSessionId).lean()
+      : AcademicSession.findOne({active:true}).lean()
+  ]);
+
+  let settings=settingDoc||{};
+  const override=settingDoc?.sessionOverrides?.find(
+    item=>String(item.academicSession)===academicSessionId
+  );
+  if(override) settings={...settingDoc,...override};
+
+  const entries=(timetable?.entries||[]).map(
+    entry=>entry?.toObject ? entry.toObject() : entry
+  );
+  return validateTimetable({
+    entries,
+    faculty,
+    sections,
+    subjects,
+    rooms,
+    slots,
+    programs,
+    settings,
+    holidayDays:settings.holidayDays||["Sunday"],
+    holidayDates:academicSession?.holidayDates||[]
+  });
+}
+
 // Personal timetable for Faculty, Viewer, Admin and Scheduler users.
 app.get("/api/personal-timetable", requireAuth, async (req,res)=>{
   try{
@@ -2305,10 +2368,37 @@ app.get("/api/timetable/validation", requireAuth, async (req,res)=>{
     const issues=[];
     const conflicts=timetableConflicts(t.entries||[]);
     conflicts.forEach(c=>issues.push({severity:"error",category:`${c.type} conflict`,message:`${c.resource} has overlapping classes on ${c.day} at ${c.startTime}.`}));
+
+    // Check the saved timetable against current master data too, not just
+    // overlaps and warnings written when the timetable was originally generated.
+    const constraintValidation=await validateStoredTimetable(t);
+    constraintValidation.errors.forEach(message=>{
+      const category=/unavailable/i.test(message)
+        ? "Faculty Availability"
+        : /holiday/i.test(message)
+          ? "Holiday / Calendar"
+          : /room/i.test(message)
+            ? "Room Constraints"
+            : /section/i.test(message)
+              ? "Section Constraints"
+              : "Timetable Constraint";
+      issues.push({severity:"error",category,message});
+    });
+    constraintValidation.warnings.forEach(message=>{
+      issues.push({severity:"warning",category:"Timetable Warning",message});
+    });
+
     const metrics=t.optimizationMetrics||{};
     if(Number(metrics.unscheduledSessions||0)>0) issues.push({severity:"error",category:"Unscheduled sessions",message:`${metrics.unscheduledSessions} required session(s) remain unscheduled.`});
     if((t.warnings||[]).length) t.warnings.forEach(w=>issues.push({severity:"warning",category:"Generation warning",message:w}));
-    res.json({hasTimetable:true,timetable:{_id:t._id,status:t.status,version:t.version,versionLabel:t.versionLabel},summary:{errors:issues.filter(x=>x.severity==="error").length,warnings:issues.filter(x=>x.severity==="warning").length},issues,conflicts});
+    res.json({
+      hasTimetable:true,
+      timetable:{_id:t._id,status:t.status,version:t.version,versionLabel:t.versionLabel},
+      summary:{errors:issues.filter(x=>x.severity==="error").length,warnings:issues.filter(x=>x.severity==="warning").length},
+      issues,
+      conflicts,
+      constraintValidation
+    });
   }catch(e){res.status(500).json({message:e.message});}
 });
 
