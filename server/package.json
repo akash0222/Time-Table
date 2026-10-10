@@ -9,6 +9,7 @@
     "test:qa": "node qa/smoke.mjs",
     "reset:admin": "node scripts/reset-admin.mjs",
     "test:regression:exports": "node qa/regression-exports.mjs",
+    "test:regression:export-filters": "node qa/regression-export-filters.mjs",
     "test:regression:workflow": "node qa/regression-workflow.mjs",
     "test:regression:sessions": "node qa/regression-sessions.mjs",
     "test:regression:hardening": "node qa/regression-hardening.mjs",
