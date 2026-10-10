@@ -1255,7 +1255,11 @@ function PersonalTimetable({auth,data}){
   useEffect(()=>{load()},[]);
   const rows=(report?.rows||[]).filter(r=>day==="ALL"||r.day===day);
   const today=report?.today?.rows||[];
-  const targetLabel=report?.type==="FACULTY"?report?.target?.name:`${report?.target?.program||""} · ${report?.target?.semester||""} · ${report?.target?.name||"Section"}`;
+  const targetLabel=report?.target
+    ? (report?.type==="FACULTY"
+        ? report.target.name
+        : [report.target.program,report.target.semester,report.target.name].filter(Boolean).join(" · "))
+    : (canSelect ? "Select a faculty or section" : "Personal schedule");
   if(loading&&!report)return <div className="panel"><h2>My Timetable</h2><p>Loading your personal timetable...</p></div>;
   return <div>
     <div className="personal-head"><div><h2>My Timetable</h2><p>Your personal weekly schedule, today's classes and next upcoming class.</p></div><button className="secondary" onClick={()=>load()}><RefreshCw size={15}/> Refresh</button></div>
