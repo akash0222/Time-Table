@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { generateBestTimetable } from "../services/generator.js";
+import { validateTimetable } from "../services/timetable/validator.js";
 
 const faculty = [{
   _id: "qa-faculty-1",
@@ -76,4 +77,62 @@ console.log("PASS  Generator imports timetable validator successfully");
 console.log("PASS  One-class fixture is generated");
 console.log("PASS  Generated candidate passes hard-constraint validation");
 console.log("PASS  Validation statistics contain zero hard errors");
-console.log("\nResult: 4 passed, 0 failed.");
+// An availability change must invalidate a stored Tuesday class if faculty
+// availability currently permits only Monday.
+const tuesdaySlot = { ...slots[0], _id: "qa-slot-tuesday", day: "Tuesday" };
+const unavailableDayEntry = {
+  day: "Tuesday",
+  startTime: "09:00",
+  endTime: "10:00",
+  order: 1,
+  duration: 1,
+  faculty: "qa-faculty-1",
+  section: "qa-section-1",
+  subject: "qa-subject-1",
+  room: "qa-room-1"
+};
+const availabilityValidation = validateTimetable({
+  entries: [unavailableDayEntry],
+  faculty,
+  sections,
+  subjects,
+  rooms,
+  slots: [tuesdaySlot],
+  programs: [],
+  settings: { maxConsecutiveFaculty: 2, maxConsecutiveSection: 3 }
+});
+assert.equal(availabilityValidation.valid, false, "A class on a faculty-unavailable day must be rejected.");
+assert.ok(
+  availabilityValidation.errors.some(message => /unavailable on Tuesday/i.test(message)),
+  "Validator should report that the faculty member is unavailable on Tuesday."
+);
+
+const blockedDayGeneration = generateBestTimetable({
+  faculty,
+  subjects,
+  sections,
+  rooms,
+  slots: [tuesdaySlot],
+  programs: [],
+  settings: {
+    maxConsecutiveFaculty: 2,
+    maxConsecutiveSection: 3,
+    avoidSameSubjectSameDay: true,
+    distributeSubjectAcrossDays: true,
+    avoidFirstLastPeriod: false,
+    holidayDays: ["Sunday"]
+  },
+  runs: 1,
+  totalMaxMillis: 2000,
+  perRunMillis: 1500,
+  attemptsPerRun: 10
+});
+assert.equal(
+  blockedDayGeneration.entries.length,
+  0,
+  "Generator must not place a class on a day the faculty member cannot work."
+);
+
+console.log("PASS  Faculty-unavailable day is rejected by the hard-constraint validator");
+console.log("PASS  Generator refuses to schedule a class on a faculty-unavailable day");
+console.log("\nResult: 6 passed, 0 failed.");
