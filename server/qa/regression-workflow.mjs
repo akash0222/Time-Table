@@ -117,6 +117,13 @@ if (!["localhost", "127.0.0.1", "::1"].includes(hostname)) {
         if (!entries.length) {
           skip("Workflow transitions", "No current timetable entries exist for the active session.");
         } else {
+          const preflight = await request("/api/timetable/validation?sessionId=" + encodeURIComponent(sessionId));
+          const validationErrors = Number(preflight.body?.summary?.errors || 0);
+          if (preflight.response.status !== 200) {
+            skip("Workflow transitions", "Could not preflight timetable constraints (HTTP " + preflight.response.status + ").");
+          } else if (validationErrors > 0) {
+            skip("Workflow transitions", "Current timetable has " + validationErrors + " validation error(s); new workflow hardening should block status changes until the schedule is corrected.");
+          } else {
           const initialStatus = await getStatus(sessionId);
           if (initialStatus !== "DRAFT") {
             skip("Workflow transitions", "Timetable must start in DRAFT; current status is " + initialStatus + ". No status changes were made.");
@@ -175,6 +182,7 @@ if (!["localhost", "127.0.0.1", "::1"].includes(hostname)) {
               const restored = await returnToDraft(sessionId).catch(() => false);
               check("Cleanup restores DRAFT status", restored, restored ? "Final status DRAFT" : "Manual status recovery may be required");
             }
+          }
           }
         }
       }
