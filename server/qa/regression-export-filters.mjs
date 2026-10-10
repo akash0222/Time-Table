@@ -187,7 +187,7 @@ async function cleanup() {
   if (!connected || !fixture) return;
   const errors = [];
   const actions = [
-    ["temporary timetable", () => Timetable.deleteMany({ _id: fixture.timetable?._id || { $in: [] } })],
+    ["temporary timetable", () => Timetable.deleteMany({ academicSession: fixture.session._id })],
     ["temporary subjects", () => Subject.deleteMany({ academicSession: fixture.session._id })],
     ["temporary sections", () => Section.deleteMany({ academicSession: fixture.session._id })],
     ["temporary faculty", () => Faculty.deleteMany({ _id: { $in: fixture.faculty.map(row => row._id) } })],
