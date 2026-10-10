@@ -2394,7 +2394,12 @@ app.get("/api/timetable/validation", requireAuth, async (req,res)=>{
     res.json({
       hasTimetable:true,
       timetable:{_id:t._id,status:t.status,version:t.version,versionLabel:t.versionLabel},
-      summary:{errors:issues.filter(x=>x.severity==="error").length,warnings:issues.filter(x=>x.severity==="warning").length},
+      summary:{
+        errors:issues.filter(x=>x.severity==="error").length,
+        warnings:issues.filter(x=>x.severity==="warning").length,
+        entries:(t.entries||[]).length,
+        total:issues.length
+      },
       issues,
       conflicts,
       constraintValidation
