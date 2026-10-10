@@ -1,3 +1,5 @@
+import { validateTimetable } from "./timetable/validator.js";
+
 function idOf(v) {
   if (v === null || v === undefined) return "";
   if (typeof v === "object" && v._id !== undefined) return String(v._id);
