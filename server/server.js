@@ -2048,10 +2048,17 @@ app.get("/api/personal-timetable", requireAuth, async (req,res)=>{
     const role=String(req.user?.role||"").toUpperCase();
     let type="";
     let targetId="";
+    let account=null;
+    if(["FACULTY","VIEWER"].includes(role)){
+      account=await User.findById(req.user?.id).select("faculty section active").lean();
+      if(!account||account.active===false){
+        return res.status(401).json({message:"User account is inactive or no longer available. Please sign in again."});
+      }
+    }
 
     if(role==="FACULTY"){
       type="FACULTY";
-      targetId=String(req.user?.faculty||"");
+      targetId=String(account?.faculty||req.user?.faculty||"");
       if(!targetId){
         return res.json({
           type,target:null,session:null,timetable:null,entries:[],rows:[],
@@ -2063,7 +2070,7 @@ app.get("/api/personal-timetable", requireAuth, async (req,res)=>{
       }
     }else if(role==="VIEWER"){
       type="SECTION";
-      targetId=String(req.user?.section||"");
+      targetId=String(account?.section||"");
       if(!targetId){
         return res.status(400).json({message:"No Section is mapped to this Viewer account. Ask an administrator to assign a section, then sign in again."});
       }
@@ -2087,7 +2094,8 @@ app.get("/api/personal-timetable", requireAuth, async (req,res)=>{
     ]);
     if(targetId&&!target) return res.status(404).json({message:type==="FACULTY"?"Faculty not found.":"Section not found."});
 
-    let allEntries=Array.isArray(t?.entries)?t.entries:[];
+    const needsSelection=["ADMIN","SCHEDULER"].includes(role)&&!targetId;
+    let allEntries=!needsSelection&&Array.isArray(t?.entries)?t.entries:[];
     if(targetId){
       allEntries=allEntries.filter(e=>String(e[type==="FACULTY"?"faculty":"section"]?._id||e[type==="FACULTY"?"faculty":"section"]||"")===targetId);
     }
