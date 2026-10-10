@@ -16,7 +16,8 @@
     "test:regression:clone": "node qa/regression-clone.mjs",
     "test:regression:promotion-restore": "node qa/regression-promotion-restore.mjs",
     "test:regression:generator-validator": "node qa/regression-generator-validator.mjs",
-    "test:regression:personal-timetable": "node qa/regression-personal-timetable.mjs"
+    "test:regression:personal-timetable": "node qa/regression-personal-timetable.mjs",
+    "test:regression:section-portal": "node qa/regression-section-portal.mjs"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
