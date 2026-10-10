@@ -2018,7 +2018,7 @@ function timetableConflicts(entries){
         const b=String(entries[j][field]?._id||entries[j][field]||"");
         if(a && a===b) conflicts.push({
           type:label,
-          resource:entries[i][field]?.name||entries[i][section]?.name||"Resource",
+          resource:entries[i][field]?.name||entries[i].section?.name||"Resource",
           day:entries[i].day,
           startTime:entries[i].startTime,
           endTime:entries[i].endTime,
@@ -2200,7 +2200,15 @@ app.get("/api/section-portal/sections", requireAuth, async (req,res)=>{
       filter={_id:assignedSectionId};
     }
     const rows=await Section.find(filter).populate("programId","name code").populate("academicSession","name active").sort({program:1,semester:1,name:1}).lean();
-    res.json(rows.map(s=>({id:s._id,_id:s._id,name:s.name,program:s.programId?.name||s.program,programCode:s.programId?.code||"",semester:s.semester,academicSession:s.academicSession})));
+    res.json(rows.map(section=>({
+      id:String(section._id),
+      _id:String(section._id),
+      name:section.name,
+      program:section.programId?.name||section.program,
+      programCode:section.programId?.code||"",
+      semester:section.semester,
+      academicSession:section.academicSession
+    })));
   }catch(e){res.status(500).json({message:e.message});}
 });
 app.get("/api/section-portal", requireAuth, async (req,res)=>{
@@ -2222,11 +2230,70 @@ app.get("/api/section-portal", requireAuth, async (req,res)=>{
     if(role==="VIEWER"&&sectionId!==assignedSectionId){
       return res.status(403).json({message:"You can only view your assigned Section portal."});
     }
-    const [section,t]=await Promise.all([Section.findById(sectionId).populate("programId","name code").lean(),currentTimetableFor(req)]);
+
+    const [section,t]=await Promise.all([
+      Section.findById(sectionId).populate("programId","name code").populate("academicSession","name active").lean(),
+      currentTimetableFor(req)
+    ]);
     if(!section) return res.status(404).json({message:"Section not found."});
-    const entries=(t?.entries||[]).filter(e=>String(e.section?._id||e.section)===String(sectionId));
-    const periods=entries.reduce((n,e)=>n+Math.max(1,Number(e.duration||1)),0);
-    res.json({section:{...section,program:section.programId?.name||section.program},timetable:t?{_id:t._id,status:t.status,version:t.version,versionLabel:t.versionLabel}:null,timetableRows:entries,entries,summary:{classes:entries.length,weeklyPeriods:periods,workingDays:new Set(entries.map(e=>e.day)).size},notifications:[]});
+    const sectionEntries=(t?.entries||[]).filter(entry=>String(entry.section?._id||entry.section)===String(sectionId));
+    const timetableRows=sectionEntries.map((entry,index)=>({
+      id:String(entry._id||[entry.day,entry.startTime,entry.endTime,entry.subject?._id||entry.subject,index].join("|")),
+      day:String(entry.day||""),
+      startTime:String(entry.startTime||""),
+      endTime:String(entry.endTime||""),
+      order:Number(entry.order||0),
+      duration:Math.max(1,Number(entry.duration||1)),
+      subject:entry.subject?.name||"Subject",
+      subjectCode:entry.subject?.code||"",
+      faculty:entry.faculty?.name||"Faculty",
+      room:entry.room?.name||"—",
+      section:entry.section?.name||section.name
+    }));
+    const periods=timetableRows.reduce((n,entry)=>n+entry.duration,0);
+    const days=["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
+    const daily=days.map(day=>{
+      const dayRows=timetableRows.filter(entry=>entry.day===day);
+      return {
+        day,
+        classes:dayRows.length,
+        periods:dayRows.reduce((n,entry)=>n+entry.duration,0),
+        max:Number(section.maxClassesPerDay||0)
+      };
+    });
+    const conflicts=timetableConflicts(sectionEntries).map(conflict=>({
+      type:conflict.type,
+      message:(conflict.subjects||[]).join(" and ")+" overlap on "+conflict.day+" at "+conflict.startTime+"."
+    }));
+    const session=t?.academicSession||section.academicSession||await AcademicSession.findOne({active:true}).select("_id name active").lean();
+    const timetable=t?{
+      _id:t._id,
+      status:t.status||"DRAFT",
+      version:t.version,
+      versionLabel:t.versionLabel||""
+    }:null;
+    const normalizedSection={
+      ...section,
+      program:section.programId?.name||section.program,
+      programCode:section.programId?.code||""
+    };
+    res.json({
+      section:normalizedSection,
+      session:session||null,
+      timetable,
+      timetableRows,
+      entries:timetableRows,
+      summary:{
+        classes:timetableRows.length,
+        scheduledClasses:timetableRows.length,
+        weeklyPeriods:periods,
+        periods,
+        workingDays:new Set(timetableRows.map(entry=>entry.day)).size
+      },
+      daily,
+      conflicts,
+      notifications:[]
+    });
   }catch(e){res.status(500).json({message:e.message});}
 });
 
