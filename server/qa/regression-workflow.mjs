@@ -122,7 +122,19 @@ if (!["localhost", "127.0.0.1", "::1"].includes(hostname)) {
           if (preflight.response.status !== 200) {
             skip("Workflow transitions", "Could not preflight timetable constraints (HTTP " + preflight.response.status + ").");
           } else if (validationErrors > 0) {
-            skip("Workflow transitions", "Current timetable has " + validationErrors + " validation error(s); new workflow hardening should block status changes until the schedule is corrected.");
+            const currentStatus = await getStatus(sessionId);
+            if (currentStatus === "DRAFT") {
+              const blockedSubmit = await transition(sessionId, "SUBMITTED", "QA invalid timetable protection check");
+              const statusAfterAttempt = await getStatus(sessionId);
+              check(
+                "Timetable with current hard-constraint errors cannot be submitted",
+                blockedSubmit.response.status === 409 && statusAfterAttempt === "DRAFT",
+                "HTTP " + blockedSubmit.response.status + "; status remains " + statusAfterAttempt
+              );
+            } else {
+              skip("Invalid-timetable submission guard", "Timetable status is " + currentStatus + ", not DRAFT; no transition attempted.");
+            }
+            skip("Remaining workflow transitions", "Current timetable has " + validationErrors + " validation error(s); correct them before exercising the full workflow.");
           } else {
           const initialStatus = await getStatus(sessionId);
           if (initialStatus !== "DRAFT") {
