@@ -14,7 +14,8 @@
     "test:regression:sessions": "node qa/regression-sessions.mjs",
     "test:regression:hardening": "node qa/regression-hardening.mjs",
     "test:regression:clone": "node qa/regression-clone.mjs",
-    "test:regression:promotion-restore": "node qa/regression-promotion-restore.mjs"
+    "test:regression:promotion-restore": "node qa/regression-promotion-restore.mjs",
+    "test:regression:generator-validator": "node qa/regression-generator-validator.mjs"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
