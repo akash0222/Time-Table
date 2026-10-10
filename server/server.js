@@ -2042,21 +2042,114 @@ async function currentTimetableFor(req){
   ).lean();
 }
 
-// Personal timetable for Faculty/Viewer users.
+// Personal timetable for Faculty, Viewer, Admin and Scheduler users.
 app.get("/api/personal-timetable", requireAuth, async (req,res)=>{
   try{
-    const t=await currentTimetableFor(req);
-    if(!t) return res.json({timetable:null,entries:[],summary:{classes:0,periods:0,workingDays:0}});
-    const role=req.user?.role;
-    let entries=t.entries||[];
+    const role=String(req.user?.role||"").toUpperCase();
+    let type="";
+    let targetId="";
+
     if(role==="FACULTY"){
-      if(!req.user?.faculty) return res.json({timetable:t,entries:[],summary:{classes:0,periods:0,workingDays:0},message:"No Faculty account mapping is configured for this user."});
-      entries=entries.filter(e=>String(e.faculty?._id||e.faculty)===String(req.user.faculty));
-    }else if(role==="VIEWER" && req.user?.section){
-      entries=entries.filter(e=>String(e.section?._id||e.section)===String(req.user.section));
+      type="FACULTY";
+      targetId=String(req.user?.faculty||"");
+      if(!targetId){
+        return res.json({
+          type,target:null,session:null,timetable:null,entries:[],rows:[],
+          today:{day:String(req.query.day||""),rows:[]},
+          weekly:["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"].map(day=>({day,classes:0,periods:0})),
+          upcoming:null,summary:{classes:0,periods:0,workingDays:0},
+          message:"No Faculty account mapping is configured for this user."
+        });
+      }
+    }else if(role==="VIEWER"){
+      type="SECTION";
+      targetId=String(req.user?.section||"");
+      if(!targetId){
+        return res.status(400).json({message:"No Section is mapped to this Viewer account. Ask an administrator to assign a section, then sign in again."});
+      }
+    }else if(role==="ADMIN"||role==="SCHEDULER"){
+      type=String(req.query.type||"SECTION").trim().toUpperCase();
+      if(!["FACULTY","SECTION"].includes(type)){
+        return res.status(400).json({message:"type must be FACULTY or SECTION."});
+      }
+      targetId=String(req.query.id||"").trim();
+    }else{
+      return res.status(403).json({message:"Personal timetable access is restricted."});
     }
-    const periods=entries.reduce((n,e)=>n+Math.max(1,Number(e.duration||1)),0);
-    res.json({timetable:{...t,entries},entries,summary:{classes:entries.length,periods,workingDays:new Set(entries.map(e=>e.day)).size}});
+
+    const [t, target] = await Promise.all([
+      currentTimetableFor(req),
+      targetId
+        ? (type==="FACULTY"
+            ? Faculty.findById(targetId).select("name code").lean()
+            : Section.findById(targetId).populate("programId","name code").lean())
+        : Promise.resolve(null)
+    ]);
+    if(targetId&&!target) return res.status(404).json({message:type==="FACULTY"?"Faculty not found.":"Section not found."});
+
+    let allEntries=Array.isArray(t?.entries)?t.entries:[];
+    if(targetId){
+      allEntries=allEntries.filter(e=>String(e[type==="FACULTY"?"faculty":"section"]?._id||e[type==="FACULTY"?"faculty":"section"]||"")===targetId);
+    }
+
+    const stringifySection=e=>{
+      const section=e.section&&typeof e.section==="object"?e.section:{};
+      return [section.program||section.programId?.name,section.semester,section.name].filter(Boolean).join(" · ")||"Section";
+    };
+    const rows=allEntries.map((e,index)=>({
+      id:String(e._id||[e.day,e.startTime,e.endTime,e.subject?._id||e.subject,index].join("|")),
+      day:String(e.day||""),
+      startTime:String(e.startTime||""),
+      endTime:String(e.endTime||""),
+      order:Number(e.order||0),
+      duration:Math.max(1,Number(e.duration||1)),
+      subject:e.subject?.name||"Subject",
+      subjectCode:e.subject?.code||"",
+      section:stringifySection(e),
+      faculty:e.faculty?.name||"Faculty",
+      room:e.room?.name||"—",
+      sectionId:String(e.section?._id||e.section||""),
+      facultyId:String(e.faculty?._id||e.faculty||"")
+    }));
+
+    const weekDays=["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
+    const requestedDay=String(req.query.day||"").trim();
+    const todayDay=weekDays.includes(requestedDay)
+      ? requestedDay
+      : new Intl.DateTimeFormat("en-US",{weekday:"long",timeZone:"Asia/Kolkata"}).format(new Date());
+    const requestedNow=String(req.query.now||"").trim();
+    const nowTime=/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(requestedNow)
+      ? requestedNow
+      : new Intl.DateTimeFormat("en-GB",{timeZone:"Asia/Kolkata",hour:"2-digit",minute:"2-digit",hourCycle:"h23"}).format(new Date());
+    const minutes=value=>{
+      const match=/^(\d{1,2}):(\d{2})$/.exec(String(value||""));
+      return match?Number(match[1])*60+Number(match[2]):Number.NaN;
+    };
+    const todayRows=rows.filter(row=>row.day===todayDay).sort((a,b)=>minutes(a.startTime)-minutes(b.startTime));
+    const nowMinutes=minutes(nowTime);
+    const upcoming=todayRows.find(row=>minutes(row.startTime)<=nowMinutes&&minutes(row.endTime)>nowMinutes)
+      ||todayRows.find(row=>minutes(row.startTime)>nowMinutes)
+      ||null;
+    const weekly=weekDays.map(day=>{
+      const dayRows=rows.filter(row=>row.day===day);
+      return {day,classes:dayRows.length,periods:dayRows.reduce((n,row)=>n+row.duration,0)};
+    });
+    const periods=rows.reduce((n,row)=>n+row.duration,0);
+    const activeSession=t?.academicSession||await AcademicSession.findOne({active:true}).select("_id name active").lean();
+    const normalizedTarget=target&&type==="SECTION"
+      ? {...target,program:target.programId?.name||target.program||"",programCode:target.programId?.code||""}
+      : target;
+    const timetable=t?{
+      _id:t._id,status:t.status||"DRAFT",version:t.version,
+      versionLabel:t.versionLabel||"",createdAt:t.createdAt,
+      academicSession:t.academicSession||null
+    }:null;
+
+    res.json({
+      type,target:normalizedTarget||null,session:activeSession||null,timetable,
+      entries:allEntries,rows,today:{day:todayDay,rows:todayRows},weekly,upcoming,
+      summary:{classes:rows.length,periods,workingDays:new Set(rows.map(row=>row.day)).size}
+    });
   }catch(e){res.status(500).json({message:e.message});}
 });
 
