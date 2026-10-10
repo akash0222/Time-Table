@@ -2186,16 +2186,42 @@ app.get("/api/faculty-portal", requireAuth, async (req,res)=>{
 // Section portal.
 app.get("/api/section-portal/sections", requireAuth, async (req,res)=>{
   try{
-    const filter=req.user?.role==="VIEWER" && req.user?.section ? {_id:req.user.section} : {};
+    const role=String(req.user?.role||"").toUpperCase();
+    let filter={};
+    if(role==="VIEWER"){
+      const account=await User.findById(req.user?.id).select("section active").lean();
+      if(!account||account.active===false){
+        return res.status(401).json({message:"User account is inactive or no longer available. Please sign in again."});
+      }
+      const assignedSectionId=String(account.section||"");
+      if(!assignedSectionId){
+        return res.status(400).json({message:"No Section is mapped to this Viewer account. Ask an administrator to assign a section, then sign in again."});
+      }
+      filter={_id:assignedSectionId};
+    }
     const rows=await Section.find(filter).populate("programId","name code").populate("academicSession","name active").sort({program:1,semester:1,name:1}).lean();
     res.json(rows.map(s=>({id:s._id,_id:s._id,name:s.name,program:s.programId?.name||s.program,programCode:s.programId?.code||"",semester:s.semester,academicSession:s.academicSession})));
   }catch(e){res.status(500).json({message:e.message});}
 });
 app.get("/api/section-portal", requireAuth, async (req,res)=>{
   try{
-    const sectionId=req.query.sectionId || req.user?.section;
+    const role=String(req.user?.role||"").toUpperCase();
+    let assignedSectionId="";
+    if(role==="VIEWER"){
+      const account=await User.findById(req.user?.id).select("section active").lean();
+      if(!account||account.active===false){
+        return res.status(401).json({message:"User account is inactive or no longer available. Please sign in again."});
+      }
+      assignedSectionId=String(account.section||"");
+      if(!assignedSectionId){
+        return res.status(400).json({message:"No Section is mapped to this Viewer account. Ask an administrator to assign a section, then sign in again."});
+      }
+    }
+    const sectionId=String(req.query.sectionId||assignedSectionId||req.user?.section||"");
     if(!sectionId) return res.status(400).json({message:"Section is required."});
-    if(req.user?.role==="VIEWER" && String(req.user.section)!==String(sectionId)) return res.status(403).json({message:"You can only view your assigned Section portal."});
+    if(role==="VIEWER"&&sectionId!==assignedSectionId){
+      return res.status(403).json({message:"You can only view your assigned Section portal."});
+    }
     const [section,t]=await Promise.all([Section.findById(sectionId).populate("programId","name code").lean(),currentTimetableFor(req)]);
     if(!section) return res.status(404).json({message:"Section not found."});
     const entries=(t?.entries||[]).filter(e=>String(e.section?._id||e.section)===String(sectionId));
