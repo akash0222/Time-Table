@@ -4,6 +4,7 @@ import {
   canAccessAttendanceSection,
   canAccessAttendanceStudent
 } from "../services/attendanceAccess.js";
+import { currentUserClaims } from "../middleware/auth.js";
 
 const faculty = {_id:"faculty-a"};
 const assignedSection = {_id:"section-a"};
@@ -34,5 +35,26 @@ assert.equal(canAccessAttendanceSection("VIEWER", {section:assignedSection}, "se
 assert.equal(canAccessAttendanceSection("FACULTY", {faculty}, "section-a", facultyAssignments), true);
 assert.equal(canAccessAttendanceSection("FACULTY", {faculty}, "section-b", facultyAssignments), false);
 assert.equal(canAccessAttendanceSection("ADMIN", null, "section-b"), true);
+
+
+// Authorization claims always reflect the current database account record,
+// including role and section/faculty mappings changed after an earlier login.
+const currentClaims = currentUserClaims({
+  _id: "user-1",
+  username: "viewer1",
+  name: "Current Viewer",
+  role: "VIEWER",
+  active: true,
+  faculty: null,
+  section: assignedSection
+});
+assert.deepEqual(currentClaims, {
+  id: "user-1",
+  username: "viewer1",
+  name: "Current Viewer",
+  role: "VIEWER",
+  faculty: null,
+  section: "section-a"
+});
 
 console.log("Attendance access isolation tests passed.");
