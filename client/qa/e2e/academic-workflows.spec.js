@@ -301,7 +301,7 @@ test("admin can preview and import a holiday list from a CSV file", async ({ pag
   const activeSession = makeActiveSession();
   await signIn(page, { sessions: [activeSession] });
   await page.locator('[data-nav="Holiday Management"]').click();
-  await expect(page.getByRole("heading", { name: "Holiday Management" })).toBeVisible();
+  await expect(page.locator("h1", { hasText: "Holiday Management" })).toBeVisible();
 
   await page.locator("#holiday-upload-file").setInputFiles({
     name: "holidays.csv",
