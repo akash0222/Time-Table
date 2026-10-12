@@ -42,24 +42,25 @@ export async function requireAuth(req, res, next) {
     return res.status(401).json({ message: "Session expired. Please login again." });
   }
 
+  let user;
   try {
     // Account roles, status and faculty/section mappings can change while a
     // token is still valid. Resolve them from the database on every request
     // instead of trusting stale authorization claims from an earlier login.
-    const user = await User.findById(payload.id)
+    user = await User.findById(payload.id)
       .select("_id username role name faculty section active")
       .lean();
-
-    if (!user || user.active === false) {
-      return res.status(401).json({ message: "User account is inactive or no longer available. Please sign in again." });
-    }
-
-    req.user = currentUserClaims(user);
-    return next();
   } catch (error) {
     console.error("Authentication account lookup failed:", error.message);
     return res.status(503).json({ message: "Unable to verify your account right now. Please try again." });
   }
+
+  if (!user || user.active === false) {
+    return res.status(401).json({ message: "User account is inactive or no longer available. Please sign in again." });
+  }
+
+  req.user = currentUserClaims(user);
+  return next();
 }
 
 export function allowRoles(...roles) {
