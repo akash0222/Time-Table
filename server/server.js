@@ -17,6 +17,7 @@ import Timetable from "./models/Timetable.js";
 import SchedulerSetting from "./models/SchedulerSetting.js";
 import { generateTimetable, generateBestTimetable } from "./services/generator.js";
 import ExcelJS from "exceljs";
+import { parseHolidayImportDate, parseHolidayCsv, holidayImportCell } from "./services/holidayImport.js";
 import multer from "multer";
 import bcrypt from "bcryptjs";
 import authRouter from "./routes/auth.js";
@@ -164,6 +165,7 @@ app.get("/api/health", async (_req, res) => {
 });
 
 
+
 function cleanHolidayDates(values){
   const dates=[...new Set((Array.isArray(values)?values:[]).map(v=>String(v).trim()).filter(Boolean))];
   const valid=[];
@@ -262,6 +264,98 @@ app.post("/api/sessions/:id/activate", requireAuth, async (req,res)=>{
   }catch(e){res.status(400).json({message:e.message});}
 });
 
+
+app.post("/api/sessions/:id/holidays/preview-import", requireAuth, allowRoles("ADMIN", "SCHEDULER"), upload.single("file"), async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ message: "Choose an .xlsx or .csv holiday list first." });
+    const fileName = String(req.file.originalname || "").trim();
+    const extension = fileName.toLowerCase().split(".").pop();
+    let matrix = [];
+
+    if (extension === "csv") {
+      matrix = parseHolidayCsv(req.file.buffer.toString("utf8"));
+    } else if (extension === "xlsx") {
+      const workbook = new ExcelJS.Workbook();
+      await workbook.xlsx.load(req.file.buffer);
+      const worksheet = workbook.worksheets[0];
+      if (!worksheet) return res.status(400).json({ message: "The Excel file does not contain a worksheet." });
+      worksheet.eachRow({ includeEmpty: false }, excelRow => {
+        matrix.push(excelRow.values.slice(1).map(holidayImportCell));
+      });
+    } else {
+      return res.status(400).json({ message: "Unsupported file format. Upload an .xlsx Excel file or a .csv file." });
+    }
+
+    if (!matrix.length) return res.status(400).json({ message: "The uploaded holiday list is empty." });
+
+    const firstRowHeadings = (matrix[0] || []).map(value => String(value ?? "").trim().toLowerCase());
+    const detectedDateColumn = firstRowHeadings.findIndex(value => /date/.test(value));
+    const hasHeader = detectedDateColumn >= 0;
+    const headings = hasHeader ? firstRowHeadings : [];
+    const dateColumn = hasHeader ? detectedDateColumn : 0;
+    const nameColumn = hasHeader ? headings.findIndex(value => /holiday\s*name|name|occasion|holiday/.test(value) && !/date/.test(value)) : -1;
+    const descriptionColumn = hasHeader ? headings.findIndex(value => /description|notes?/.test(value)) : -1;
+    const firstDataRow = hasHeader ? 1 : 0;
+    const academicSession = await AcademicSession.findById(req.params.id).lean();
+    if (!academicSession) return res.status(404).json({ message: "Academic session not found." });
+
+    const start = academicSession.startDate ? new Date(academicSession.startDate).toISOString().slice(0, 10) : "";
+    const end = academicSession.endDate ? new Date(academicSession.endDate).toISOString().slice(0, 10) : "";
+    const existing = new Set((academicSession.holidayDates || []).map(value => String(value).slice(0, 10)));
+    const seen = new Set();
+    const rows = [];
+
+    for (let index = firstDataRow; index < matrix.length; index += 1) {
+      const values = matrix[index] || [];
+      const rawDate = holidayImportCell(values[dateColumn]);
+      const holidayName = nameColumn >= 0 ? String(holidayImportCell(values[nameColumn]) ?? "").trim() : "";
+      const description = descriptionColumn >= 0 ? String(holidayImportCell(values[descriptionColumn]) ?? "").trim() : "";
+      const hasAnyValue = values.some(value => String(value ?? "").trim());
+      if (!hasAnyValue) continue;
+      const displayValue = rawDate instanceof Date ? rawDate.toISOString().slice(0, 10) : String(rawDate ?? "").trim();
+      const date = parseHolidayImportDate(rawDate);
+      const result = { rowNumber: index + 1, sourceDate: displayValue, date: date || "", holidayName, description, status: "valid", reason: "" };
+
+      if (!date) {
+        result.status = "invalid";
+        result.reason = "Invalid or missing date. Use YYYY-MM-DD or DD-MM-YYYY.";
+      } else if (existing.has(date)) {
+        result.status = "skipped";
+        result.reason = "This holiday is already configured for the selected session.";
+      } else if (seen.has(date)) {
+        result.status = "skipped";
+        result.reason = "This date appears more than once in the uploaded file.";
+      } else if (new Date(date + "T00:00:00.000Z").getUTCDay() === 0) {
+        result.status = "skipped";
+        result.reason = "Sunday is already an automatic holiday.";
+        seen.add(date);
+      } else if ((start && date < start) || (end && date > end)) {
+        result.status = "invalid";
+        result.reason = "Date is outside the selected academic session (" + start + " to " + end + ").";
+        seen.add(date);
+      } else {
+        seen.add(date);
+      }
+      rows.push(result);
+    }
+
+    if (!rows.length) return res.status(400).json({ message: "No holiday rows were found. Add a Date column and at least one date." });
+    return res.json({
+      fileName,
+      sessionName: academicSession.name,
+      rows,
+      summary: {
+        total: rows.length,
+        valid: rows.filter(item => item.status === "valid").length,
+        skipped: rows.filter(item => item.status === "skipped").length,
+        invalid: rows.filter(item => item.status === "invalid").length
+      }
+    });
+  } catch (error) {
+    return res.status(400).json({ message: error.message || "Unable to read this holiday file." });
+  }
+});
+
 app.patch("/api/sessions/:id/holidays", requireAuth, async (req,res)=>{
   if(!["ADMIN","SCHEDULER"].includes(req.user?.role))return res.status(403).json({message:"Only Admin or Scheduler can manage holidays."});
   try{
@@ -273,7 +367,19 @@ app.patch("/api/sessions/:id/holidays", requireAuth, async (req,res)=>{
       const outside=holidays.find(d=>d<start||d>end);
       if(outside)return res.status(400).json({message:`Holiday ${outside} is outside the academic session range ${start} to ${end}.`});
     }
-    row.holidayDates=holidays;await row.save();
+    const detailInput = Array.isArray(req.body?.holidayDetails) ? req.body.holidayDetails : (row.holidayDetails || []);
+    const allowedDates = new Set(holidays);
+    const detailByDate = new Map();
+    for (const item of detailInput) {
+      const date = String(item?.date || "").slice(0,10);
+      if (!allowedDates.has(date)) continue;
+      const name = String(item?.name || "").trim().slice(0,160);
+      const description = String(item?.description || "").trim().slice(0,400);
+      if (name || description) detailByDate.set(date, {date, name, description});
+    }
+    row.holidayDates=holidays;
+    row.holidayDetails=[...detailByDate.values()];
+    await row.save();
     res.json(await AcademicSession.findById(row._id).populate("programDates.program","name code").lean());
   }catch(e){res.status(400).json({message:e.message});}
 });

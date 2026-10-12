@@ -56,6 +56,12 @@ jobs:
       - name: Install server dependencies
         working-directory: server
         run: npm ci
+      - name: Check server JavaScript syntax
+        working-directory: server
+        run: node --check server.js
       - name: Run generator and validator regression tests
         working-directory: server
         run: npm run test:regression:generator-validator
+      - name: Test holiday import parser
+        working-directory: server
+        run: npm run test:holiday-import
