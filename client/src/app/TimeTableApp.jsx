@@ -141,7 +141,11 @@ export default function App(){
     try{return JSON.parse(localStorage.getItem("tt_nav_collapsed_groups")||"{}")}catch{return {}}
   });
   const [expandedNavModules,setExpandedNavModules]=useState(()=>{
-    try{return JSON.parse(localStorage.getItem("tt_nav_expanded_modules")||"{}")}catch{return {}}
+    const defaults={"Academic Sessions":true,"Full Session Timetable":true};
+    try{
+      const saved=localStorage.getItem("tt_nav_expanded_modules");
+      return saved ? {...defaults,...JSON.parse(saved)} : defaults;
+    }catch{return defaults;}
   });
 
   const [data,setData]=useState({faculty:[],subjects:[],sections:[],rooms:[],timeslots:[],programs:[],students:[]});
