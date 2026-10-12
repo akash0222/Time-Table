@@ -5,6 +5,7 @@ import FeeInvoice from "../models/FeeInvoice.js";
 import FeePayment from "../models/FeePayment.js";
 import StudentPromotion from "../models/StudentPromotion.js";
 import Timetable from "../models/Timetable.js";
+import AcademicSession from "../models/AcademicSession.js";
 
 const router = express.Router();
 
@@ -14,7 +15,11 @@ async function allowed(req, student) {
   if (req.user?.role === "VIEWER") return String(student.section?._id || student.section) === String(req.user.section || "");
   if (req.user?.role === "FACULTY") {
     if (!req.user?.faculty) return false;
-    const timetable = await Timetable.findOne({ isCurrent: true }).lean();
+    const activeSession = await AcademicSession.findOne({ active: true }).select("_id").lean();
+    const timetableFilter = activeSession
+      ? { academicSession: activeSession._id, isCurrent: true }
+      : { isCurrent: true };
+    const timetable = await Timetable.findOne(timetableFilter).lean();
     return Boolean((timetable?.entries || []).some(e =>
       String(e.faculty) === String(req.user.faculty) && String(e.section) === String(student.section?._id || student.section)
     ));
@@ -30,6 +35,7 @@ router.get("/:id", async (req, res) => {
     if (!student) return res.status(404).json({ message: "Student not found." });
     if (!await allowed(req, student)) return res.status(403).json({ message: "You are not authorized to view this student's profile." });
 
+    const canViewAdministrativeRecords = ["ADMIN", "SCHEDULER"].includes(req.user?.role);
     const [attendance, invoices, payments, promotions] = await Promise.all([
       AttendanceSession.find({ "records.student": student._id })
         .populate("subject", "name code")
@@ -37,18 +43,24 @@ router.get("/:id", async (req, res) => {
         .populate("faculty", "name code")
         .populate("academicSession", "name")
         .sort({ date: -1, startTime: -1 }).lean(),
-      FeeInvoice.find({ student: student._id })
-        .populate("feeHead", "name code")
-        .populate("academicSession", "name")
-        .sort({ createdAt: -1 }).lean(),
-      FeePayment.find({ student: student._id })
-        .populate("invoice", "invoiceNo")
-        .sort({ paymentDate: -1 }).lean(),
-      StudentPromotion.find({ student: student._id })
-        .populate("fromSection", "name program semester")
-        .populate("toSection", "name program semester")
-        .populate("academicSession", "name")
-        .sort({ createdAt: -1 }).lean()
+      canViewAdministrativeRecords
+        ? FeeInvoice.find({ student: student._id })
+            .populate("feeHead", "name code")
+            .populate("academicSession", "name")
+            .sort({ createdAt: -1 }).lean()
+        : Promise.resolve([]),
+      canViewAdministrativeRecords
+        ? FeePayment.find({ student: student._id })
+            .populate("invoice", "invoiceNo")
+            .sort({ paymentDate: -1 }).lean()
+        : Promise.resolve([]),
+      canViewAdministrativeRecords
+        ? StudentPromotion.find({ student: student._id })
+            .populate("fromSection", "name program semester")
+            .populate("toSection", "name program semester")
+            .populate("academicSession", "name")
+            .sort({ createdAt: -1 }).lean()
+        : Promise.resolve([])
     ]);
 
     const attendanceRows = [];
