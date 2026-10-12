@@ -1,6 +1,7 @@
 import React, {useEffect, useMemo, useState} from "react";
 import axios from "axios";
 import {API, API_CONFIGURATION_ERROR} from "../core/api";
+import {getPageForPath, getPathForPage} from "../core/pageRoutes";
 import {CalendarDays, CalendarOff, Users, BookOpen, DoorOpen, Clock3, WandSparkles, Trash2, Settings2, Check, X, FileSpreadsheet, Upload, Lock, Send, RotateCcw, ShieldCheck,BarChart3,Activity,Bell,UserCheck,RefreshCw,Copy,QrCode,History,ClipboardCheck,UserPlus,DollarSign,GraduationCap,Search,ArrowRight,UsersRound,ChevronLeft,ChevronRight,AlertTriangle,CheckCircle2,Link2} from "lucide-react";
 
 const days=["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
@@ -9,7 +10,29 @@ function refId(v){return String(v?._id??v??"");}
 
 function App(){
   const [auth,setAuth]=useState(()=>{try{return JSON.parse(localStorage.getItem("tt_user")||"null")}catch{return null}});
-  const [tab,setTab]=useState("Dashboard");
+  const [tab,setTabState]=useState(()=>getPageForPath(window.location.pathname));
+  const setTab=(nextTab)=>setTabState(nextTab);
+
+  // Browser-history navigation keeps each module addressable as its own page.
+  useEffect(()=>{
+    const syncPageFromUrl=()=>setTabState(getPageForPath(window.location.pathname));
+    window.addEventListener("popstate",syncPageFromUrl);
+    return ()=>window.removeEventListener("popstate",syncPageFromUrl);
+  },[]);
+
+  useEffect(()=>{
+    const visiblePages=navGroupsForRole(auth?.role).flatMap(group=>group.items.map(item=>item.name));
+    if(auth && tab!=="Dashboard" && !visiblePages.includes(tab)){
+      setMessage("This page is not available for your account role.");
+      window.history.replaceState({page:"Dashboard"},"",getPathForPage("Dashboard"));
+      setTabState("Dashboard");
+      return;
+    }
+    const targetPath=getPathForPage(tab);
+    if(window.location.pathname!==targetPath){
+      window.history.pushState({page:tab},"",targetPath);
+    }
+  },[tab,auth?.role]);
   const [sidebarCollapsed,setSidebarCollapsed]=useState(()=>localStorage.getItem("tt_sidebar_collapsed")==="true");
   const [data,setData]=useState({faculty:[],subjects:[],sections:[],rooms:[],timeslots:[],programs:[],students:[]});
   const [latest,setLatest]=useState(null);
