@@ -288,12 +288,17 @@ test("admin can configure a holiday for an academic session", async ({ page }) =
   const activeSession = makeActiveSession();
   await signIn(page, { sessions: [activeSession] });
   await page.locator('[data-nav="Holiday Management"]').click();
-  await expect(page.getByRole("heading", { name: "Holiday Management" })).toBeVisible();
+  await expect(page.locator("h2", { hasText: "Holiday Management" })).toBeVisible();
   await expect(page.getByText("Configured Holiday Dates")).toBeVisible();
-  await page.locator('input[type="date"]').fill("2026-08-15");
+  await page.locator("#holiday-name").fill("Independence Day");
+  await page.locator("#holiday-date").fill("2026-08-15");
   await page.getByRole("button", { name: "Add Holiday" }).click();
   await expect(page.getByText("2026-08-15")).toBeVisible();
+  await expect(page.getByText("Independence Day", { exact: true })).toBeVisible();
   await expect(page.getByText("Configured Holidays").locator("..").getByText("1")).toBeVisible();
+  await page.reload();
+  await expect(page.locator("h2", { hasText: "Holiday Management" })).toBeVisible();
+  await expect(page.getByText("Independence Day", { exact: true })).toBeVisible();
 });
 
 

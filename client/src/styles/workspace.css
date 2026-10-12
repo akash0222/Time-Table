@@ -207,7 +207,7 @@
 .holiday-panel-heading p{margin:5px 0 0;color:#64748b;font-size:13px;line-height:1.55;max-width:760px}
 .holiday-access-note{padding:7px 10px;background:#f0fdf4;color:#166534;flex:0 0 auto}
 .holiday-access-note.readonly{background:#f1f5f9;color:#475569}
-.holiday-config-grid{display:grid;grid-template-columns:minmax(230px,.82fr) minmax(360px,1.45fr);align-items:start;gap:22px}
+.holiday-config-grid{display:grid;grid-template-columns:minmax(220px,.82fr) minmax(220px,.8fr) minmax(360px,1.45fr);align-items:start;gap:18px}
 .holiday-management .field{min-width:0}
 .holiday-management .field label{font-size:12px;font-weight:700;color:#344054}
 .holiday-management .field select,.holiday-management .field input{min-height:46px;border:1px solid #d5deeb;border-radius:10px;background:#fff;padding:11px 12px;color:#14213d;outline:none;transition:border-color .16s ease,box-shadow .16s ease}
@@ -265,7 +265,8 @@
 .holiday-rule-card strong{font-size:13px;color:#233653}
 .holiday-rule-card span:not(.holiday-rule-icon){font-size:11px;line-height:1.55;color:#64748b}
 @media(max-width:1050px){
-  .holiday-config-grid{grid-template-columns:minmax(200px,.8fr) minmax(300px,1.2fr);gap:16px}
+  .holiday-config-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+  .holiday-date-field{grid-column:1 / -1}
   .holiday-rules{grid-template-columns:1fr}
 }
 @media(max-width:760px){
@@ -357,3 +358,7 @@
 
 .holiday-date-copy .holiday-detail-weekday{color:#8490a3;font-size:10px}
 .holiday-date-copy .holiday-detail-description{color:#64748b;font-size:11px;line-height:1.4;max-width:560px;white-space:normal}
+
+.holiday-name-field input{width:100%;min-width:0}
+.holiday-name-field label span{color:#dc2626}
+@media(max-width:760px){.holiday-date-field{grid-column:auto}}
