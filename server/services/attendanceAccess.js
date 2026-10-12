@@ -42,3 +42,9 @@ export function canAccessAttendanceSection(role, assignment, sectionId, timetabl
   }
   return false;
 }
+
+export function attendanceRecordMatchesClass(record, currentTimetableId, timetableEntryId) {
+  return Boolean(record)
+    && idOf(record.timetable) === idOf(currentTimetableId)
+    && idOf(record.timetableEntryId) === idOf(timetableEntryId);
+}
