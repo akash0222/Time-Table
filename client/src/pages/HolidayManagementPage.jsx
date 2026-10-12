@@ -1,7 +1,7 @@
 import React, {useEffect, useState} from "react";
 import axios from "axios";
 import {API} from "../core/api";
-import {CalendarDays, CalendarOff, Clock3, Search, ShieldCheck, Trash2, FileSpreadsheet, Upload, Download, CheckCircle2, AlertTriangle} from "lucide-react";
+import {CalendarDays, CalendarOff, Clock3, Search, ShieldCheck, Trash2, FileSpreadsheet, Upload, Download, CheckCircle2, AlertTriangle, Pencil, Save, X} from "lucide-react";
 
 const isoDate = value => String(value || "").slice(0, 10);
 
@@ -34,6 +34,9 @@ export default function HolidayManagement({sessions = [], activeSession, role, s
   const [session, setSession] = useState(null);
   const [holidayDate, setHolidayDate] = useState("");
   const [holidayName, setHolidayName] = useState("");
+  const [editingHolidayDate, setEditingHolidayDate] = useState("");
+  const [editingHolidayName, setEditingHolidayName] = useState("");
+  const [editingHolidayDescription, setEditingHolidayDescription] = useState("");
   const [holidays, setHolidays] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(false);
@@ -65,6 +68,9 @@ export default function HolidayManagement({sessions = [], activeSession, role, s
     setUploadFile(null);
     setHolidayDate("");
     setHolidayName("");
+    setEditingHolidayDate("");
+    setEditingHolidayName("");
+    setEditingHolidayDescription("");
 
     try {
       const response = await axios.get(API + "/academic-sessions/" + id);
@@ -205,6 +211,50 @@ export default function HolidayManagement({sessions = [], activeSession, role, s
       if (fileInput) fileInput.value = "";
       if (typeof setMessage === "function") {
         setMessage(cleanIncoming.length + " holiday date(s) imported into " + selectedSessionName + ". Duplicates and Sunday dates were skipped.");
+      }
+    }
+  }
+
+  function beginEditHoliday(date, detail) {
+    setEditingHolidayDate(date);
+    setEditingHolidayName(String(detail?.name || ""));
+    setEditingHolidayDescription(String(detail?.description || ""));
+    setError("");
+  }
+
+  function cancelEditHoliday() {
+    setEditingHolidayDate("");
+    setEditingHolidayName("");
+    setEditingHolidayDescription("");
+  }
+
+  async function saveEditedHoliday(event, date) {
+    event?.preventDefault?.();
+    if (!date || !canEdit || saving) return;
+    const cleanName = editingHolidayName.trim();
+    if (!cleanName) {
+      setError("Enter a holiday name before saving.");
+      return;
+    }
+    if (cleanName.length > 160 || editingHolidayDescription.trim().length > 400) {
+      setError("Holiday name must be 160 characters or fewer and description must be 400 characters or fewer.");
+      return;
+    }
+
+    const detailMap = new Map((session?.holidayDetails || []).map(item => [
+      isoDate(item.date),
+      {date: isoDate(item.date), name: String(item.name || ""), description: String(item.description || "")}
+    ]));
+    detailMap.set(date, {
+      date,
+      name: cleanName,
+      description: editingHolidayDescription.trim()
+    });
+    const saved = await saveDates(holidays, [...detailMap.values()]);
+    if (saved) {
+      cancelEditHoliday();
+      if (typeof setMessage === "function") {
+        setMessage("Holiday details updated for " + dateLabel(date, {day:"numeric", month:"long", year:"numeric"}) + ".");
       }
     }
   }
@@ -475,32 +525,82 @@ export default function HolidayManagement({sessions = [], activeSession, role, s
           <div className="holiday-date-list">
             {filteredHolidays.map(date => {
               const detail = (session?.holidayDetails || []).find(item => isoDate(item.date) === date);
+              const isEditing = editingHolidayDate === date;
               return (
-                <div className="holiday-date-row" key={date}>
+                <div className={"holiday-date-row" + (isEditing ? " is-editing" : "")} key={date}>
                   <div className="holiday-date-main">
                     <span className="holiday-date-tile" aria-hidden="true">
                       <strong>{dateLabel(date, {day: "2-digit"})}</strong>
                       <small>{dateLabel(date, {month: "short"}).toUpperCase()}</small>
                     </span>
                     <div className="holiday-date-copy">
-                      <strong>{detail?.name || dateLabel(date, {weekday: "long"})}</strong>
+                      {!isEditing && <strong>{detail?.name || dateLabel(date, {weekday: "long"})}</strong>}
                       <span className="holiday-iso-date">{date}</span>
                       <small>{dateLabel(date, {day: "numeric", month: "long", year: "numeric"})}</small>
-                      {detail?.name && <small className="holiday-detail-weekday">{dateLabel(date, {weekday: "long"})}</small>}
-                      {detail?.description && <small className="holiday-detail-description">{detail.description}</small>}
+                      {!isEditing && detail?.name && <small className="holiday-detail-weekday">{dateLabel(date, {weekday: "long"})}</small>}
+                      {!isEditing && detail?.description && <small className="holiday-detail-description">{detail.description}</small>}
+                      {isEditing && (
+                        <form className="holiday-edit-form" onSubmit={event => saveEditedHoliday(event, date)}>
+                          <label>
+                            Holiday name <span aria-hidden="true">*</span>
+                            <input
+                              type="text"
+                              aria-label={"Holiday name for " + date}
+                              value={editingHolidayName}
+                              maxLength={160}
+                              required
+                              autoFocus
+                              onChange={event => { setEditingHolidayName(event.target.value); setError(""); }}
+                              disabled={saving}
+                            />
+                          </label>
+                          <label>
+                            Description <span className="holiday-edit-optional">(optional)</span>
+                            <textarea
+                              aria-label={"Description for " + date}
+                              value={editingHolidayDescription}
+                              maxLength={400}
+                              rows={2}
+                              onChange={event => setEditingHolidayDescription(event.target.value)}
+                              disabled={saving}
+                            />
+                          </label>
+                          <div className="holiday-edit-hint">The holiday date stays unchanged.</div>
+                          <div className="holiday-edit-form-actions">
+                            <button className="primary holiday-edit-save" type="submit" disabled={saving || !editingHolidayName.trim()}>
+                              <Save size={14}/>{saving ? "Saving…" : "Save changes"}
+                            </button>
+                            <button className="secondary holiday-edit-cancel" type="button" onClick={cancelEditHoliday} disabled={saving}>
+                              <X size={14}/> Cancel
+                            </button>
+                          </div>
+                        </form>
+                      )}
                     </div>
                   </div>
-                  {canEdit && (
-                    <button
-                      className="secondary danger holiday-remove-button"
-                      type="button"
-                      onClick={() => removeHoliday(date)}
-                      disabled={saving || loading}
-                      aria-label={"Remove holiday " + date}
-                    >
-                      <Trash2 size={15}/> Remove
-                    </button>
+                  {canEdit && !isEditing && (
+                    <div className="holiday-row-actions">
+                      <button
+                        className="secondary holiday-edit-button"
+                        type="button"
+                        onClick={() => beginEditHoliday(date, detail)}
+                        disabled={saving || loading || Boolean(editingHolidayDate)}
+                        aria-label={"Edit holiday " + date}
+                      >
+                        <Pencil size={14}/> Edit
+                      </button>
+                      <button
+                        className="secondary danger holiday-remove-button"
+                        type="button"
+                        onClick={() => removeHoliday(date)}
+                        disabled={saving || loading || Boolean(editingHolidayDate)}
+                        aria-label={"Remove holiday " + date}
+                      >
+                        <Trash2 size={15}/> Remove
+                      </button>
+                    </div>
                   )}
+                  {canEdit && isEditing && <span className="holiday-editing-badge">Editing</span>}
                 </div>
               );
             })}
