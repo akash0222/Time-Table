@@ -1,3 +1,3 @@
-import TimeTableApp from "./app/TimeTableApp.jsx";
+import Root from "./app/Root.jsx";
 
-export default TimeTableApp;
+export default Root;
