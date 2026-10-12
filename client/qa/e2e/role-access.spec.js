@@ -290,6 +290,9 @@ test("dashboard shows visual analytics and the sidebar collapses to icon navigat
   await page.getByRole("button", { name: "Expand Academic & Scheduling" }).click();
   await expect(page.locator('[data-nav="Academic Sessions"]')).toBeVisible();
 
+  await expect(page.getByRole("button", { name: "Collapse Academic Sessions submodules" })).toBeVisible();
+  await page.getByRole("button", { name: "Collapse Academic Sessions submodules" }).click();
+  await expect(page.locator('[data-nav="Academic Structure"]')).toHaveCount(0);
   await page.getByRole("button", { name: "Expand Academic Sessions submodules" }).click();
   await expect(page.locator('[data-nav="Academic Structure"]')).toBeVisible();
   await page.locator('[data-nav="Academic Structure"]').click();
