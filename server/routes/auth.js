@@ -8,11 +8,29 @@ const router = express.Router();
 const loginAttempts = new Map();
 const LOGIN_WINDOW_MS = 15 * 60 * 1000;
 const LOGIN_LIMIT = process.env.NODE_ENV === "production" ? 10 : 100;
-function loginLimiter(req, res, next){
-  const key = `${req.ip}|${String(req.body?.username || "").trim().toLowerCase()}`;
+const LOGIN_MAX_KEYS = 20000;
+let limiterRequests = 0;
+
+function pruneLoginAttempts(now) {
+  limiterRequests += 1;
+  if (loginAttempts.size < LOGIN_MAX_KEYS && limiterRequests % 100 !== 0) return;
+  for (const [key, entry] of loginAttempts) {
+    if (now - entry.startedAt > LOGIN_WINDOW_MS) loginAttempts.delete(key);
+  }
+}
+
+function loginLimiter(req, res, next) {
+  const ip = String(req.ip || "unknown").slice(0, 100);
+  const username = String(req.body?.username || "").trim().toLowerCase().slice(0, 100);
+  const key = `${ip}|${username}`;
   const now = Date.now();
+  pruneLoginAttempts(now);
+
   const current = loginAttempts.get(key);
   if (!current || now - current.startedAt > LOGIN_WINDOW_MS) {
+    if (!current && loginAttempts.size >= LOGIN_MAX_KEYS) {
+      return res.status(429).json({ message: "Login protection is busy. Please retry in a few minutes." });
+    }
     loginAttempts.set(key, { startedAt: now, count: 1 });
     return next();
   }
