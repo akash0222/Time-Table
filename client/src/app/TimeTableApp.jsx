@@ -29,9 +29,17 @@ function App(){
       return;
     }
     const targetPath=getPathForPage(tab);
-    if(window.location.pathname!==targetPath){
+    const currentPath=window.location.pathname;
+    const pageFromUrl=getPageForPath(currentPath);
+    const canonicalPath=getPathForPage(pageFromUrl);
+
+    // Normalize old aliases/unknown URLs without leaving a broken history step.
+    if(currentPath!==canonicalPath && pageFromUrl===tab){
+      window.history.replaceState({page:tab},"",canonicalPath);
+    }else if(currentPath!==targetPath){
       window.history.pushState({page:tab},"",targetPath);
     }
+    document.title=tab==="Dashboard" ? "Time Table" : `${tab} | Time Table`;
   },[tab,auth?.role]);
   const [sidebarCollapsed,setSidebarCollapsed]=useState(()=>localStorage.getItem("tt_sidebar_collapsed")==="true");
   const [data,setData]=useState({faculty:[],subjects:[],sections:[],rooms:[],timeslots:[],programs:[],students:[]});
@@ -545,7 +553,7 @@ function navGroupsForRole(role){
     Dashboard:Activity,"Academic Sessions":CalendarDays,"Academic Structure":GraduationCap,"Holiday Management":CalendarOff,"Generation Readiness":ShieldCheck,"Full Session Timetable":CalendarDays,"All Program Timetables":GraduationCap,Timetable:Clock3,"Calendar View":CalendarDays,"My Timetable":CalendarDays,
     Students:UserPlus,"Student Mapping":UsersRound,"Student Profile":UsersRound,"Student Promotion":GraduationCap,Attendance:UserCheck,"Faculty Portal":Users,"Section Portal":Users,
     "Master Data Settings":Settings2,"Subject & Faculty Mapping":BookOpen,"Program & Section Mapping":Link2,"Excel Import":FileSpreadsheet,"Templates & Clone":Copy,"Public Sharing":QrCode,
-    Reports:BarChart3,Analytics:BarChart3,Validation:ShieldCheck,"Change History":History,"Audit Logs":History,"User Management":Users,Settings:Settings2
+    Reports:BarChart3,Analytics:BarChart3,Validation:ShieldCheck,"Change History":History,"Audit Logs":History,"User Management":Users,Settings:Settings2,Fees:DollarSign,Notifications:Bell,Optimization:Activity,Availability:Clock3,"Import Center":Upload
   };
   return base.map(g=>({...g,items:g.items.filter(name=>allowed.has(name)).map(name=>({name,Icon:icons[name]||Activity}))})).filter(g=>g.items.length);
 }
