@@ -189,3 +189,104 @@
     /* Brand is intentionally written as two words. */
     .brand span{white-space:nowrap}
 
+
+
+/* Holiday Management refresh */
+.holiday-management{display:flex;flex-direction:column;gap:18px;min-width:0}
+.holiday-management .holiday-page-header{align-items:center;gap:18px;margin-bottom:0}
+.holiday-page-title{display:flex;align-items:center;gap:14px;min-width:0}
+.holiday-title-icon{width:52px;height:52px;flex:0 0 52px;border-radius:15px;display:grid;place-items:center;background:#e8efff;color:#2456d6}
+.holiday-eyebrow{display:block;margin-bottom:5px;color:#64748b;font-size:10px;font-weight:800;letter-spacing:1.45px}
+.holiday-page-title h2{margin:0;color:#14213d;font-size:clamp(22px,2vw,28px);line-height:1.2}
+.holiday-page-title p{margin:6px 0 0;color:#64748b;line-height:1.55;max-width:720px}
+.holiday-sunday-badge,.holiday-access-note,.holiday-count-pill{display:inline-flex;align-items:center;justify-content:center;gap:7px;border-radius:999px;font-size:12px;font-weight:700;white-space:nowrap}
+.holiday-sunday-badge{padding:10px 13px;background:#dcfce7;color:#166534}
+.holiday-management .panel{padding:22px;margin-top:0;min-width:0}
+.holiday-panel-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:18px}
+.holiday-panel-heading h3{margin:0;color:#172b4d;font-size:17px}
+.holiday-panel-heading p{margin:5px 0 0;color:#64748b;font-size:13px;line-height:1.55;max-width:760px}
+.holiday-access-note{padding:7px 10px;background:#f0fdf4;color:#166534;flex:0 0 auto}
+.holiday-access-note.readonly{background:#f1f5f9;color:#475569}
+.holiday-config-grid{display:grid;grid-template-columns:minmax(230px,.82fr) minmax(360px,1.45fr);align-items:start;gap:22px}
+.holiday-management .field{min-width:0}
+.holiday-management .field label{font-size:12px;font-weight:700;color:#344054}
+.holiday-management .field select,.holiday-management .field input{min-height:46px;border:1px solid #d5deeb;border-radius:10px;background:#fff;padding:11px 12px;color:#14213d;outline:none;transition:border-color .16s ease,box-shadow .16s ease}
+.holiday-management .field select:focus,.holiday-management .field input:focus,.holiday-search input:focus{border-color:#6794f7;box-shadow:0 0 0 3px rgba(37,99,235,.12)}
+.holiday-management .field input:disabled,.holiday-management .field select:disabled{background:#f8fafc;color:#94a3b8;cursor:not-allowed}
+.holiday-date-control{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:stretch;gap:10px}
+.holiday-date-control input{width:100%;min-width:0}
+.holiday-management .holiday-add-button{min-height:46px;padding:0 18px;border-radius:10px;white-space:nowrap;font-weight:700;box-shadow:0 4px 10px rgba(37,99,235,.15)}
+.holiday-management .holiday-add-button:disabled{opacity:.55;cursor:not-allowed;box-shadow:none}
+.holiday-management .field-help{display:block;margin-top:7px;color:#64748b;font-size:11px;line-height:1.45;font-weight:400}
+.holiday-error{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin:16px 0 0!important;line-height:1.5}
+.holiday-inline-loader{flex:0 0 auto;font-size:12px;font-weight:700}
+.holiday-readonly-note{margin-top:16px;padding:11px 13px;border:1px solid #dbeafe;background:#eff6ff;color:#1d4ed8;border-radius:10px;font-size:12px}
+.holiday-summary-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:22px}
+.holiday-summary-card{display:flex;align-items:flex-start;gap:12px;min-width:0;padding:16px;border:1px solid #e0e7f1;border-radius:13px;background:#f8fafc}
+.holiday-summary-icon{width:38px;height:38px;flex:0 0 38px;display:grid;place-items:center;border-radius:11px;background:#e8efff;color:#2456d6}
+.holiday-summary-icon.sunday{background:#dcfce7;color:#15803d}
+.holiday-summary-icon.session{background:#f3e8ff;color:#7e22ce}
+.holiday-summary-card>div{display:flex;flex-direction:column;gap:4px;min-width:0}
+.holiday-summary-card>div>span{color:#64748b;font-size:12px;line-height:1.35}
+.holiday-summary-card strong{font-size:25px;color:#132342;line-height:1.2;overflow-wrap:anywhere}
+.holiday-summary-card strong.holiday-session-name{font-size:17px;line-height:1.4}
+.holiday-summary-card small{color:#7b879a;font-size:11px;line-height:1.45}
+.holiday-list-heading{align-items:center}
+.holiday-count-pill{padding:7px 11px;background:#eff6ff;color:#1d4ed8;border:1px solid #dbeafe}
+.holiday-search{display:flex;align-items:center;gap:9px;max-width:360px;margin:0 0 14px;padding:0 12px;border:1px solid #dbe3ee;border-radius:10px;color:#64748b;background:#fff}
+.holiday-search:focus-within{border-color:#6794f7;box-shadow:0 0 0 3px rgba(37,99,235,.1)}
+.holiday-search input{width:100%;min-width:0;min-height:40px;padding:8px 0;border:0!important;outline:0;box-shadow:none!important;background:transparent;font-size:13px;color:#172b4d}
+.holiday-date-list{display:flex;flex-direction:column;gap:9px}
+.holiday-date-row{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:13px 15px;border:1px solid #e1e8f2;border-radius:13px;background:#fff;transition:border-color .15s ease,background .15s ease}
+.holiday-date-row:hover{border-color:#bfcef0;background:#fbfdff}
+.holiday-date-main{display:flex;align-items:center;gap:14px;min-width:0}
+.holiday-date-tile{width:53px;height:58px;flex:0 0 53px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;border:1px solid #dbeafe;border-radius:11px;background:#eff6ff;color:#1d4ed8}
+.holiday-date-tile strong{font-size:21px;line-height:1}
+.holiday-date-tile small{font-size:10px;letter-spacing:.4px;font-weight:800}
+.holiday-date-copy{display:flex;flex-direction:column;align-items:flex-start;gap:3px;min-width:0}
+.holiday-date-copy>strong{font-size:14px;color:#172b4d}
+.holiday-date-copy .holiday-iso-date{font-size:12px;font-weight:700;color:#2563eb;font-variant-numeric:tabular-nums}
+.holiday-date-copy small{font-size:11px;color:#8490a3}
+.holiday-management .holiday-remove-button{display:inline-flex;align-items:center;justify-content:center;gap:7px;padding:9px 12px;border-radius:9px;white-space:nowrap;font-size:12px;font-weight:700}
+.holiday-management .secondary.danger{border:1px solid #fecaca;background:#fff;color:#b91c1c}
+.holiday-management .secondary.danger:hover{background:#fff1f2}
+.holiday-management .secondary.danger:disabled{opacity:.55;cursor:not-allowed}
+.holiday-empty-state{display:flex;align-items:center;flex-direction:column;gap:8px;padding:34px 20px;border:1px dashed #d8e1ee;border-radius:12px;text-align:center;color:#64748b;background:#fafcff}
+.holiday-empty-state>svg{color:#8ba6d8}
+.holiday-empty-state strong{font-size:14px;color:#334155}
+.holiday-empty-state span{max-width:480px;font-size:12px;line-height:1.55}
+.holiday-empty-state.compact{padding:22px}
+.holiday-spinner{width:24px;height:24px;border:3px solid #dbeafe;border-top-color:#2563eb;border-radius:50%;animation:holiday-spin .8s linear infinite}
+@keyframes holiday-spin{to{transform:rotate(360deg)}}
+.holiday-rules{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.holiday-rule-card{display:flex;align-items:flex-start;gap:11px;padding:15px;border:1px solid #e2e8f0;border-radius:12px;background:#f8fafc}
+.holiday-rule-icon{width:36px;height:36px;flex:0 0 36px;display:grid;place-items:center;border-radius:10px;background:#e8efff;color:#2456d6}
+.holiday-rule-card>div{display:flex;flex-direction:column;gap:5px;min-width:0}
+.holiday-rule-card strong{font-size:13px;color:#233653}
+.holiday-rule-card span:not(.holiday-rule-icon){font-size:11px;line-height:1.55;color:#64748b}
+@media(max-width:1050px){
+  .holiday-config-grid{grid-template-columns:minmax(200px,.8fr) minmax(300px,1.2fr);gap:16px}
+  .holiday-rules{grid-template-columns:1fr}
+}
+@media(max-width:760px){
+  .holiday-management .holiday-page-header{align-items:flex-start;flex-direction:column}
+  .holiday-sunday-badge{white-space:normal}
+  .holiday-config-grid,.holiday-summary-grid{grid-template-columns:1fr}
+  .holiday-list-heading{align-items:flex-start}
+  .holiday-management .panel{padding:17px}
+  .holiday-summary-card{padding:13px}
+}
+@media(max-width:520px){
+  .holiday-page-title{align-items:flex-start;gap:10px}
+  .holiday-title-icon{width:42px;height:42px;flex-basis:42px;border-radius:12px}
+  .holiday-panel-heading{flex-direction:column;align-items:flex-start}
+  .holiday-date-control{grid-template-columns:1fr}
+  .holiday-management .holiday-add-button{width:100%}
+  .holiday-date-row{align-items:flex-start;flex-direction:column}
+  .holiday-date-main{align-items:center}
+  .holiday-management .holiday-remove-button{align-self:flex-end}
+  .holiday-count-pill{align-self:flex-start}
+}
+@media(prefers-reduced-motion:reduce){
+  .holiday-management *{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;scroll-behavior:auto!important}
+}
