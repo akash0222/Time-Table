@@ -62,3 +62,6 @@ jobs:
       - name: Run generator and validator regression tests
         working-directory: server
         run: npm run test:regression:generator-validator
+      - name: Test holiday import parser
+        working-directory: server
+        run: npm run test:holiday-import
