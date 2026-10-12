@@ -2728,13 +2728,13 @@ app.get("/api/reports/export/:type", requireAuth, async (req,res)=>{
 });
 
 // Public sharing administration and read-only endpoints.
-app.get("/api/shareable-timetables", requireAuth, async (_req,res)=>{
+app.get("/api/shareable-timetables", requireAuth, allowRoles("ADMIN"), async (_req,res)=>{
   try{
     const rows=await Timetable.find({status:{$in:["PUBLISHED","LOCKED"]}}).populate("academicSession","name").select("version versionLabel status academicSession createdAt").sort({createdAt:-1}).lean();
     res.json(rows);
   }catch(e){res.status(500).json({message:e.message});}
 });
-app.get("/api/share-links", requireAuth, async (_req,res)=>{
+app.get("/api/share-links", requireAuth, allowRoles("ADMIN"), async (_req,res)=>{
   try{res.json(await ShareLink.find().populate("timetable","version versionLabel status").populate("academicSession","name").populate("section","program semester name").populate("faculty","name code").sort({createdAt:-1}).lean());}
   catch(e){res.status(500).json({message:e.message});}
 });
@@ -2744,14 +2744,33 @@ app.post("/api/share-links", requireAuth, async (req,res)=>{
     const timetable=await Timetable.findById(req.body?.timetableId);
     if(!timetable) return res.status(404).json({message:"Timetable not found."});
     if(!["PUBLISHED","LOCKED"].includes(timetable.status)) return res.status(409).json({message:"Only published or locked timetables can be shared."});
-    const scope=req.body?.scope||"FULL";
-    if(scope==="SECTION"&&!req.body?.sectionId) return res.status(400).json({message:"Section is required."});
-    if(scope==="FACULTY"&&!req.body?.facultyId) return res.status(400).json({message:"Faculty is required."});
-    const expires=req.body?.expiresIn||"7d";
+    const scope=String(req.body?.scope||"FULL").toUpperCase();
+    if(!["FULL","SECTION","FACULTY"].includes(scope)) return res.status(400).json({message:"Scope must be FULL, SECTION or FACULTY."});
+    const sectionId=String(req.body?.sectionId||"").trim();
+    const facultyId=String(req.body?.facultyId||"").trim();
+    if(scope==="SECTION"&&!sectionId) return res.status(400).json({message:"Section is required."});
+    if(scope==="FACULTY"&&!facultyId) return res.status(400).json({message:"Faculty is required."});
+    if(scope==="SECTION"&&!timetable.entries.some(entry=>String(entry.section?._id||entry.section||"")===sectionId)) {
+      return res.status(400).json({message:"The selected section is not part of this timetable."});
+    }
+    if(scope==="FACULTY"&&!timetable.entries.some(entry=>String(entry.faculty?._id||entry.faculty||"")===facultyId)) {
+      return res.status(400).json({message:"The selected faculty member is not assigned in this timetable."});
+    }
+    const expires=String(req.body?.expiresIn||"7d");
+    if(!["1h","1d","7d","30d","never"].includes(expires)) return res.status(400).json({message:"Expiry must be 1h, 1d, 7d, 30d or never."});
     let expiresAt=null;
-    const m=/^(\d+)(h|d)$/.exec(expires); if(m) expiresAt=new Date(Date.now()+Number(m[1])*(m[2]==="h"?3600000:86400000));
+    const expiryMatch=/^(1h|1d|7d|30d)$/.exec(expires);
+    if(expiryMatch) {
+      const unit=expires.endsWith("h")?3600000:86400000;
+      expiresAt=new Date(Date.now()+Number.parseInt(expires,10)*unit);
+    }
     const token=(await import("crypto")).randomBytes(24).toString("hex");
-    const row=await ShareLink.create({token,timetable:timetable._id,academicSession:timetable.academicSession,scope,section:scope==="SECTION"?req.body.sectionId:null,faculty:scope==="FACULTY"?req.body.facultyId:null,expiresAt,createdBy:req.user?.id || null,createdByName:req.user?.username||""});
+    const row=await ShareLink.create({
+      token,timetable:timetable._id,academicSession:timetable.academicSession,scope,
+      section:scope==="SECTION"?sectionId:null,
+      faculty:scope==="FACULTY"?facultyId:null,
+      expiresAt,createdBy:req.user?.id||null,createdByName:req.user?.username||""
+    });
     res.status(201).json(await ShareLink.findById(row._id).populate("timetable","version versionLabel status").populate("section","program semester name").populate("faculty","name code").lean());
   }catch(e){res.status(400).json({message:e.message});}
 });
