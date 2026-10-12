@@ -168,7 +168,24 @@ export default function Login({ onLogin }) {
             <circle cx="52" cy="398" r="9" stroke="#BFDBFE" strokeWidth="2"/>
             <circle cx="70" cy="419" r="3" fill="#93C5FD"/>
             <circle cx="301" cy="431" r="5" fill="#BFDBFE"/>
-            <path d="M30 350L39 359L30 368L21 359L30 350Z" fill="#DBEAFE"/>
+            <g className="login-art-study-card" transform="translate(248 348) rotate(6 44 36)">
+              <rect x="0" y="0" width="86" height="72" rx="11" fill="#F8FBFF" fillOpacity=".94" stroke="#60A5FA" strokeWidth="2"/>
+              <path d="M0 19H86" stroke="#93C5FD" strokeWidth="2"/>
+              <circle cx="12" cy="10" r="2.4" fill="#60A5FA"/>
+              <circle cx="21" cy="10" r="2.4" fill="#93C5FD"/>
+              <rect x="11" y="29" width="26" height="11" rx="3" fill="#BFDBFE"/>
+              <rect x="43" y="29" width="31" height="11" rx="3" fill="#DBEAFE"/>
+              <rect x="11" y="47" width="19" height="11" rx="3" fill="#DBEAFE"/>
+              <rect x="36" y="47" width="19" height="11" rx="3" fill="#BFDBFE"/>
+              <rect x="61" y="47" width="13" height="11" rx="3" fill="#DBEAFE"/>
+            </g>
+            <g transform="translate(284 150)">
+              <path d="M0 11L3.6 3.6L11 0L3.6 -3.6L0 -11L-3.6 -3.6L-11 0L-3.6 3.6Z" fill="#93C5FD" fillOpacity=".82"/>
+            </g>
+            <g transform="translate(34 286)">
+              <circle cx="0" cy="0" r="10" stroke="#93C5FD" strokeWidth="2"/>
+              <path d="M-4 0L-1 3L5 -4" stroke="#3B82F6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            </g>
           </svg>
           <div className="login-form-shell">
             <div className="login-mobile-brand">
