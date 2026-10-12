@@ -525,11 +525,11 @@ export function Root(){
 function navGroupsForRole(role){
   const base = [
     {label:"Overview",items:["Dashboard"]},
-    {label:"Academic",items:["Academic Sessions","Academic Structure","Holiday Management","Generation Readiness","Full Session Timetable","All Program Timetables","Timetable","Calendar View","My Timetable"]},
-    {label:"People & Attendance",items:["Students","Student Mapping","Student Profile","Student Promotion","Attendance","Faculty Portal","Section Portal"]},
+    {label:"Academic & Scheduling",items:["Academic Sessions","Academic Structure","Holiday Management","Generation Readiness","Full Session Timetable","All Program Timetables","Timetable","Calendar View","Availability","Optimization","My Timetable"]},
+    {label:"People & Attendance",items:["Students","Student Mapping","Student Profile","Student Promotion","Attendance","Fees","Notifications","Faculty Portal","Section Portal"]},
     {label:"Master Data",items:["Master Data Settings","Subject & Faculty Mapping","Program & Section Mapping"]},
-    {label:"Tools",items:["Excel Import","Templates & Clone","Public Sharing"]},
-    {label:"Insights",items:["Reports","Analytics","Validation","Change History","Audit Logs"]}
+    {label:"Tools & Sharing",items:["Excel Import","Import Center","Templates & Clone","Public Sharing"]},
+    {label:"Reports & Audit",items:["Reports","Analytics","Validation","Change History","Audit Logs"]}
   ];
   if(role==="ADMIN") base.push({label:"Administration",items:["User Management","Settings"]});
   else if(role==="SCHEDULER") base.push({label:"Administration",items:["Settings"]});
