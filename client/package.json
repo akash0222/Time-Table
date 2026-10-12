@@ -7,7 +7,8 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "test:routes": "node qa/page-routes.test.mjs"
+    "test:routes": "node qa/page-routes.test.mjs",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "axios": "^1.7.9",
