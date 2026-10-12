@@ -115,7 +115,7 @@ main{padding:30px 34px 42px;min-width:0}header{margin-bottom:20px}header h1{font
 .login-decor-orb-one{right:-60px;top:45%;width:170px;height:170px}
 .login-decor-orb-two{right:-20px;top:calc(45% + 30px);width:90px;height:90px;background:rgba(96,165,250,.06)}
 .login-panel{position:relative;isolation:isolate;display:flex;align-items:center;justify-content:center;min-width:0;overflow:hidden;padding:clamp(30px,5.1vw,68px);background:linear-gradient(180deg,#fff 0%,#fcfdff 100%)}
-.login-academic-art{position:absolute;z-index:0;top:0;right:-18px;width:min(62%,330px);height:100%;color:#2563eb;opacity:.15;mask-image:linear-gradient(90deg,transparent 0%,rgba(0,0,0,.08) 28%,rgba(0,0,0,.48) 62%,#000 100%);pointer-events:none;user-select:none}
+.login-academic-art{position:absolute;z-index:0;top:0;right:-8px;width:min(66%,350px);height:100%;color:#2563eb;opacity:.24;mask-image:linear-gradient(90deg,transparent 0%,rgba(0,0,0,.04) 34%,rgba(0,0,0,.42) 66%,#000 100%);pointer-events:none;user-select:none}
 .login-form-shell{position:relative;z-index:1;width:min(380px,100%);margin:0 auto}
 .login-mobile-brand{display:none}
 .login-heading{margin-bottom:31px}
