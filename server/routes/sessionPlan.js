@@ -8,6 +8,7 @@ import Room from '../models/Room.js';
 import TimeSlot from '../models/TimeSlot.js';
 import SchedulerSetting from '../models/SchedulerSetting.js';
 import Program from '../models/Program.js';
+import User from '../models/User.js';
 import {generateBestTimetable} from '../services/generator.js';
 import {allowRoles} from '../middleware/auth.js';
 
@@ -247,8 +248,31 @@ router.get('/:id',async(req,res)=>{
   try{
     const doc=await SessionPlan.findById(req.params.id).populate(populated);
     if(!doc)return res.status(404).json({message:'Session plan not found'});
-    if(req.user?.role==='FACULTY') for(const w of doc.weeks) w.entries=w.entries.filter(e=>idOf(e.faculty)===String(req.user.faculty));
-    else if(req.user?.role==='VIEWER') for(const w of doc.weeks) w.entries=w.entries.filter(e=>idOf(e.section)===String(req.user.section));
+    if(req.user?.role==='FACULTY'){
+      // Resolve the current assignment from MongoDB rather than trusting a
+      // potentially stale JWT mapping.
+      const account=await User.findById(req.user?.id).select('faculty active').lean();
+      if(!account||account.active===false){
+        return res.status(401).json({message:'User account is inactive or no longer available. Please sign in again.'});
+      }
+      const assignedFacultyId=String(account.faculty||'');
+      if(!assignedFacultyId){
+        return res.status(400).json({message:'No Faculty is mapped to this account. Ask an administrator to assign a faculty member.'});
+      }
+      for(const w of doc.weeks) w.entries=w.entries.filter(e=>idOf(e.faculty)===assignedFacultyId);
+    }else if(req.user?.role==='VIEWER'){
+      // Section IDs are intentionally loaded from the user record; the JWT
+      // does not currently contain a section claim.
+      const account=await User.findById(req.user?.id).select('section active').lean();
+      if(!account||account.active===false){
+        return res.status(401).json({message:'User account is inactive or no longer available. Please sign in again.'});
+      }
+      const assignedSectionId=String(account.section||'');
+      if(!assignedSectionId){
+        return res.status(400).json({message:'No Section is mapped to this Viewer account. Ask an administrator to assign a section.'});
+      }
+      for(const w of doc.weeks) w.entries=w.entries.filter(e=>idOf(e.section)===assignedSectionId);
+    }
     res.json(doc);
   }catch(e){res.status(500).json({message:e.message});}
 });
@@ -335,8 +359,12 @@ router.post('/generate',allowRoles('ADMIN','SCHEDULER'),async(req,res)=>{
     }
     for(const subject of subjects){
       const section=sections.find(x=>String(x._id)===String(subject.section));
-      const programKey=String(section?.program||'').trim().toLowerCase();
-      const program=programMap.get(`name:${programKey}`)||programMap.get(`code:${programKey}`);
+      // Program ObjectId is the canonical mapping. Text names/codes are
+      // only a compatibility fallback for legacy sections.
+      const sectionProgramId=String(section?.programId?._id||section?.programId||'');
+      const program=programMap.get(sectionProgramId)
+        || programMap.get(`name:${String(section?.program||'').trim().toLowerCase()}`)
+        || programMap.get(`code:${String(section?.program||'').trim().toLowerCase()}`);
       const pd=program ? programDateMap.get(String(program._id)) : null;
       if(programDates.length && !pd){
         throw new Error(`${subject.name}: no program-wise session dates are configured for program "${section?.program||'Unknown'}".`);
