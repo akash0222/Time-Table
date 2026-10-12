@@ -122,6 +122,13 @@ main{padding:30px 34px 42px;min-width:0}header{margin-bottom:20px}header h1{font
 .login-heading-kicker{display:block;margin-bottom:11px;color:#2563eb;font-size:10px;font-weight:850;letter-spacing:1.8px}
 .login-heading h2{margin:0 0 10px;color:#111c32;font-size:clamp(25px,2.7vw,31px);font-weight:800;line-height:1.2;letter-spacing:-1px}
 .login-heading p{margin:0;color:#64748b;font-size:13px;line-height:1.7}
+.login-service-status{display:flex;align-items:flex-start;gap:8px;margin-top:13px;color:#68778d;font-size:11px;line-height:1.5}
+.login-service-status-dot{width:7px;height:7px;flex:0 0 7px;margin-top:4px;border-radius:50%;background:#94a3b8}
+.login-service-status-ready .login-service-status-dot{background:#22c55e;box-shadow:0 0 0 3px rgba(34,197,94,.12)}
+.login-service-status-waking .login-service-status-dot,.login-service-status-checking .login-service-status-dot{background:#f59e0b;box-shadow:0 0 0 3px rgba(245,158,11,.12)}
+.login-service-status-unconfigured{color:#b42318}
+.login-service-status-unconfigured .login-service-status-dot{background:#dc2626}
+
 .login-form{display:grid;gap:20px}
 .login-field{display:grid;gap:8px;min-width:0}
 .login-field label{color:#26334a;font-size:12px;font-weight:750}
