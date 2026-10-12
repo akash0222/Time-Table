@@ -13,6 +13,12 @@ programDateSchema.pre("validate", function(next) {
   next();
 });
 
+const holidayDetailSchema = new mongoose.Schema({
+  date: {type:String, required:true},
+  name: {type:String, default:""},
+  description: {type:String, default:""}
+}, {_id:false});
+
 const schema = new mongoose.Schema({
   name:{type:String,required:true,unique:true,trim:true},
   // Legacy/global dates are retained for backward compatibility. New sessions
@@ -23,12 +29,7 @@ const schema = new mongoose.Schema({
   active:{type:Boolean,default:false},
   description:{type:String,default:""},
   holidayDates:{type:[String],default:[]},
-  holidayDetails:{type:[{
-    _id:false,
-    date:{type:String,required:true},
-    name:{type:String,default:""},
-    description:{type:String,default:""}
-  }],default:[]}
+  holidayDetails:{type:[holidayDetailSchema],default:[]}
 },{timestamps:true});
 
 schema.pre("validate", function(next) {
