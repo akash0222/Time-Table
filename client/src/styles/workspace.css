@@ -362,3 +362,31 @@
 .holiday-name-field input{width:100%;min-width:0}
 .holiday-name-field label span{color:#dc2626}
 @media(max-width:760px){.holiday-date-field{grid-column:auto}}
+
+
+/* Edit configured holiday details */
+.holiday-row-actions{display:flex;align-items:center;justify-content:flex-end;gap:8px;flex:0 0 auto}
+.holiday-management .holiday-edit-button{display:inline-flex;align-items:center;justify-content:center;gap:7px;padding:9px 12px;border:1px solid #cbdaf6;border-radius:9px;background:#f8fbff;color:#2456d6;font-size:12px;font-weight:700;white-space:nowrap}
+.holiday-management .holiday-edit-button:hover{background:#eff6ff;border-color:#9fb9f2}
+.holiday-management .holiday-edit-button:disabled{opacity:.55;cursor:not-allowed}
+.holiday-date-row.is-editing{align-items:flex-start;border-color:#93b4fa;background:#fbfdff}
+.holiday-date-row.is-editing .holiday-date-main{align-items:flex-start;flex:1;min-width:0}
+.holiday-date-row.is-editing .holiday-date-copy{align-items:stretch;flex:1;min-width:0;gap:8px}
+.holiday-edit-form{display:flex;flex-direction:column;gap:10px;width:100%;max-width:620px;margin-top:4px}
+.holiday-edit-form label{display:flex;flex-direction:column;gap:5px;color:#344054;font-size:11px;font-weight:800}
+.holiday-edit-form label>span:not(.holiday-edit-optional){color:#dc2626}
+.holiday-edit-form .holiday-edit-optional{color:#8490a3;font-size:10px;font-weight:500}
+.holiday-edit-form input,.holiday-edit-form textarea{width:100%;min-width:0;border:1px solid #d5deeb;border-radius:9px;padding:9px 11px;background:#fff;color:#172b4d;font:inherit;font-weight:400;font-size:12px;outline:none;resize:vertical}
+.holiday-edit-form input{min-height:40px}
+.holiday-edit-form textarea{line-height:1.5}
+.holiday-edit-form input:focus,.holiday-edit-form textarea:focus{border-color:#6794f7;box-shadow:0 0 0 3px rgba(37,99,235,.1)}
+.holiday-edit-form input:disabled,.holiday-edit-form textarea:disabled{background:#f8fafc;color:#94a3b8}
+.holiday-edit-hint{color:#8490a3;font-size:10px}
+.holiday-edit-form-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.holiday-edit-form-actions button{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:36px;padding:8px 11px;border-radius:8px;font-size:11px;font-weight:800;white-space:nowrap}
+.holiday-edit-save:disabled,.holiday-edit-cancel:disabled{opacity:.55;cursor:not-allowed}
+.holiday-editing-badge{padding:6px 9px;border-radius:999px;background:#eff6ff;color:#1d4ed8;font-size:10px;font-weight:800;white-space:nowrap}
+@media(max-width:760px){
+  .holiday-row-actions{width:100%;justify-content:flex-end}
+  .holiday-date-row.is-editing .holiday-date-main{width:100%}
+}

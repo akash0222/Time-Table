@@ -299,6 +299,18 @@ test("admin can configure a holiday for an academic session", async ({ page }) =
   await page.reload();
   await expect(page.locator("h2", { hasText: "Holiday Management" })).toBeVisible();
   await expect(page.getByText("Independence Day", { exact: true })).toBeVisible();
+
+  await page.getByRole("button", { name: "Edit holiday 2026-08-15" }).click();
+  await page.getByRole("textbox", { name: "Holiday name for 2026-08-15" }).fill("Independence Day 2026");
+  await page.getByRole("textbox", { name: "Description for 2026-08-15" }).fill("Campus closed for the national holiday.");
+  await page.getByRole("button", { name: "Save changes" }).click();
+  await expect(page.getByText("Independence Day 2026", { exact: true })).toBeVisible();
+  await expect(page.getByText("Campus closed for the national holiday.", { exact: true })).toBeVisible();
+
+  await page.reload();
+  await expect(page.locator("h2", { hasText: "Holiday Management" })).toBeVisible();
+  await expect(page.getByText("Independence Day 2026", { exact: true })).toBeVisible();
+  await expect(page.getByText("Campus closed for the national holiday.", { exact: true })).toBeVisible();
 });
 
 
