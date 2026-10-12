@@ -7,8 +7,8 @@ test.describe("Login page", () => {
 
   test("shows accessible sign-in controls and supports password visibility", async ({ page }) => {
     await expect(page.getByRole("heading", { name: "Sign in to your workspace" })).toBeVisible();
-    await expect(page.getByLabel("Username")).toBeVisible();
-    const password = page.getByLabel("Password");
+    await expect(page.locator("#login-username")).toBeVisible();
+    const password = page.locator("#login-password");
     await expect(password).toHaveAttribute("type", "password");
     await expect(page.getByRole("button", { name: "Sign In" })).toBeVisible();
 
@@ -29,8 +29,8 @@ test.describe("Login page", () => {
       });
     });
 
-    await page.getByLabel("Username").fill("invalid-user");
-    await page.getByLabel("Password").fill("invalid-password");
+    await page.locator("#login-username").fill("invalid-user");
+    await page.locator("#login-password").fill("invalid-password");
     await page.getByRole("button", { name: "Sign In" }).click();
 
     await expect(page.getByRole("alert")).toHaveText("Invalid username or password.");
