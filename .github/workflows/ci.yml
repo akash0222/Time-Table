@@ -65,3 +65,6 @@ jobs:
       - name: Test holiday import parser
         working-directory: server
         run: npm run test:holiday-import
+      - name: Test attendance access isolation
+        working-directory: server
+        run: npm run test:attendance-access
