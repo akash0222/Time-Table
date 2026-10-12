@@ -1,6 +1,6 @@
 import React, {useEffect, useMemo, useState} from "react";
 import axios from "axios";
-import {API} from "../core/api";
+import {API, API_CONFIGURATION_ERROR} from "../core/api";
 import {CalendarDays, CalendarOff, Users, BookOpen, DoorOpen, Clock3, WandSparkles, Trash2, Settings2, Check, X, FileSpreadsheet, Upload, Lock, Send, RotateCcw, ShieldCheck,BarChart3,Activity,Bell,UserCheck,RefreshCw,Copy,QrCode,History,ClipboardCheck,UserPlus,DollarSign,GraduationCap,Search,ArrowRight,UsersRound,ChevronLeft,ChevronRight,AlertTriangle,CheckCircle2,Link2} from "lucide-react";
 
 const days=["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
@@ -23,19 +23,59 @@ function App(){
   const [approvalHistory,setApprovalHistory]=useState([]);
 
   async function load(){
-    try { const me=await axios.get(`${API}/auth/me`); const fresh=me.data?.user; if(fresh){ setAuth(fresh); localStorage.setItem("tt_user",JSON.stringify(fresh)); } } catch {}
+    if(!API){
+      setMessage(API_CONFIGURATION_ERROR);
+      return;
+    }
+
+    const loadErrors=[];
+    try {
+      const me=await axios.get(`${API}/auth/me`);
+      const fresh=me.data?.user;
+      if(fresh){ setAuth(fresh); localStorage.setItem("tt_user",JSON.stringify(fresh)); }
+    } catch(e) {
+      // Keep the request-specific details below; the interceptor handles expired
+      // sessions by clearing the token and reloading the page.
+      if(e.response?.status!==401) loadErrors.push(`Account check: ${e.response?.data?.message||e.message||"request failed"}`);
+    }
+
     const keys=Object.keys(data);
     const results=await Promise.all(keys.map(async k=>{
-      try { const r=await axios.get(`${API}/${k}`); return r.data; }
-      catch { return []; }
+      try { const r=await axios.get(`${API}/${k}`); return {ok:true,value:r.data}; }
+      catch(e) {
+        loadErrors.push(`${k}: ${e.response?.data?.message||e.message||"request failed"}`);
+        return {ok:false};
+      }
     }));
-    const next={}; keys.forEach((k,i)=>next[k]=Array.isArray(results[i])?results[i]:(results[i]?.data||[])); setData(next);
-    const t=await axios.get(`${API}/timetable/latest`,{params:{sessionId:activeSession?._id||""}}); setLatest(t.data);
+    const next={};
+    keys.forEach((k,i)=>{
+      const value=results[i]?.value;
+      // Don't wipe previously loaded data just because one endpoint failed.
+      next[k]=results[i]?.ok
+        ? (Array.isArray(value)?value:(Array.isArray(value?.data)?value.data:[]))
+        : (Array.isArray(data[k])?data[k]:[]);
+    });
+    setData(next);
+
+    try {
+      const t=await axios.get(`${API}/timetable/latest`,{params:{sessionId:activeSession?._id||""}});
+      setLatest(t.data);
+    } catch(e) {
+      loadErrors.push(`Latest timetable: ${e.response?.data?.message||e.message||"request failed"}`);
+    }
     try {
       const sr=await axios.get(API + "/settings", { params: { sessionId: activeSession?._id || "" } });
       setSettings(sr.data);
-    } catch {}
-    try { const st=await axios.get(`${API}/timetable/status`,{params:{sessionId:activeSession?._id||""}}); setTimetableStatus(st.data?.status||"DRAFT"); setApprovalHistory(st.data?.approvalHistory||[]); } catch {}
+    } catch(e) {
+      loadErrors.push(`Scheduler settings: ${e.response?.data?.message||e.message||"request failed"}`);
+    }
+    try {
+      const st=await axios.get(`${API}/timetable/status`,{params:{sessionId:activeSession?._id||""}});
+      setTimetableStatus(st.data?.status||"DRAFT");
+      setApprovalHistory(st.data?.approvalHistory||[]);
+    } catch(e) {
+      loadErrors.push(`Timetable status: ${e.response?.data?.message||e.message||"request failed"}`);
+    }
     try {
       const ss=await axios.get(`${API}/sessions`);
       setSessions(ss.data||[]);
@@ -44,9 +84,16 @@ function App(){
       if(as.data){
         const vr=await axios.get(`${API}/timetable/versions?sessionId=${as.data._id}`);
         setVersionList(vr.data||[]);
+      } else {
+        setVersionList([]);
       }
-    } catch {}
+    } catch(e) {
+      loadErrors.push(`Academic sessions: ${e.response?.data?.message||e.message||"request failed"}`);
+    }
 
+    if(loadErrors.length){
+      setMessage(`Some data could not be loaded. Check the backend/API configuration, then retry. ${loadErrors.slice(0,3).join(" | ")}`);
+    }
   }
   useEffect(()=>{if(auth) load().catch(e=>setMessage(e.response?.data?.message||"Start the backend server first."));},[auth?.username]);
   useEffect(()=>{
@@ -343,7 +390,7 @@ function App(){
       <header><div><h1>{tab}</h1><p>Production academic timetable management workspace.</p></div>
         <div className="status"><span></span> Production</div>
       </header>
-      {message && <div className={`message ${/error|network|failed|unable|cannot|start the backend/i.test(message)?"error":"success"}`}>{message}</div>}
+      {message && <div className={`message ${/error|network|failed|unable|cannot|start the backend|could not be loaded|not configured/i.test(message)?"error":"success"}`}>{message}{/some data could not be loaded|backend api is not configured/i.test(message) && <button className="secondary" type="button" onClick={()=>load()} style={{marginLeft:10}}>Retry</button>}</div>}
 
 
       {tab==="Attendance" && <Attendance data={data} auth={auth} setMessage={setMessage}/>}
@@ -1194,7 +1241,7 @@ function CalendarView({ timetable, data, role, onMoved, setMessage }) {
 function Login({onLogin}){
   const [form,setForm]=useState({username:"",password:""});
   const [error,setError]=useState(""); const [busy,setBusy]=useState(false);
-  async function submit(e){e.preventDefault();setBusy(true);setError("");try{const r=await axios.post(`${API}/auth/login`,form);localStorage.setItem("tt_token",r.data.token);localStorage.setItem("tt_user",JSON.stringify(r.data.user));onLogin(r.data.user)}catch(e){setError(e.response?.data?.message||"Unable to login.")}finally{setBusy(false)}}
+  async function submit(e){e.preventDefault();setError("");if(!API){setError(API_CONFIGURATION_ERROR);return;}setBusy(true);try{const r=await axios.post(`${API}/auth/login`,form);localStorage.setItem("tt_token",r.data.token);localStorage.setItem("tt_user",JSON.stringify(r.data.user));onLogin(r.data.user)}catch(e){setError(e.response?.data?.message||"Unable to login.")}finally{setBusy(false)}}
   return <div className="login-page"><form className="login-card" onSubmit={submit}><div className="login-brand"><div className="login-brand-icon"><CalendarDays size={28}/></div><h1>Time Table</h1><p>Secure academic timetable management</p></div><div className="login-form"><label>Username<input value={form.username} onChange={e=>setForm({...form,username:e.target.value})} autoFocus /></label><label>Password<input type="password" value={form.password} onChange={e=>setForm({...form,password:e.target.value})} /></label>{error&&<div className="message error">{error}</div>}<button className="primary login-submit" disabled={busy}>{busy?"Signing in...":"Sign In"}</button><p className="login-help">Use the administrator credentials configured by the system administrator.</p></div></form></div>;
 }
 

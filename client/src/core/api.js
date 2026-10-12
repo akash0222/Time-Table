@@ -6,6 +6,8 @@ const configuredApiUrl = String(import.meta.env.VITE_API_URL || "").trim();
 // deployments must provide VITE_API_URL pointing at the Render API.
 export const API = (configuredApiUrl || (import.meta.env.DEV ? "http://localhost:5000/api" : "")).replace(/\/$/, "");
 
+export const API_CONFIGURATION_ERROR = "Backend API is not configured. Set VITE_API_URL in Vercel to your backend URL ending in /api, then redeploy the frontend.";
+
 if (!API && import.meta.env.PROD) {
   console.error("VITE_API_URL is not configured. Set it in Vercel before deploying the client.");
 }
