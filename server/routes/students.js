@@ -3,6 +3,7 @@ import Student from "../models/Student.js";
 import Section from "../models/Section.js";
 import Timetable from "../models/Timetable.js";
 import AcademicSession from "../models/AcademicSession.js";
+import { canAccessStudentSectionList } from "../services/attendanceAccess.js";
 import ExcelJS from "exceljs";
 import multer from "multer";
 
@@ -268,7 +269,7 @@ router.get("/", async (req, res) => {
     if (role === "VIEWER") {
       const assignedSection = String(req.user?.section || "");
       if (!assignedSection) return res.status(403).json({ message: "No Section is mapped to this Viewer account." });
-      if (req.query.sectionId && String(req.query.sectionId) !== assignedSection) {
+      if (req.query.sectionId && !canAccessStudentSectionList(role, req.user, req.query.sectionId)) {
         return res.status(403).json({ message: "You can only view students in your mapped section." });
       }
       filter.section = assignedSection;
@@ -283,7 +284,7 @@ router.get("/", async (req, res) => {
         .filter(entry => String(entry.faculty) === String(req.user.faculty))
         .map(entry => String(entry.section)))];
       if (req.query.sectionId) {
-        if (!sectionIds.includes(String(req.query.sectionId))) {
+        if (!canAccessStudentSectionList(role, req.user, req.query.sectionId, sectionIds)) {
           return res.status(403).json({ message: "You can only view students in sections assigned to your faculty account." });
         }
         filter.section = String(req.query.sectionId);
