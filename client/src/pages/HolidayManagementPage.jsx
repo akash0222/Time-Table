@@ -33,6 +33,7 @@ export default function HolidayManagement({sessions = [], activeSession, role, s
   const [sessionId, setSessionId] = useState(activeSession?._id || "");
   const [session, setSession] = useState(null);
   const [holidayDate, setHolidayDate] = useState("");
+  const [holidayName, setHolidayName] = useState("");
   const [holidays, setHolidays] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(false);
@@ -62,6 +63,8 @@ export default function HolidayManagement({sessions = [], activeSession, role, s
     setSearchTerm("");
     setImportPreview(null);
     setUploadFile(null);
+    setHolidayDate("");
+    setHolidayName("");
 
     try {
       const response = await axios.get(API + "/academic-sessions/" + id);
@@ -111,6 +114,11 @@ export default function HolidayManagement({sessions = [], activeSession, role, s
   async function addHoliday(event) {
     event?.preventDefault?.();
     if (!sessionId || !session || !holidayDate || !canEdit || saving) return;
+    const cleanHolidayName = holidayName.trim();
+    if (!cleanHolidayName) {
+      setError("Enter a holiday name before adding the date.");
+      return;
+    }
 
     const chosenDate = new Date(holidayDate + "T00:00:00Z");
     if (chosenDate.getUTCDay() === 0) {
@@ -130,8 +138,14 @@ export default function HolidayManagement({sessions = [], activeSession, role, s
       return;
     }
 
-    const saved = await saveDates([...holidays, holidayDate]);
-    if (saved) setHolidayDate("");
+    const nextDetails = (session?.holidayDetails || [])
+      .filter(item => isoDate(item.date) !== holidayDate);
+    nextDetails.push({date: holidayDate, name: cleanHolidayName, description: ""});
+    const saved = await saveDates([...holidays, holidayDate], nextDetails);
+    if (saved) {
+      setHolidayDate("");
+      setHolidayName("");
+    }
   }
 
 
@@ -206,7 +220,8 @@ export default function HolidayManagement({sessions = [], activeSession, role, s
   const filteredHolidays = holidays.filter(date => {
     if (!normalizedSearch) return true;
     const friendlyDate = dateLabel(date, {weekday: "long", day: "numeric", month: "long", year: "numeric"});
-    return (date + " " + friendlyDate).toLowerCase().includes(normalizedSearch);
+    const detail = (session?.holidayDetails || []).find(item => isoDate(item.date) === date);
+    return (date + " " + friendlyDate + " " + (detail?.name || "") + " " + (detail?.description || "")).toLowerCase().includes(normalizedSearch);
   });
 
   return (
@@ -250,6 +265,21 @@ export default function HolidayManagement({sessions = [], activeSession, role, s
             <small className="field-help">Holiday dates are saved separately for each session.</small>
           </div>
 
+          <div className="field holiday-name-field">
+            <label htmlFor="holiday-name">Holiday name <span aria-hidden="true">*</span></label>
+            <input
+              id="holiday-name"
+              type="text"
+              value={holidayName}
+              maxLength={160}
+              placeholder="e.g. Independence Day"
+              onChange={event => { setHolidayName(event.target.value); setError(""); }}
+              disabled={!sessionId || !session || !canEdit || loading || saving}
+              required
+            />
+            <small className="field-help">Enter a clear name for the holiday.</small>
+          </div>
+
           <div className="field holiday-date-field">
             <label htmlFor="holiday-date">Add a holiday date</label>
             <div className="holiday-date-control">
@@ -266,7 +296,7 @@ export default function HolidayManagement({sessions = [], activeSession, role, s
               <button
                 className="primary holiday-add-button"
                 type="submit"
-                disabled={!sessionId || !session || !holidayDate || !canEdit || loading || saving}
+                disabled={!sessionId || !session || !holidayName.trim() || !holidayDate || !canEdit || loading || saving}
               >
                 {saving ? "Saving…" : "Add Holiday"}
               </button>
