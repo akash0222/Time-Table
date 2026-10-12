@@ -294,6 +294,7 @@ app.post("/api/sessions/:id/holidays/preview-import", requireAuth, allowRoles("A
     const headings = hasHeader ? firstRowHeadings : [];
     const dateColumn = hasHeader ? detectedDateColumn : 0;
     const nameColumn = hasHeader ? headings.findIndex(value => /holiday\s*name|name|occasion|holiday/.test(value) && !/date/.test(value)) : -1;
+    const descriptionColumn = hasHeader ? headings.findIndex(value => /description|notes?/.test(value)) : -1;
     const firstDataRow = hasHeader ? 1 : 0;
     const academicSession = await AcademicSession.findById(req.params.id).lean();
     if (!academicSession) return res.status(404).json({ message: "Academic session not found." });
@@ -308,11 +309,12 @@ app.post("/api/sessions/:id/holidays/preview-import", requireAuth, allowRoles("A
       const values = matrix[index] || [];
       const rawDate = holidayImportCell(values[dateColumn]);
       const holidayName = nameColumn >= 0 ? String(holidayImportCell(values[nameColumn]) ?? "").trim() : "";
+      const description = descriptionColumn >= 0 ? String(holidayImportCell(values[descriptionColumn]) ?? "").trim() : "";
       const hasAnyValue = values.some(value => String(value ?? "").trim());
       if (!hasAnyValue) continue;
       const displayValue = rawDate instanceof Date ? rawDate.toISOString().slice(0, 10) : String(rawDate ?? "").trim();
       const date = parseHolidayImportDate(rawDate);
-      const result = { rowNumber: index + 1, sourceDate: displayValue, date: date || "", holidayName, status: "valid", reason: "" };
+      const result = { rowNumber: index + 1, sourceDate: displayValue, date: date || "", holidayName, description, status: "valid", reason: "" };
 
       if (!date) {
         result.status = "invalid";
@@ -365,7 +367,19 @@ app.patch("/api/sessions/:id/holidays", requireAuth, async (req,res)=>{
       const outside=holidays.find(d=>d<start||d>end);
       if(outside)return res.status(400).json({message:`Holiday ${outside} is outside the academic session range ${start} to ${end}.`});
     }
-    row.holidayDates=holidays;await row.save();
+    const detailInput = Array.isArray(req.body?.holidayDetails) ? req.body.holidayDetails : (row.holidayDetails || []);
+    const allowedDates = new Set(holidays);
+    const detailByDate = new Map();
+    for (const item of detailInput) {
+      const date = String(item?.date || "").slice(0,10);
+      if (!allowedDates.has(date)) continue;
+      const name = String(item?.name || "").trim().slice(0,160);
+      const description = String(item?.description || "").trim().slice(0,400);
+      if (name || description) detailByDate.set(date, {date, name, description});
+    }
+    row.holidayDates=holidays;
+    row.holidayDetails=[...detailByDate.values()];
+    await row.save();
     res.json(await AcademicSession.findById(row._id).populate("programDates.program","name code").lean());
   }catch(e){res.status(400).json({message:e.message});}
 });
