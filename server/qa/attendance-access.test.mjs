@@ -3,7 +3,8 @@ import {
   attendanceRecordMatchesClass,
   canAccessAttendanceEntry,
   canAccessAttendanceSection,
-  canAccessAttendanceStudent
+  canAccessAttendanceStudent,
+  canAccessStudentSectionList
 } from "../services/attendanceAccess.js";
 import { currentUserClaims } from "../middleware/auth.js";
 
@@ -38,6 +39,12 @@ assert.equal(canAccessAttendanceSection("FACULTY", {faculty}, "section-b", facul
 assert.equal(canAccessAttendanceSection("ADMIN", null, "section-b"), true);
 
 
+
+
+assert.equal(canAccessStudentSectionList("FACULTY", {faculty}, "section-a", ["section-a"]), true);
+assert.equal(canAccessStudentSectionList("FACULTY", {faculty}, "section-b", ["section-a"]), false);
+assert.equal(canAccessStudentSectionList("VIEWER", {section:assignedSection}, "section-b"), false);
+assert.equal(canAccessStudentSectionList("ADMIN", null, "section-b"), true);
 
 const savedAttendance = { _id: "attendance-1", timetable: "timetable-a", timetableEntryId: "entry-a" };
 assert.equal(attendanceRecordMatchesClass(savedAttendance, "timetable-a", "entry-a"), true);
