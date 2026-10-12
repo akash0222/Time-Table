@@ -225,7 +225,7 @@ export default function HolidayManagement({sessions = [], activeSession, role, s
         <div className="holiday-summary-grid">
           <div className="holiday-summary-card">
             <span className="holiday-summary-icon"><CalendarOff size={18}/></span>
-            <div><span>Configured holidays</span><strong>{holidays.length}</strong><small>Additional dates in this session</small></div>
+            <div><span>Configured Holidays</span><strong>{holidays.length}</strong><small>Additional dates in this session</small></div>
           </div>
           <div className="holiday-summary-card">
             <span className="holiday-summary-icon sunday"><CalendarDays size={18}/></span>
@@ -241,7 +241,7 @@ export default function HolidayManagement({sessions = [], activeSession, role, s
       <section className="panel holiday-list-panel">
         <div className="holiday-panel-heading holiday-list-heading">
           <div>
-            <h3>Configured holiday dates</h3>
+            <h3>Configured Holiday Dates</h3>
             <p>These dates are applied to the selected session when the Full Session Timetable is generated.</p>
           </div>
           <span className="holiday-count-pill">{holidays.length} {holidays.length === 1 ? "date" : "dates"}</span>
@@ -319,7 +319,7 @@ export default function HolidayManagement({sessions = [], activeSession, role, s
       <section className="panel holiday-rule-panel">
         <div className="holiday-panel-heading">
           <div>
-            <h3>Holiday rules</h3>
+            <h3>Holiday Rules</h3>
             <p>How the holiday calendar affects scheduling.</p>
           </div>
         </div>
