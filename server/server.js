@@ -171,8 +171,8 @@ function parseHolidayImportDate(value) {
   }
   const text = String(value ?? "").trim();
   if (!text) return "";
-  const isoMatch = text.match(/^(\\d{4})-(\\d{1,2})-(\\d{1,2})$/);
-  const dmyMatch = text.match(/^(\\d{1,2})[\\/. -](\\d{1,2})[\\/. -](\\d{4})$/);
+  const isoMatch = text.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+  const dmyMatch = text.match(/^(\d{1,2})[\/. -](\d{1,2})[\/. -](\d{4})$/);
   let year, month, day;
   if (isoMatch) {
     year = Number(isoMatch[1]); month = Number(isoMatch[2]); day = Number(isoMatch[3]);
@@ -189,7 +189,7 @@ function parseHolidayImportDate(value) {
 function parseHolidayCsv(text) {
   const rows = [];
   let row = [], cell = "", quoted = false;
-  const input = String(text || "").replace(/^\\uFEFF/, "");
+  const input = String(text || "").replace(/^\uFEFF/, "");
   for (let i = 0; i < input.length; i += 1) {
     const ch = input[i];
     if (ch === '"') {
@@ -197,8 +197,8 @@ function parseHolidayCsv(text) {
       else quoted = !quoted;
     } else if (ch === "," && !quoted) {
       row.push(cell); cell = "";
-    } else if ((ch === "\\n" || ch === "\\r") && !quoted) {
-      if (ch === "\\r" && input[i + 1] === "\\n") i += 1;
+    } else if ((ch === "\n" || ch === "\r") && !quoted) {
+      if (ch === "\r" && input[i + 1] === "\n") i += 1;
       row.push(cell); cell = "";
       if (row.some(value => String(value).trim())) rows.push(row);
       row = [];
@@ -345,14 +345,11 @@ app.post("/api/sessions/:id/holidays/preview-import", requireAuth, allowRoles("A
 
     if (!matrix.length) return res.status(400).json({ message: "The uploaded holiday list is empty." });
 
-    const firstCell = String(matrix[0]?.[0] ?? "").trim().toLowerCase();
-    const headerLooksLikeDate = /date/.test(firstCell) || /^(holiday|holidays)$/i.test(firstCell);
-    const hasHeader = headerLooksLikeDate;
-    const headings = hasHeader ? matrix[0].map(value => String(value ?? "").trim().toLowerCase()) : [];
-    const dateColumn = hasHeader ? headings.findIndex(value => /date/.test(value)) : 0;
-    if (hasHeader && dateColumn < 0) {
-      return res.status(400).json({ message: "A date column is required. Use a header such as Date or Holiday Date." });
-    }
+    const firstRowHeadings = (matrix[0] || []).map(value => String(value ?? "").trim().toLowerCase());
+    const detectedDateColumn = firstRowHeadings.findIndex(value => /date/.test(value));
+    const hasHeader = detectedDateColumn >= 0;
+    const headings = hasHeader ? firstRowHeadings : [];
+    const dateColumn = hasHeader ? detectedDateColumn : 0;
     const nameColumn = hasHeader ? headings.findIndex(value => /holiday\\s*name|name|occasion|holiday/.test(value) && !/date/.test(value)) : -1;
     const firstDataRow = hasHeader ? 1 : 0;
     const academicSession = await AcademicSession.findById(req.params.id).lean();
