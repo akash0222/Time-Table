@@ -20,6 +20,15 @@ test.describe("Login page", () => {
     await expect(password).toHaveAttribute("type", "password");
   });
 
+  test("keeps the entire login card visible in a short desktop viewport", async ({ page }) => {
+    await page.setViewportSize({ width: 1360, height: 750 });
+    const card = page.locator(".login-shell");
+    await expect(card).toBeVisible();
+    await expect(card).toBeInViewport({ ratio: 1 });
+    await expect(page.locator("#login-username")).toBeVisible();
+    await expect(page.locator("#login-password")).toBeVisible();
+  });
+
   test("shows subtle academic artwork on desktop and hides it on compact layouts", async ({ page }) => {
     const artwork = page.locator(".login-academic-art");
     await expect(artwork).toBeVisible();
