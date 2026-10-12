@@ -277,7 +277,7 @@ test("dashboard shows visual analytics and the sidebar collapses to icon navigat
   await installRoleApiMocks(page, "ADMIN");
 
   await expect(page.getByRole("heading", { name: "Class distribution" })).toBeVisible();
-  await expect(page.getByText("Your weekly view will appear here")).toBeVisible();
+  await expect(page.getByRole("img", { name: "Bar chart of scheduled classes by day" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Timetable at a glance" })).toBeVisible();
 
   const sidebar = page.locator(".erp-sidebar");
