@@ -350,7 +350,7 @@ app.post("/api/sessions/:id/holidays/preview-import", requireAuth, allowRoles("A
     const hasHeader = detectedDateColumn >= 0;
     const headings = hasHeader ? firstRowHeadings : [];
     const dateColumn = hasHeader ? detectedDateColumn : 0;
-    const nameColumn = hasHeader ? headings.findIndex(value => /holiday\\s*name|name|occasion|holiday/.test(value) && !/date/.test(value)) : -1;
+    const nameColumn = hasHeader ? headings.findIndex(value => /holiday\s*name|name|occasion|holiday/.test(value) && !/date/.test(value)) : -1;
     const firstDataRow = hasHeader ? 1 : 0;
     const academicSession = await AcademicSession.findById(req.params.id).lean();
     if (!academicSession) return res.status(404).json({ message: "Academic session not found." });
