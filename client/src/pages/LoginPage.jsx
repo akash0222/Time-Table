@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { API, API_CONFIGURATION_ERROR } from "../core/api";
 import {
@@ -22,6 +22,36 @@ export default function Login({ onLogin }) {
   const [busy, setBusy] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [capsLockOn, setCapsLockOn] = useState(false);
+  const [serviceStatus, setServiceStatus] = useState("checking");
+
+  useEffect(() => {
+    if (!API) {
+      setServiceStatus("unconfigured");
+      return undefined;
+    }
+
+    let active = true;
+    const slowTimer = window.setTimeout(() => {
+      if (active) setServiceStatus("waking");
+    }, 6000);
+
+    // Wake a sleeping API while the user reads and fills the login form.
+    // Render's free services can need around a minute to start after inactivity.
+    axios.get(`${API}/health`, { timeout: 75000 })
+      .then(response => {
+        if (!active) return;
+        setServiceStatus(response.data?.database === "connected" ? "ready" : "waking");
+      })
+      .catch(() => {
+        if (active) setServiceStatus("waking");
+      })
+      .finally(() => window.clearTimeout(slowTimer));
+
+    return () => {
+      active = false;
+      window.clearTimeout(slowTimer);
+    };
+  }, []);
 
   function updateCapsLock(event) {
     setCapsLockOn(Boolean(event.getModifierState?.("CapsLock")));
@@ -38,18 +68,23 @@ export default function Login({ onLogin }) {
 
     setBusy(true);
     try {
-      const response = await axios.post(`${API}/auth/login`, form);
+      const response = await axios.post(`${API}/auth/login`, form, { timeout: 75000 });
       localStorage.setItem("tt_token", response.data.token);
       localStorage.setItem("tt_user", JSON.stringify(response.data.user));
       onLogin(response.data.user);
     } catch (requestError) {
       const status = requestError.response?.status;
-      if (!requestError.response) {
+      if (requestError.code === "ECONNABORTED" || requestError.code === "ETIMEDOUT") {
+        setError("The sign-in service took too long to respond. It may be waking up after inactivity. Wait a moment and try again.");
+      } else if (!requestError.response) {
         setError("Unable to reach the sign-in service. Check your connection and try again.");
       } else if (status === 401) {
         setError("Invalid username or password.");
       } else if (status === 429) {
         setError("Too many sign-in attempts. Please wait a few minutes before trying again.");
+      } else if ([502, 503, 504].includes(status)) {
+        setServiceStatus("waking");
+        setError("The sign-in service is starting up or temporarily unavailable. Wait a moment and try again.");
       } else if (status >= 500) {
         setError("Sign-in is temporarily unavailable. Please try again shortly.");
       } else {
@@ -180,6 +215,18 @@ export default function Login({ onLogin }) {
               <span className="login-heading-kicker">WELCOME BACK</span>
               <h2 id="login-title">Sign in to your workspace</h2>
               <p>Enter the credentials provided by your system administrator to continue.</p>
+              <div className={`login-service-status login-service-status-${serviceStatus}`} role="status" aria-live="polite">
+                <span className="login-service-status-dot" aria-hidden="true" />
+                <span>
+                  {serviceStatus === "ready"
+                    ? "Sign-in service ready"
+                    : serviceStatus === "waking"
+                      ? "Connecting to the sign-in service. The first connection after inactivity may take about a minute."
+                      : serviceStatus === "unconfigured"
+                        ? "Sign-in service configuration is missing."
+                        : "Connecting to the sign-in service…"}
+                </span>
+              </div>
             </div>
 
             <form className="login-form" onSubmit={submit} autoComplete="on">
@@ -244,7 +291,7 @@ export default function Login({ onLogin }) {
               {error && <div className="login-error" role="alert" aria-live="assertive">{error}</div>}
 
               <button className="primary login-submit" type="submit" disabled={busy} aria-busy={busy}>
-                <span>{busy ? "Signing in…" : "Sign In"}</span>
+                <span>{busy ? (serviceStatus === "ready" ? "Signing in…" : "Connecting…") : "Sign In"}</span>
                 {busy
                   ? <LoaderCircle className="login-submit-spinner" size={18} aria-hidden="true" />
                   : <ArrowRight size={18} aria-hidden="true" />}
