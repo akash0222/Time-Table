@@ -28,6 +28,15 @@ jobs:
       - name: Test multi-page routes
         working-directory: client
         run: npm run test:routes
+      - name: Install Playwright test runner
+        working-directory: client
+        run: npm install --no-save --package-lock=false @playwright/test@1.64.0
+      - name: Install Chromium and OS dependencies
+        working-directory: client
+        run: npx playwright install --with-deps chromium
+      - name: Run browser end-to-end tests
+        working-directory: client
+        run: npm run test:e2e
       - name: Build client
         working-directory: client
         run: npm run build
