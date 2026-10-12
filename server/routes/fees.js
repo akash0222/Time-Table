@@ -8,7 +8,7 @@ import AcademicSession from "../models/AcademicSession.js";
 
 const router=express.Router();
 const adminScheduler=(req,res,next)=>["ADMIN","SCHEDULER"].includes(req.user?.role)?next():res.status(403).json({message:"You are not authorized for fee management."});
-const canRead=(req,res,next)=>["ADMIN","SCHEDULER","VIEWER"].includes(req.user?.role)?next():res.status(403).json({message:"You are not authorized to view fee records."});
+const canRead=(req,res,next)=>["ADMIN","SCHEDULER"].includes(req.user?.role)?next():res.status(403).json({message:"You are not authorized to view fee records."});
 function invoiceStatus(inv){
   if(inv.paidAmount>=inv.netAmount)return "PAID";
   if(inv.dueDate && new Date(inv.dueDate)<new Date() && inv.paidAmount<inv.netAmount)return "OVERDUE";
