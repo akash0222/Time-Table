@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import {
+  attendanceRecordMatchesClass,
   canAccessAttendanceEntry,
   canAccessAttendanceSection,
   canAccessAttendanceStudent
@@ -36,6 +37,13 @@ assert.equal(canAccessAttendanceSection("FACULTY", {faculty}, "section-a", facul
 assert.equal(canAccessAttendanceSection("FACULTY", {faculty}, "section-b", facultyAssignments), false);
 assert.equal(canAccessAttendanceSection("ADMIN", null, "section-b"), true);
 
+
+
+const savedAttendance = { _id: "attendance-1", timetable: "timetable-a", timetableEntryId: "entry-a" };
+assert.equal(attendanceRecordMatchesClass(savedAttendance, "timetable-a", "entry-a"), true);
+assert.equal(attendanceRecordMatchesClass(savedAttendance, "timetable-a", "entry-b"), false);
+assert.equal(attendanceRecordMatchesClass(savedAttendance, "timetable-b", "entry-a"), false);
+assert.equal(attendanceRecordMatchesClass(null, "timetable-a", "entry-a"), false);
 
 // Authorization claims always reflect the current database account record,
 // including role and section/faculty mappings changed after an earlier login.
