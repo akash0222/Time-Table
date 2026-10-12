@@ -246,7 +246,7 @@ export default function App(){
 
 
   return <div className={`app ${sidebarCollapsed ? "sidebar-collapsed" : ""}`}>
-    <aside>
+    <aside className="erp-sidebar">
       <div className="brand">
         <CalendarDays size={22}/>
         <span>Time Table</span>
@@ -258,7 +258,7 @@ export default function App(){
       <nav className="sidebar-nav">
         {navGroupsForRole(auth.role).map(group=><div className="nav-group" key={group.label}>
           <div className="nav-group-title">{group.label}</div>
-          {group.items.map(({name,Icon})=><button data-nav={name} className={tab===name?"nav active":"nav"} onClick={()=>setTab(name)} key={name}><Icon size={17}/><span>{name}</span></button>)}
+          {group.items.map(({name,Icon})=><button data-nav={name} className={tab===name?"nav active":"nav"} onClick={()=>setTab(name)} key={name}><Icon size={17}/><span className="nav-label">{name}</span></button>)}
         </div>)}
       </nav>
       <div className="side-bottom">
@@ -267,7 +267,7 @@ export default function App(){
         <button className="secondary full" onClick={()=>{localStorage.removeItem("tt_token");localStorage.removeItem("tt_user");window.location.reload()}}>Logout</button>
       </div>
     </aside>
-    <main>
+    <main className="erp-main">
       <header><div><h1>{tab}</h1><p>Production academic timetable management workspace.</p></div>
         <div className="status"><span></span> Production</div>
       </header>
