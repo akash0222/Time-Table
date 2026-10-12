@@ -3,6 +3,7 @@ import AttendanceSession from "../models/AttendanceSession.js";
 import Student from "../models/Student.js";
 import Timetable from "../models/Timetable.js";
 import AcademicSession from "../models/AcademicSession.js";
+import { attendanceRecordMatchesClass, canAccessAttendanceEntry, canAccessAttendanceSection, canAccessAttendanceStudent } from "../services/attendanceAccess.js";
 
 const router = express.Router();
 const MARK_ROLES = ["ADMIN", "SCHEDULER", "FACULTY"];
@@ -17,23 +18,26 @@ function localDate() {
 function validDate(v) { return /^\d{4}-\d{2}-\d{2}$/.test(String(v || "")); }
 function entryIdOf(e) { return String(e?._id || ""); }
 function scopedEntryAllowed(req, entry) {
-  if (req.user?.role !== "FACULTY") return true;
-  return String(entry?.faculty?._id || entry?.faculty || "") === String(req.user?.faculty || "");
+  return canAccessAttendanceEntry(req.user?.role, req.user, entry);
 }
 async function scopedStudentAllowed(req, student) {
   if (!student) return false;
-  if (["ADMIN", "SCHEDULER"].includes(req.user?.role)) return true;
-  if (req.user?.role === "VIEWER") return String(student.section?._id || student.section) === String(req.user?.section || "");
-  if (req.user?.role === "FACULTY") {
-    if (!req.user?.faculty) return false;
-    const timetable = await currentTimetable();
-    return Boolean((timetable?.entries || []).some(e => String(e.faculty?._id || e.faculty) === String(req.user.faculty) && String(e.section?._id || e.section) === String(student.section?._id || student.section)));
-  }
-  return false;
+  const timetable = req.user?.role === "FACULTY" ? await currentTimetable() : null;
+  return canAccessAttendanceStudent(req.user?.role, req.user, student, timetable?.entries || []);
+}
+async function scopedSectionAllowed(req, sectionId) {
+  const timetable = ["ADMIN", "SCHEDULER"].includes(req.user?.role) ? null : await currentTimetable();
+  return canAccessAttendanceSection(req.user?.role, req.user, sectionId, timetable?.entries || []);
 }
 
 async function currentTimetable() {
-  return Timetable.findOne({ isCurrent: true }).sort({ createdAt: -1 }).populate("entries.section entries.subject entries.faculty entries.room").lean();
+  // Attendance belongs to the currently active academic session. Never fall
+  // back to another session's current timetable when an active session exists.
+  const activeSession = await AcademicSession.findOne({ active: true }).select("_id").lean();
+  const filter = activeSession
+    ? { academicSession: activeSession._id, isCurrent: true }
+    : { isCurrent: true };
+  return Timetable.findOne(filter).sort({ createdAt: -1 }).populate("entries.section entries.subject entries.faculty entries.room").lean();
 }
 
 function publicClass(entry, attendance) {
@@ -68,14 +72,15 @@ router.get("/today", async (req, res) => {
     const day = DAY_NAMES[new Date(`${date}T00:00:00Z`).getUTCDay()];
     const timetable = await currentTimetable();
     if (!timetable) return res.json({ date, day, timetable: null, classes: [] });
-    let entries = (timetable.entries || []).filter(e => e.day === day);
-    if (req.user.role === "FACULTY") entries = entries.filter(e => scopedEntryAllowed(req, e));
-    if (req.user.role === "VIEWER") entries = entries.filter(e => String(e.section?._id || e.section) === String(req.user.section || ""));
+    let entries = (timetable.entries || []).filter(e => e.day === day && scopedEntryAllowed(req, e));
     if (req.query.sectionId) {
-      if (req.user.role === "VIEWER" && String(req.query.sectionId) !== String(req.user.section || "")) return res.status(403).json({ message: "You can only view attendance for your mapped section." });
+      if (!await scopedSectionAllowed(req, req.query.sectionId)) return res.status(403).json({ message: "You can only view attendance for an assigned section." });
       entries = entries.filter(e => String(e.section?._id || e.section) === String(req.query.sectionId));
     }
-    if (req.query.facultyId) entries = entries.filter(e => String(e.faculty?._id || e.faculty) === String(req.query.facultyId));
+    if (req.query.facultyId) {
+      if (req.user.role === "FACULTY" && String(req.query.facultyId) !== String(req.user.faculty || "")) return res.status(403).json({ message: "You can only view attendance for your assigned faculty account." });
+      entries = entries.filter(e => String(e.faculty?._id || e.faculty) === String(req.query.facultyId));
+    }
     entries.sort((a, b) => Number(a.order || 0) - Number(b.order || 0));
     const ids = entries.map(entryIdOf);
     const sessions = await AttendanceSession.find({ date, timetable: timetable._id, timetableEntryId: { $in: ids } }).lean();
@@ -91,7 +96,7 @@ router.get("/class/:timetableEntryId", async (req, res) => {
     if (!timetable) return res.status(404).json({ message: "No current timetable found." });
     const entry = (timetable.entries || []).find(e => entryIdOf(e) === String(req.params.timetableEntryId));
     if (!entry) return res.status(404).json({ message: "Timetable class not found." });
-    if (!scopedEntryAllowed(req, entry)) return res.status(403).json({ message: "This class is not assigned to your faculty account." });
+    if (!scopedEntryAllowed(req, entry)) return res.status(403).json({ message: "This class is not assigned to your account." });
     const [attendance, students] = await Promise.all([
       AttendanceSession.findOne({ date, timetable: timetable._id, timetableEntryId: entryIdOf(entry) }).lean(),
       Student.find({ section: entry.section?._id || entry.section, active: true }).sort({ rollNo: 1, name: 1 }).lean()
@@ -109,7 +114,14 @@ async function saveAttendance(req, res, existingId = null) {
   if (!timetable) return res.status(400).json({ message: "Generate a current timetable first." });
   const entry = (timetable.entries || []).find(e => entryIdOf(e) === String(timetableEntryId));
   if (!entry) return res.status(404).json({ message: "Timetable class not found." });
-  if (!scopedEntryAllowed(req, entry)) return res.status(403).json({ message: "This class is not assigned to your faculty account." });
+  if (!scopedEntryAllowed(req, entry)) return res.status(403).json({ message: "This class is not assigned to your account." });
+  if (existingId) {
+    const existing = await AttendanceSession.findById(existingId).select("timetable timetableEntryId").lean();
+    if (!existing) return res.status(404).json({ message: "Attendance record not found." });
+    if (!attendanceRecordMatchesClass(existing, timetable._id, timetableEntryId)) {
+      return res.status(409).json({ message: "Attendance record does not belong to the selected class in the current timetable." });
+    }
+  }
   const day = DAY_NAMES[new Date(`${date}T00:00:00Z`).getUTCDay()];
   if (entry.day !== day) return res.status(400).json({ message: `This class is scheduled on ${entry.day}, but ${date} is ${day}.` });
 
@@ -175,7 +187,7 @@ router.get("/student/:id", async (req, res) => {
 
 router.get("/section/:id", async (req, res) => {
   try {
-    if (req.user.role === "VIEWER" && String(req.params.id) !== String(req.user.section || "")) return res.status(403).json({ message: "You can only view attendance for your mapped section." });
+    if (!await scopedSectionAllowed(req, req.params.id)) return res.status(403).json({ message: "You can only view attendance for an assigned section." });
     const students = await Student.find({ section: req.params.id, active: true }).sort({ rollNo: 1, name: 1 }).lean();
     const filter = { section: req.params.id };
     if (req.user.role === "FACULTY") filter.faculty = req.user.faculty || null;
@@ -199,10 +211,18 @@ router.get("/report", async (req, res) => {
     const to = validDate(req.query.to) ? String(req.query.to) : "";
     const filter = {};
     if (from || to) filter.date = { ...(from ? { $gte: from } : {}), ...(to ? { $lte: to } : {}) };
-    if (req.query.sectionId) filter.section = req.query.sectionId;
-    if (req.user.role === "VIEWER") filter.section = req.user.section || null;
+    if (req.query.sectionId) {
+      if (!await scopedSectionAllowed(req, req.query.sectionId)) return res.status(403).json({ message: "You can only view attendance for an assigned section." });
+      filter.section = req.query.sectionId;
+    } else if (req.user.role === "VIEWER") {
+      if (!req.user.section) return res.status(403).json({ message: "No Section is mapped to this Viewer account." });
+      filter.section = req.user.section;
+    }
     if (req.query.subjectId) filter.subject = req.query.subjectId;
-    if (req.user.role === "FACULTY") filter.faculty = req.user.faculty || null;
+    if (req.user.role === "FACULTY") {
+      if (!req.user.faculty) return res.status(403).json({ message: "No Faculty is mapped to this account." });
+      filter.faculty = req.user.faculty;
+    }
     const sessions = await AttendanceSession.find(filter)
       .populate("section", "name program semester").populate("subject", "name code").populate("faculty", "name code")
       .sort({ date: -1, startTime: 1 }).lean();

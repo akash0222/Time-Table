@@ -212,6 +212,7 @@ test("Scheduler can run timetable workflows but cannot administer users", async 
 
   await expect(page.getByRole("button", { name: /Generate Timetable/ }).first()).toBeVisible();
   await expect(page.locator('[data-nav="Academic Sessions"]')).toBeVisible();
+  await expect(page.locator('[data-nav="Public Sharing"]')).toHaveCount(0);
   await expect(page.locator('[data-nav="User Management"]')).toHaveCount(0);
 
   await page.locator('[data-nav="Academic Sessions"]').click();

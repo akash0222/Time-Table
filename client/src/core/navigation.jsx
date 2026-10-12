@@ -13,8 +13,10 @@ export function navGroupsForRole(role){
   else if(role==="SCHEDULER") base.push({label:"Administration",items:["Settings"]});
 
   const allowed = new Set(
-    role === "ADMIN" || role === "SCHEDULER"
+    role === "ADMIN"
       ? base.flatMap(g=>g.items)
+      : role === "SCHEDULER"
+        ? base.flatMap(g=>g.items).filter(name => name !== "Public Sharing")
       : role === "FACULTY"
         ? ["Dashboard","Attendance","Student Profile","Full Session Timetable","All Program Timetables","My Timetable","Faculty Portal","Section Portal","Analytics","Validation","Timetable"]
         : ["Dashboard","Attendance","Student Profile","Full Session Timetable","All Program Timetables","My Timetable","Calendar View","Section Portal","Analytics","Validation","Timetable"]
