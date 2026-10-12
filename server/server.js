@@ -164,6 +164,65 @@ app.get("/api/health", async (_req, res) => {
 });
 
 
+
+function parseHolidayImportDate(value) {
+  if (value instanceof Date && !Number.isNaN(value.valueOf())) {
+    return value.toISOString().slice(0, 10);
+  }
+  const text = String(value ?? "").trim();
+  if (!text) return "";
+  const isoMatch = text.match(/^(\\d{4})-(\\d{1,2})-(\\d{1,2})$/);
+  const dmyMatch = text.match(/^(\\d{1,2})[\\/. -](\\d{1,2})[\\/. -](\\d{4})$/);
+  let year, month, day;
+  if (isoMatch) {
+    year = Number(isoMatch[1]); month = Number(isoMatch[2]); day = Number(isoMatch[3]);
+  } else if (dmyMatch) {
+    day = Number(dmyMatch[1]); month = Number(dmyMatch[2]); year = Number(dmyMatch[3]);
+  } else {
+    return "";
+  }
+  const parsed = new Date(Date.UTC(year, month - 1, day));
+  if (parsed.getUTCFullYear() !== year || parsed.getUTCMonth() !== month - 1 || parsed.getUTCDate() !== day) return "";
+  return parsed.toISOString().slice(0, 10);
+}
+
+function parseHolidayCsv(text) {
+  const rows = [];
+  let row = [], cell = "", quoted = false;
+  const input = String(text || "").replace(/^\\uFEFF/, "");
+  for (let i = 0; i < input.length; i += 1) {
+    const ch = input[i];
+    if (ch === '"') {
+      if (quoted && input[i + 1] === '"') { cell += '"'; i += 1; }
+      else quoted = !quoted;
+    } else if (ch === "," && !quoted) {
+      row.push(cell); cell = "";
+    } else if ((ch === "\\n" || ch === "\\r") && !quoted) {
+      if (ch === "\\r" && input[i + 1] === "\\n") i += 1;
+      row.push(cell); cell = "";
+      if (row.some(value => String(value).trim())) rows.push(row);
+      row = [];
+    } else {
+      cell += ch;
+    }
+  }
+  row.push(cell);
+  if (row.some(value => String(value).trim())) rows.push(row);
+  return rows;
+}
+
+function holidayImportCell(value) {
+  if (value == null) return "";
+  if (value instanceof Date) return value;
+  if (typeof value === "object") {
+    if (value.text !== undefined) return value.text;
+    if (value.result !== undefined) return value.result;
+    if (value.richText) return value.richText.map(part => part.text || "").join("");
+    if (value.hyperlink) return value.text || value.hyperlink;
+  }
+  return value;
+}
+
 function cleanHolidayDates(values){
   const dates=[...new Set((Array.isArray(values)?values:[]).map(v=>String(v).trim()).filter(Boolean))];
   const valid=[];
@@ -260,6 +319,99 @@ app.post("/api/sessions/:id/activate", requireAuth, async (req,res)=>{
     row.active=true;await row.save();
     res.json(await AcademicSession.findById(row._id).populate("programDates.program","name code").lean());
   }catch(e){res.status(400).json({message:e.message});}
+});
+
+
+app.post("/api/sessions/:id/holidays/preview-import", requireAuth, allowRoles("ADMIN", "SCHEDULER"), upload.single("file"), async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ message: "Choose an .xlsx or .csv holiday list first." });
+    const fileName = String(req.file.originalname || "").trim();
+    const extension = fileName.toLowerCase().split(".").pop();
+    let matrix = [];
+
+    if (extension === "csv") {
+      matrix = parseHolidayCsv(req.file.buffer.toString("utf8"));
+    } else if (extension === "xlsx") {
+      const workbook = new ExcelJS.Workbook();
+      await workbook.xlsx.load(req.file.buffer);
+      const worksheet = workbook.worksheets[0];
+      if (!worksheet) return res.status(400).json({ message: "The Excel file does not contain a worksheet." });
+      worksheet.eachRow({ includeEmpty: false }, excelRow => {
+        matrix.push(excelRow.values.slice(1).map(holidayImportCell));
+      });
+    } else {
+      return res.status(400).json({ message: "Unsupported file format. Upload an .xlsx Excel file or a .csv file." });
+    }
+
+    if (!matrix.length) return res.status(400).json({ message: "The uploaded holiday list is empty." });
+
+    const firstCell = String(matrix[0]?.[0] ?? "").trim().toLowerCase();
+    const headerLooksLikeDate = /date/.test(firstCell) || /^(holiday|holidays)$/i.test(firstCell);
+    const hasHeader = headerLooksLikeDate;
+    const headings = hasHeader ? matrix[0].map(value => String(value ?? "").trim().toLowerCase()) : [];
+    const dateColumn = hasHeader ? headings.findIndex(value => /date/.test(value)) : 0;
+    if (hasHeader && dateColumn < 0) {
+      return res.status(400).json({ message: "A date column is required. Use a header such as Date or Holiday Date." });
+    }
+    const nameColumn = hasHeader ? headings.findIndex(value => /holiday\\s*name|name|occasion|holiday/.test(value) && !/date/.test(value)) : -1;
+    const firstDataRow = hasHeader ? 1 : 0;
+    const academicSession = await AcademicSession.findById(req.params.id).lean();
+    if (!academicSession) return res.status(404).json({ message: "Academic session not found." });
+
+    const start = academicSession.startDate ? new Date(academicSession.startDate).toISOString().slice(0, 10) : "";
+    const end = academicSession.endDate ? new Date(academicSession.endDate).toISOString().slice(0, 10) : "";
+    const existing = new Set((academicSession.holidayDates || []).map(value => String(value).slice(0, 10)));
+    const seen = new Set();
+    const rows = [];
+
+    for (let index = firstDataRow; index < matrix.length; index += 1) {
+      const values = matrix[index] || [];
+      const rawDate = holidayImportCell(values[dateColumn]);
+      const holidayName = nameColumn >= 0 ? String(holidayImportCell(values[nameColumn]) ?? "").trim() : "";
+      const hasAnyValue = values.some(value => String(value ?? "").trim());
+      if (!hasAnyValue) continue;
+      const displayValue = rawDate instanceof Date ? rawDate.toISOString().slice(0, 10) : String(rawDate ?? "").trim();
+      const date = parseHolidayImportDate(rawDate);
+      const result = { rowNumber: index + 1, sourceDate: displayValue, date: date || "", holidayName, status: "valid", reason: "" };
+
+      if (!date) {
+        result.status = "invalid";
+        result.reason = "Invalid or missing date. Use YYYY-MM-DD or DD-MM-YYYY.";
+      } else if (existing.has(date)) {
+        result.status = "skipped";
+        result.reason = "This holiday is already configured for the selected session.";
+      } else if (seen.has(date)) {
+        result.status = "skipped";
+        result.reason = "This date appears more than once in the uploaded file.";
+      } else if (new Date(date + "T00:00:00.000Z").getUTCDay() === 0) {
+        result.status = "skipped";
+        result.reason = "Sunday is already an automatic holiday.";
+        seen.add(date);
+      } else if ((start && date < start) || (end && date > end)) {
+        result.status = "invalid";
+        result.reason = "Date is outside the selected academic session (" + start + " to " + end + ").";
+        seen.add(date);
+      } else {
+        seen.add(date);
+      }
+      rows.push(result);
+    }
+
+    if (!rows.length) return res.status(400).json({ message: "No holiday rows were found. Add a Date column and at least one date." });
+    return res.json({
+      fileName,
+      sessionName: academicSession.name,
+      rows,
+      summary: {
+        total: rows.length,
+        valid: rows.filter(item => item.status === "valid").length,
+        skipped: rows.filter(item => item.status === "skipped").length,
+        invalid: rows.filter(item => item.status === "invalid").length
+      }
+    });
+  } catch (error) {
+    return res.status(400).json({ message: error.message || "Unable to read this holiday file." });
+  }
 });
 
 app.patch("/api/sessions/:id/holidays", requireAuth, async (req,res)=>{
