@@ -3,7 +3,7 @@ import AttendanceSession from "../models/AttendanceSession.js";
 import Student from "../models/Student.js";
 import Timetable from "../models/Timetable.js";
 import AcademicSession from "../models/AcademicSession.js";
-import { canAccessAttendanceEntry, canAccessAttendanceSection, canAccessAttendanceStudent } from "../services/attendanceAccess.js";
+import { attendanceRecordMatchesClass, canAccessAttendanceEntry, canAccessAttendanceSection, canAccessAttendanceStudent } from "../services/attendanceAccess.js";
 
 const router = express.Router();
 const MARK_ROLES = ["ADMIN", "SCHEDULER", "FACULTY"];
@@ -114,7 +114,14 @@ async function saveAttendance(req, res, existingId = null) {
   if (!timetable) return res.status(400).json({ message: "Generate a current timetable first." });
   const entry = (timetable.entries || []).find(e => entryIdOf(e) === String(timetableEntryId));
   if (!entry) return res.status(404).json({ message: "Timetable class not found." });
-  if (!scopedEntryAllowed(req, entry)) return res.status(403).json({ message: "This class is not assigned to your faculty account." });
+  if (!scopedEntryAllowed(req, entry)) return res.status(403).json({ message: "This class is not assigned to your account." });
+  if (existingId) {
+    const existing = await AttendanceSession.findById(existingId).select("timetable timetableEntryId").lean();
+    if (!existing) return res.status(404).json({ message: "Attendance record not found." });
+    if (!attendanceRecordMatchesClass(existing, timetable._id, timetableEntryId)) {
+      return res.status(409).json({ message: "Attendance record does not belong to the selected class in the current timetable." });
+    }
+  }
   const day = DAY_NAMES[new Date(`${date}T00:00:00Z`).getUTCDay()];
   if (entry.day !== day) return res.status(400).json({ message: `This class is scheduled on ${entry.day}, but ${date} is ${day}.` });
 
