@@ -30,6 +30,43 @@ test.describe("Login page", () => {
     await expect(page.locator("#login-username")).toBeVisible();
   });
 
+  test("shows a Caps Lock warning when the password field reports Caps Lock", async ({ page }) => {
+    await page.locator("#login-password").dispatchEvent("keydown", {
+      key: "A",
+      code: "KeyA",
+      bubbles: true
+    });
+    // The browser owns modifier state. Trigger the same input handler with an event
+    // whose getModifierState reports Caps Lock, without changing OS keyboard settings.
+    await page.locator("#login-password").evaluate(element => {
+      const event = new KeyboardEvent("keyup", { key: "A", code: "KeyA", bubbles: true });
+      Object.defineProperty(event, "getModifierState", { value: modifier => modifier === "CapsLock" });
+      element.dispatchEvent(event);
+    });
+    await expect(page.getByRole("status")).toContainText("Caps Lock is on");
+  });
+
+  test("uses a friendly message for backend failures and shows a loading state", async ({ page }) => {
+    await page.route("**/api/auth/login", async route => {
+      await new Promise(resolve => setTimeout(resolve, 300));
+      await route.fulfill({
+        status: 500,
+        contentType: "application/json",
+        body: JSON.stringify({ message: "MongoNetworkError: internal server details" })
+      });
+    });
+
+    await page.locator("#login-username").fill("admin");
+    await page.locator("#login-password").fill("example-password");
+    await page.getByRole("button", { name: "Sign In" }).click();
+
+    await expect(page.getByRole("button", { name: "Signing in…" })).toBeDisabled();
+    await expect(page.locator("#login-username")).toBeDisabled();
+    await expect(page.getByRole("alert")).toHaveText("Sign-in is temporarily unavailable. Please try again shortly.");
+    await expect(page.getByText("MongoNetworkError: internal server details")).toHaveCount(0);
+    await expect(page.locator("#login-username")).toBeEnabled();
+  });
+
   test("announces invalid credentials without exposing server details", async ({ page }) => {
     await page.route("**/api/auth/login", async route => {
       await route.fulfill({
