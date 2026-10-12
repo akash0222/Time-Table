@@ -1,6 +1,7 @@
 import React, {useEffect, useMemo, useState} from "react";
 import axios from "axios";
 import {API, API_CONFIGURATION_ERROR} from "../core/api";
+import {getPageForPath, getPathForPage} from "../core/pageRoutes";
 import {CalendarDays, CalendarOff, Users, BookOpen, DoorOpen, Clock3, WandSparkles, Trash2, Settings2, Check, X, FileSpreadsheet, Upload, Lock, Send, RotateCcw, ShieldCheck,BarChart3,Activity,Bell,UserCheck,RefreshCw,Copy,QrCode,History,ClipboardCheck,UserPlus,DollarSign,GraduationCap,Search,ArrowRight,UsersRound,ChevronLeft,ChevronRight,AlertTriangle,CheckCircle2,Link2} from "lucide-react";
 
 const days=["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
@@ -9,7 +10,37 @@ function refId(v){return String(v?._id??v??"");}
 
 function App(){
   const [auth,setAuth]=useState(()=>{try{return JSON.parse(localStorage.getItem("tt_user")||"null")}catch{return null}});
-  const [tab,setTab]=useState("Dashboard");
+  const [tab,setTabState]=useState(()=>getPageForPath(window.location.pathname));
+  const setTab=(nextTab)=>setTabState(nextTab);
+
+  // Browser-history navigation keeps each module addressable as its own page.
+  useEffect(()=>{
+    const syncPageFromUrl=()=>setTabState(getPageForPath(window.location.pathname));
+    window.addEventListener("popstate",syncPageFromUrl);
+    return ()=>window.removeEventListener("popstate",syncPageFromUrl);
+  },[]);
+
+  useEffect(()=>{
+    const visiblePages=navGroupsForRole(auth?.role).flatMap(group=>group.items.map(item=>item.name));
+    if(auth && tab!=="Dashboard" && !visiblePages.includes(tab)){
+      setMessage("This page is not available for your account role.");
+      window.history.replaceState({page:"Dashboard"},"",getPathForPage("Dashboard"));
+      setTabState("Dashboard");
+      return;
+    }
+    const targetPath=getPathForPage(tab);
+    const currentPath=window.location.pathname;
+    const pageFromUrl=getPageForPath(currentPath);
+    const canonicalPath=getPathForPage(pageFromUrl);
+
+    // Normalize old aliases/unknown URLs without leaving a broken history step.
+    if(currentPath!==canonicalPath && pageFromUrl===tab){
+      window.history.replaceState({page:tab},"",canonicalPath);
+    }else if(currentPath!==targetPath){
+      window.history.pushState({page:tab},"",targetPath);
+    }
+    document.title=tab==="Dashboard" ? "Time Table" : `${tab} | Time Table`;
+  },[tab,auth?.role]);
   const [sidebarCollapsed,setSidebarCollapsed]=useState(()=>localStorage.getItem("tt_sidebar_collapsed")==="true");
   const [data,setData]=useState({faculty:[],subjects:[],sections:[],rooms:[],timeslots:[],programs:[],students:[]});
   const [latest,setLatest]=useState(null);
@@ -502,11 +533,11 @@ export function Root(){
 function navGroupsForRole(role){
   const base = [
     {label:"Overview",items:["Dashboard"]},
-    {label:"Academic",items:["Academic Sessions","Academic Structure","Holiday Management","Generation Readiness","Full Session Timetable","All Program Timetables","Timetable","Calendar View","My Timetable"]},
-    {label:"People & Attendance",items:["Students","Student Mapping","Student Profile","Student Promotion","Attendance","Faculty Portal","Section Portal"]},
+    {label:"Academic & Scheduling",items:["Academic Sessions","Academic Structure","Holiday Management","Generation Readiness","Full Session Timetable","All Program Timetables","Timetable","Calendar View","Availability","Optimization","My Timetable"]},
+    {label:"People & Attendance",items:["Students","Student Mapping","Student Profile","Student Promotion","Attendance","Fees","Notifications","Faculty Portal","Section Portal"]},
     {label:"Master Data",items:["Master Data Settings","Subject & Faculty Mapping","Program & Section Mapping"]},
-    {label:"Tools",items:["Excel Import","Templates & Clone","Public Sharing"]},
-    {label:"Insights",items:["Reports","Analytics","Validation","Change History","Audit Logs"]}
+    {label:"Tools & Sharing",items:["Excel Import","Import Center","Templates & Clone","Public Sharing"]},
+    {label:"Reports & Audit",items:["Reports","Analytics","Validation","Change History","Audit Logs"]}
   ];
   if(role==="ADMIN") base.push({label:"Administration",items:["User Management","Settings"]});
   else if(role==="SCHEDULER") base.push({label:"Administration",items:["Settings"]});
@@ -522,7 +553,7 @@ function navGroupsForRole(role){
     Dashboard:Activity,"Academic Sessions":CalendarDays,"Academic Structure":GraduationCap,"Holiday Management":CalendarOff,"Generation Readiness":ShieldCheck,"Full Session Timetable":CalendarDays,"All Program Timetables":GraduationCap,Timetable:Clock3,"Calendar View":CalendarDays,"My Timetable":CalendarDays,
     Students:UserPlus,"Student Mapping":UsersRound,"Student Profile":UsersRound,"Student Promotion":GraduationCap,Attendance:UserCheck,"Faculty Portal":Users,"Section Portal":Users,
     "Master Data Settings":Settings2,"Subject & Faculty Mapping":BookOpen,"Program & Section Mapping":Link2,"Excel Import":FileSpreadsheet,"Templates & Clone":Copy,"Public Sharing":QrCode,
-    Reports:BarChart3,Analytics:BarChart3,Validation:ShieldCheck,"Change History":History,"Audit Logs":History,"User Management":Users,Settings:Settings2
+    Reports:BarChart3,Analytics:BarChart3,Validation:ShieldCheck,"Change History":History,"Audit Logs":History,"User Management":Users,Settings:Settings2,Fees:DollarSign,Notifications:Bell,Optimization:Activity,Availability:Clock3,"Import Center":Upload
   };
   return base.map(g=>({...g,items:g.items.filter(name=>allowed.has(name)).map(name=>({name,Icon:icons[name]||Activity}))})).filter(g=>g.items.length);
 }

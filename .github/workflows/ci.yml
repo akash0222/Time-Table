@@ -25,6 +25,9 @@ jobs:
       - name: Install client dependencies
         working-directory: client
         run: npm ci
+      - name: Test multi-page routes
+        working-directory: client
+        run: npm run test:routes
       - name: Build client
         working-directory: client
         run: npm run build
