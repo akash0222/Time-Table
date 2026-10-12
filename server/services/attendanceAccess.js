@@ -48,3 +48,14 @@ export function attendanceRecordMatchesClass(record, currentTimetableId, timetab
     && idOf(record.timetable) === idOf(currentTimetableId)
     && idOf(record.timetableEntryId) === idOf(timetableEntryId);
 }
+
+export function canAccessStudentSectionList(role, assignment, sectionId, assignedFacultySectionIds = []) {
+  if (role === "ADMIN" || role === "SCHEDULER") return true;
+  const targetSectionId = idOf(sectionId);
+  if (!targetSectionId) return false;
+  if (role === "VIEWER") return Boolean(assignment?.section) && idOf(assignment.section) === targetSectionId;
+  if (role === "FACULTY") {
+    return Boolean(assignment?.faculty) && assignedFacultySectionIds.some(value => idOf(value) === targetSectionId);
+  }
+  return false;
+}
