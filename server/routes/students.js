@@ -2,6 +2,7 @@ import express from "express";
 import Student from "../models/Student.js";
 import Section from "../models/Section.js";
 import Timetable from "../models/Timetable.js";
+import AcademicSession from "../models/AcademicSession.js";
 import ExcelJS from "exceljs";
 import multer from "multer";
 
@@ -262,16 +263,39 @@ router.post("/bulk-map", allowRoles("ADMIN", "SCHEDULER"), async (req, res) => {
 router.get("/", async (req, res) => {
   try {
     const filter = {};
-    if (req.user.role === "VIEWER") filter.section = req.user.section || null;
-    if (req.user.role === "FACULTY") {
-      const timetable = await Timetable.findOne({ isCurrent: true }).lean();
-      const sectionIds = [...new Set((timetable?.entries || []).filter(e => String(e.faculty) === String(req.user.faculty || "")).map(e => String(e.section)))];
-      filter.section = { $in: sectionIds };
+    const role = req.user?.role;
+
+    if (role === "VIEWER") {
+      const assignedSection = String(req.user?.section || "");
+      if (!assignedSection) return res.status(403).json({ message: "No Section is mapped to this Viewer account." });
+      if (req.query.sectionId && String(req.query.sectionId) !== assignedSection) {
+        return res.status(403).json({ message: "You can only view students in your mapped section." });
+      }
+      filter.section = assignedSection;
+    } else if (role === "FACULTY") {
+      if (!req.user?.faculty) return res.status(403).json({ message: "No Faculty is mapped to this account." });
+      const activeSession = await AcademicSession.findOne({ active: true }).select("_id").lean();
+      const timetableFilter = activeSession
+        ? { academicSession: activeSession._id, isCurrent: true }
+        : { isCurrent: true };
+      const timetable = await Timetable.findOne(timetableFilter).lean();
+      const sectionIds = [...new Set((timetable?.entries || [])
+        .filter(entry => String(entry.faculty) === String(req.user.faculty))
+        .map(entry => String(entry.section)))];
+      if (req.query.sectionId) {
+        if (!sectionIds.includes(String(req.query.sectionId))) {
+          return res.status(403).json({ message: "You can only view students in sections assigned to your faculty account." });
+        }
+        filter.section = String(req.query.sectionId);
+      } else {
+        filter.section = { $in: sectionIds };
+      }
+    } else if (["ADMIN", "SCHEDULER"].includes(role)) {
+      if (req.query.sectionId) filter.section = req.query.sectionId;
+    } else {
+      return res.status(403).json({ message: "You are not authorized to view student records." });
     }
-    if (req.query.sectionId) {
-      if (req.user.role === "VIEWER" && String(req.query.sectionId) !== String(req.user.section || "")) return res.status(403).json({ message: "You can only view students in your mapped section." });
-      filter.section = req.query.sectionId;
-    }
+
     if (req.query.active !== undefined) filter.active = String(req.query.active) !== "false";
     const rows = await Student.find(filter)
       .sort({ section: 1, rollNo: 1, name: 1 })
