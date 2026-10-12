@@ -20,6 +20,16 @@ test.describe("Login page", () => {
     await expect(password).toHaveAttribute("type", "password");
   });
 
+  test("shows subtle academic artwork on desktop and hides it on compact layouts", async ({ page }) => {
+    const artwork = page.locator(".login-academic-art");
+    await expect(artwork).toBeVisible();
+    await expect(artwork).toHaveAttribute("aria-hidden", "true");
+
+    await page.setViewportSize({ width: 768, height: 900 });
+    await expect(artwork).toBeHidden();
+    await expect(page.locator("#login-username")).toBeVisible();
+  });
+
   test("announces invalid credentials without exposing server details", async ({ page }) => {
     await page.route("**/api/auth/login", async route => {
       await route.fulfill({
