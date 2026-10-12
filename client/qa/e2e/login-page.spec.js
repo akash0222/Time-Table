@@ -2,6 +2,13 @@ import { test, expect } from "@playwright/test";
 
 test.describe("Login page", () => {
   test.beforeEach(async ({ page }) => {
+    await page.route("**/api/health", async route => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ ok: true, database: "connected" })
+      });
+    });
     await page.goto("/dashboard");
   });
 
@@ -11,6 +18,7 @@ test.describe("Login page", () => {
     const password = page.locator("#login-password");
     await expect(password).toHaveAttribute("type", "password");
     await expect(page.getByRole("button", { name: "Sign In" })).toBeVisible();
+    await expect(page.getByRole("status")).toHaveText("Sign-in service ready");
 
     await page.getByRole("button", { name: "Show password" }).click();
     await expect(password).toHaveAttribute("type", "text");
@@ -54,7 +62,7 @@ test.describe("Login page", () => {
       Object.defineProperty(event, "getModifierState", { value: modifier => modifier === "CapsLock" });
       element.dispatchEvent(event);
     });
-    await expect(page.getByRole("status")).toContainText("Caps Lock is on");
+    await expect(page.locator(".login-caps-lock-warning")).toContainText("Caps Lock is on");
   });
 
   test("uses a friendly message for backend failures and shows a loading state", async ({ page }) => {
