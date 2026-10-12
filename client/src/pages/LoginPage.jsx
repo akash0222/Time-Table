@@ -2,12 +2,14 @@ import React, { useState } from "react";
 import axios from "axios";
 import { API, API_CONFIGURATION_ERROR } from "../core/api";
 import {
+  AlertTriangle,
   ArrowRight,
   BookOpen,
   CalendarCheck2,
   CalendarDays,
   Eye,
   EyeOff,
+  LoaderCircle,
   LockKeyhole,
   ShieldCheck,
   UserRound,
@@ -19,6 +21,11 @@ export default function Login({ onLogin }) {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [capsLockOn, setCapsLockOn] = useState(false);
+
+  function updateCapsLock(event) {
+    setCapsLockOn(Boolean(event.getModifierState?.("CapsLock")));
+  }
 
   async function submit(event) {
     event.preventDefault();
@@ -36,7 +43,18 @@ export default function Login({ onLogin }) {
       localStorage.setItem("tt_user", JSON.stringify(response.data.user));
       onLogin(response.data.user);
     } catch (requestError) {
-      setError(requestError.response?.data?.message || "Unable to sign in. Please check your details and try again.");
+      const status = requestError.response?.status;
+      if (!requestError.response) {
+        setError("Unable to reach the sign-in service. Check your connection and try again.");
+      } else if (status === 401) {
+        setError("Invalid username or password.");
+      } else if (status === 429) {
+        setError("Too many sign-in attempts. Please wait a few minutes before trying again.");
+      } else if (status >= 500) {
+        setError("Sign-in is temporarily unavailable. Please try again shortly.");
+      } else {
+        setError(requestError.response?.data?.message || "Unable to sign in. Please check your details and try again.");
+      }
     } finally {
       setBusy(false);
     }
@@ -180,6 +198,7 @@ export default function Login({ onLogin }) {
                     spellCheck="false"
                     placeholder="Enter your username"
                     required
+                    disabled={busy}
                   />
                 </div>
               </div>
@@ -194,9 +213,13 @@ export default function Login({ onLogin }) {
                     type={showPassword ? "text" : "password"}
                     value={form.password}
                     onChange={event => setForm({ ...form, password: event.target.value })}
+                    onKeyDown={updateCapsLock}
+                    onKeyUp={updateCapsLock}
+                    onBlur={() => setCapsLockOn(false)}
                     autoComplete="current-password"
                     placeholder="Enter your password"
                     required
+                    disabled={busy}
                   />
                   <button
                     type="button"
@@ -205,17 +228,26 @@ export default function Login({ onLogin }) {
                     aria-label={showPassword ? "Hide password" : "Show password"}
                     aria-pressed={showPassword}
                     title={showPassword ? "Hide password" : "Show password"}
+                    disabled={busy}
                   >
                     {showPassword ? <EyeOff size={18} aria-hidden="true" /> : <Eye size={18} aria-hidden="true" />}
                   </button>
                 </div>
+                {capsLockOn && (
+                  <p className="login-caps-lock-warning" role="status">
+                    <AlertTriangle size={15} aria-hidden="true" />
+                    Caps Lock is on
+                  </p>
+                )}
               </div>
 
               {error && <div className="login-error" role="alert" aria-live="assertive">{error}</div>}
 
               <button className="primary login-submit" type="submit" disabled={busy} aria-busy={busy}>
-                <span>{busy ? "Signing In..." : "Sign In"}</span>
-                <ArrowRight size={18} aria-hidden="true" />
+                <span>{busy ? "Signing in…" : "Sign In"}</span>
+                {busy
+                  ? <LoaderCircle className="login-submit-spinner" size={18} aria-hidden="true" />
+                  : <ArrowRight size={18} aria-hidden="true" />}
               </button>
 
               <p className="login-form-note">
