@@ -79,6 +79,7 @@ function makeActiveSession(overrides = {}) {
       endDate: "2027-03-31"
     }],
     holidayDates: [],
+    holidayDetails: [],
     active: true,
     ...overrides
   };
@@ -179,9 +180,9 @@ async function installApiMocks(page, options = {}) {
         sessionName: sessions.find(session => session._id === holidayPreviewMatch[1])?.name || "Academic Year 2026-27",
         summary: { total: 4, valid: 2, skipped: 1, invalid: 1 },
         rows: [
-          { rowNumber: 2, sourceDate: "2026-08-15", date: "2026-08-15", holidayName: "Independence Day Observed", status: "valid", reason: "" },
+          { rowNumber: 2, sourceDate: "2026-08-15", date: "2026-08-15", holidayName: "Independence Day Observed", description: "School holiday", status: "valid", reason: "" },
           { rowNumber: 3, sourceDate: "2026-08-16", date: "2026-08-16", holidayName: "Sunday Entry", status: "skipped", reason: "Sunday is already an automatic holiday." },
-          { rowNumber: 4, sourceDate: "2026-12-25", date: "2026-12-25", holidayName: "Christmas", status: "valid", reason: "" },
+          { rowNumber: 4, sourceDate: "2026-12-25", date: "2026-12-25", holidayName: "Christmas", description: "School closed", status: "valid", reason: "" },
           { rowNumber: 5, sourceDate: "not-a-date", date: "", holidayName: "Invalid Row", status: "invalid", reason: "Invalid or missing date." }
         ]
       });
@@ -190,7 +191,11 @@ async function installApiMocks(page, options = {}) {
     const holidayPatchMatch = path.match(/^\/sessions\/([^/]+)\/holidays$/);
     if (holidayPatchMatch && method === "PATCH") {
       sessions = sessions.map(session => session._id === holidayPatchMatch[1]
-        ? { ...session, holidayDates: [...(body.holidayDates || [])] }
+        ? {
+            ...session,
+            holidayDates: [...(body.holidayDates || [])],
+            holidayDetails: [...(body.holidayDetails || session.holidayDetails || [])]
+          }
         : session);
       activeSession = sessions.find(session => session.active) || activeSession;
       return json(sessions.find(session => session._id === holidayPatchMatch[1]) || {});
@@ -313,6 +318,8 @@ test("admin can preview and import a holiday list from a CSV file", async ({ pag
   await page.getByRole("button", { name: "Import 2 Valid Dates" }).click();
   await expect(page.getByText("2026-08-15")).toBeVisible();
   await expect(page.getByText("2026-12-25")).toBeVisible();
+  await expect(page.getByText("Christmas", { exact: true })).toBeVisible();
+  await expect(page.getByText("Independence Day Observed", { exact: true })).toBeVisible();
   await expect(page.getByText("2 holiday date(s) imported into Academic Year 2026-27. Duplicates and Sunday dates were skipped.")).toBeVisible();
 });
 
