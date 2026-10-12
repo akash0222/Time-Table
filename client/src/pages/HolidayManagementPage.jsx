@@ -1,127 +1,343 @@
 import React, {useEffect, useState} from "react";
 import axios from "axios";
 import {API} from "../core/api";
-import {CalendarOff, Clock3} from "lucide-react";
+import {CalendarDays, CalendarOff, Clock3, Search, ShieldCheck, Trash2} from "lucide-react";
 
-export default function HolidayManagement({sessions=[],activeSession,role,setMessage}){
-  const canEdit=["ADMIN","SCHEDULER"].includes(role);
-  const [sessionId,setSessionId]=useState(activeSession?._id||"");
-  const [session,setSession]=useState(null);
-  const [holidayDate,setHolidayDate]=useState("");
-  const [holidays,setHolidays]=useState([]);
-  const [loading,setLoading]=useState(false);
-  const [error,setError]=useState("");
+const isoDate = value => String(value || "").slice(0, 10);
 
-  useEffect(()=>{
-    if(activeSession?._id && !sessionId) setSessionId(activeSession._id);
-  },[activeSession?._id]);
+function dateLabel(value, options = {}) {
+  if (!value) return "—";
+  return new Date(value + "T00:00:00Z").toLocaleDateString("en-IN", {
+    timeZone: "UTC",
+    ...options
+  });
+}
 
-  async function loadSession(id=sessionId){
-    if(!id){setSession(null);setHolidays([]);return;}
-    setLoading(true);setError("");
-    try{
-      const r=await axios.get(`${API}/academic-sessions/${id}`);
-      const s=r.data||null;
-      setSession(s);
-      setHolidays((s?.holidayDates||[]).filter(Boolean).sort());
-    }catch(e){
-      setError(e.response?.data?.message||e.message);
-    }finally{setLoading(false);}
+function countSundays(startValue, endValue) {
+  const start = isoDate(startValue);
+  const end = isoDate(endValue);
+  if (!start || !end) return 0;
+  const day = new Date(start + "T00:00:00Z");
+  const last = new Date(end + "T00:00:00Z");
+  if (Number.isNaN(day.getTime()) || Number.isNaN(last.getTime()) || day > last) return 0;
+  let count = 0;
+  while (day <= last) {
+    if (day.getUTCDay() === 0) count += 1;
+    day.setUTCDate(day.getUTCDate() + 1);
   }
+  return count;
+}
 
-  useEffect(()=>{loadSession(sessionId)},[sessionId]);
+export default function HolidayManagement({sessions = [], activeSession, role, setMessage}) {
+  const canEdit = ["ADMIN", "SCHEDULER"].includes(role);
+  const [sessionId, setSessionId] = useState(activeSession?._id || "");
+  const [session, setSession] = useState(null);
+  const [holidayDate, setHolidayDate] = useState("");
+  const [holidays, setHolidays] = useState([]);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
 
-  async function saveDates(next){
-    if(!sessionId || !canEdit) return;
-    const clean=[...new Set(next.filter(Boolean).map(String))].sort();
-    setLoading(true);setError("");
-    try{
-      const r=await axios.patch(`${API}/sessions/${sessionId}/holidays`,{holidayDates:clean});
-      setSession(r.data);
-      setHolidays((r.data?.holidayDates||[]).sort());
-      setMessage(`Holiday calendar updated. ${clean.length} holiday date(s) configured. Sundays remain automatic holidays.`);
-    }catch(e){
-      setError(e.response?.data?.message||e.message);
-    }finally{setLoading(false);}
-  }
+  useEffect(() => {
+    if (activeSession?._id && !sessionId) setSessionId(activeSession._id);
+  }, [activeSession?._id]);
 
-  function addHoliday(){
-    if(!holidayDate)return;
-    const d=new Date(`${holidayDate}T00:00:00Z`);
-    if(d.getUTCDay()===0){
-      setError("Sunday is already a default holiday and cannot be added as a separate date.");
+  async function loadSession(id = sessionId) {
+    if (!id) {
+      setSession(null);
+      setHolidays([]);
+      setError("");
+      setLoading(false);
       return;
     }
-    if(session?.startDate && holidayDate<String(session.startDate).slice(0,10) || session?.endDate && holidayDate>String(session.endDate).slice(0,10)){
-      setError("Holiday date must fall inside the selected academic session.");
-      return;
+
+    setLoading(true);
+    setError("");
+    setSession(null);
+    setHolidays([]);
+    setSearchTerm("");
+
+    try {
+      const response = await axios.get(API + "/academic-sessions/" + id);
+      const currentSession = response.data || null;
+      setSession(currentSession);
+      setHolidays((currentSession?.holidayDates || []).filter(Boolean).map(isoDate).sort());
+    } catch (requestError) {
+      setSession(null);
+      setHolidays([]);
+      setError(requestError.response?.data?.message || requestError.message || "Unable to load the selected academic session.");
+    } finally {
+      setLoading(false);
     }
-    if(!holidays.includes(holidayDate)) saveDates([...holidays,holidayDate]);
-    setHolidayDate("");
   }
 
-  function removeHoliday(date){saveDates(holidays.filter(x=>x!==date));}
+  useEffect(() => {
+    loadSession(sessionId);
+  }, [sessionId]);
 
-  const sundayCount=session?.startDate&&session?.endDate
-    ? (()=>{let n=0,d=new Date(`${String(session.startDate).slice(0,10)}T00:00:00Z`),e=new Date(`${String(session.endDate).slice(0,10)}T00:00:00Z`);while(d<=e){if(d.getUTCDay()===0)n++;d.setUTCDate(d.getUTCDate()+1)}return n})()
-    : 0;
+  async function saveDates(nextDates) {
+    if (!sessionId || !canEdit || saving) return false;
+    const cleanDates = [...new Set(nextDates.filter(Boolean).map(isoDate))].sort();
 
-  return <div className="holiday-management">
-    <div className="analytics-toolbar">
-      <div><h2>Holiday Management</h2><p>Define academic-session holiday dates. Classes will never be scheduled on configured holidays or on Sunday.</p></div>
-      <span className="status-badge approved"><CalendarOff size={14}/> Sunday: Default Holiday</span>
-    </div>
+    setSaving(true);
+    setError("");
+    try {
+      const response = await axios.patch(API + "/sessions/" + sessionId + "/holidays", {
+        holidayDates: cleanDates
+      });
+      const updatedSession = response.data || {};
+      setSession(updatedSession);
+      setHolidays((updatedSession.holidayDates || []).filter(Boolean).map(isoDate).sort());
+      if (typeof setMessage === "function") {
+        setMessage("Holiday calendar updated. " + cleanDates.length + " holiday date(s) configured. Sundays remain automatic holidays.");
+      }
+      return true;
+    } catch (requestError) {
+      setError(requestError.response?.data?.message || requestError.message || "Unable to save holiday dates. Please try again.");
+      return false;
+    } finally {
+      setSaving(false);
+    }
+  }
 
-    <section className="panel">
-      <div className="form-grid">
-        <div className="field">
-          <label>Academic Session</label>
-          <select value={sessionId} onChange={e=>setSessionId(e.target.value)}>
-            <option value="">Select session</option>
-            {sessions.map(s=><option key={s._id} value={s._id}>{s.name}{s.active?" (Active)":""}</option>)}
-          </select>
-        </div>
-        <div className="field">
-          <label>Holiday Date</label>
-          <div style={{display:"flex",gap:8}}>
-            <input type="date" value={holidayDate} min={session?.startDate?String(session.startDate).slice(0,10):undefined} max={session?.endDate?String(session.endDate).slice(0,10):undefined} onChange={e=>{setHolidayDate(e.target.value);setError("")}} disabled={!sessionId||!canEdit}/>
-            <button className="primary" type="button" onClick={addHoliday} disabled={!sessionId||!holidayDate||!canEdit||loading}>Add Holiday</button>
+  async function addHoliday(event) {
+    event?.preventDefault?.();
+    if (!sessionId || !session || !holidayDate || !canEdit || saving) return;
+
+    const chosenDate = new Date(holidayDate + "T00:00:00Z");
+    if (chosenDate.getUTCDay() === 0) {
+      setError("Sunday is already a default holiday. Choose another date.");
+      return;
+    }
+
+    const sessionStart = isoDate(session.startDate);
+    const sessionEnd = isoDate(session.endDate);
+    if ((sessionStart && holidayDate < sessionStart) || (sessionEnd && holidayDate > sessionEnd)) {
+      setError("Holiday date must fall inside the selected academic session (" + sessionStart + " to " + sessionEnd + ").");
+      return;
+    }
+
+    if (holidays.includes(holidayDate)) {
+      setError("This date is already configured as a holiday.");
+      return;
+    }
+
+    const saved = await saveDates([...holidays, holidayDate]);
+    if (saved) setHolidayDate("");
+  }
+
+  function removeHoliday(date) {
+    if (!window.confirm("Remove " + date + " from this session's holiday calendar?")) return;
+    saveDates(holidays.filter(value => value !== date));
+  }
+
+  const sundayCount = countSundays(session?.startDate, session?.endDate);
+  const selectedSessionName = session?.name || sessions.find(item => item._id === sessionId)?.name || "—";
+  const normalizedSearch = searchTerm.trim().toLowerCase();
+  const filteredHolidays = holidays.filter(date => {
+    if (!normalizedSearch) return true;
+    const friendlyDate = dateLabel(date, {weekday: "long", day: "numeric", month: "long", year: "numeric"});
+    return (date + " " + friendlyDate).toLowerCase().includes(normalizedSearch);
+  });
+
+  return (
+    <div className="holiday-management">
+      <div className="analytics-toolbar holiday-page-header">
+        <div className="holiday-page-title">
+          <span className="holiday-title-icon" aria-hidden="true"><CalendarDays size={25}/></span>
+          <div>
+            <span className="holiday-eyebrow">ACADEMIC CALENDAR</span>
+            <h2>Holiday Management</h2>
+            <p>Set non-working dates for an academic session and keep timetable generation accurate.</p>
           </div>
-          <small className="field-help">Select a date within the academic session. Sunday is automatically excluded.</small>
         </div>
+        <span className="holiday-sunday-badge"><CalendarOff size={16}/> Sunday is a default holiday</span>
       </div>
 
-      {error&&<div className="message error" style={{marginTop:14}}>{error}</div>}
+      <section className="panel holiday-setup-panel">
+        <div className="holiday-panel-heading">
+          <div>
+            <h3>Holiday calendar setup</h3>
+            <p>Choose a session, then add any additional non-working dates.</p>
+          </div>
+          {canEdit ? (
+            <span className="holiday-access-note"><ShieldCheck size={15}/> Editing enabled</span>
+          ) : (
+            <span className="holiday-access-note readonly"><ShieldCheck size={15}/> Read-only access</span>
+          )}
+        </div>
 
-      <div className="holiday-summary-grid">
-        <div><span>Configured Holidays</span><strong>{holidays.length}</strong></div>
-        <div><span>Automatic Sunday Holidays</span><strong>{sundayCount}</strong></div>
-        <div><span>Selected Session</span><strong>{session?.name||"—"}</strong></div>
-      </div>
-    </section>
+        <form className="holiday-config-grid" onSubmit={addHoliday}>
+          <div className="field holiday-session-field">
+            <label htmlFor="holiday-session">Academic session</label>
+            <select id="holiday-session" value={sessionId} onChange={event => setSessionId(event.target.value)}>
+              <option value="">Select an academic session</option>
+              {sessions.map(item => (
+                <option key={item._id} value={item._id}>
+                  {item.name}{item.active ? " (Active)" : ""}
+                </option>
+              ))}
+            </select>
+            <small className="field-help">Holiday dates are saved separately for each session.</small>
+          </div>
 
-    <section className="panel">
-      <div className="panel-head">
-        <div><h3>Configured Holiday Dates</h3><p>These dates are stored against the academic session and are automatically applied when the Full Session Timetable is generated.</p></div>
-        {loading&&<span className="muted">Saving…</span>}
-      </div>
-      {!sessionId ? <div className="empty-state">Select an academic session to manage holidays.</div> :
-       !holidays.length ? <div className="empty-state">No additional holiday dates configured. Sunday is already a holiday.</div> :
-       <div className="holiday-date-list">
-         {holidays.map(d=><div className="holiday-date-row" key={d}>
-           <div><CalendarOff size={17}/><strong>{d}</strong><span>{new Date(`${d}T00:00:00Z`).toLocaleDateString("en-IN",{weekday:"long",day:"2-digit",month:"short",year:"numeric",timeZone:"UTC"})}</span></div>
-           {canEdit&&<button className="secondary danger" onClick={()=>removeHoliday(d)} disabled={loading}>Remove</button>}
-         </div>)}
-       </div>}
-    </section>
+          <div className="field holiday-date-field">
+            <label htmlFor="holiday-date">Add a holiday date</label>
+            <div className="holiday-date-control">
+              <input
+                id="holiday-date"
+                type="date"
+                value={holidayDate}
+                min={session?.startDate ? isoDate(session.startDate) : undefined}
+                max={session?.endDate ? isoDate(session.endDate) : undefined}
+                onChange={event => { setHolidayDate(event.target.value); setError(""); }}
+                disabled={!sessionId || !session || !canEdit || loading || saving}
+                aria-describedby="holiday-date-help"
+              />
+              <button
+                className="primary holiday-add-button"
+                type="submit"
+                disabled={!sessionId || !session || !holidayDate || !canEdit || loading || saving}
+              >
+                {saving ? "Saving…" : "Add Holiday"}
+              </button>
+            </div>
+            <small className="field-help" id="holiday-date-help">
+              {session?.startDate && session?.endDate
+                ? "Select a date from " + isoDate(session.startDate) + " to " + isoDate(session.endDate) + ". Sundays are excluded automatically."
+                : "Select an academic session first. Sundays are excluded automatically."}
+            </small>
+          </div>
+        </form>
 
-    <section className="panel holiday-rule-panel">
-      <div className="panel-head"><div><h3>Holiday Rules</h3><p>These rules are enforced by the timetable generators.</p></div></div>
-      <div className="holiday-rules">
-        <div><CalendarOff size={18}/><div><strong>Sunday</strong><span>Always a holiday. Sunday cannot be scheduled even if Sunday Time Slots exist.</span></div></div>
-        <div><CalendarOff size={18}/><div><strong>Configured Dates</strong><span>Every date listed above is excluded from Full Session Timetable scheduling.</span></div></div>
-        <div><Clock3 size={18}/><div><strong>Weekly Timetable</strong><span>The weekly timetable works by weekday; date-specific holidays are applied when generating the date-wise Full Session Timetable.</span></div></div>
-      </div>
-    </section>
-  </div>;
+        {error && (
+          <div className="message error holiday-error" role="alert">
+            <span>{error}</span>
+            {loading && <span className="holiday-inline-loader">Loading…</span>}
+          </div>
+        )}
+
+        {!canEdit && (
+          <div className="holiday-readonly-note">You can view this calendar, but only Admin and Scheduler accounts can change it.</div>
+        )}
+
+        <div className="holiday-summary-grid">
+          <div className="holiday-summary-card">
+            <span className="holiday-summary-icon"><CalendarOff size={18}/></span>
+            <div><span>Configured holidays</span><strong>{holidays.length}</strong><small>Additional dates in this session</small></div>
+          </div>
+          <div className="holiday-summary-card">
+            <span className="holiday-summary-icon sunday"><CalendarDays size={18}/></span>
+            <div><span>Automatic Sunday holidays</span><strong>{sundayCount}</strong><small>Calculated from the session date range</small></div>
+          </div>
+          <div className="holiday-summary-card">
+            <span className="holiday-summary-icon session"><Clock3 size={18}/></span>
+            <div><span>Selected session</span><strong className="holiday-session-name">{selectedSessionName}</strong><small>{session?.startDate && session?.endDate ? isoDate(session.startDate) + " — " + isoDate(session.endDate) : "Choose a session to see its date range"}</small></div>
+          </div>
+        </div>
+      </section>
+
+      <section className="panel holiday-list-panel">
+        <div className="holiday-panel-heading holiday-list-heading">
+          <div>
+            <h3>Configured holiday dates</h3>
+            <p>These dates are applied to the selected session when the Full Session Timetable is generated.</p>
+          </div>
+          <span className="holiday-count-pill">{holidays.length} {holidays.length === 1 ? "date" : "dates"}</span>
+        </div>
+
+        {holidays.length > 3 && (
+          <label className="holiday-search">
+            <Search size={17} aria-hidden="true"/>
+            <input
+              type="search"
+              aria-label="Search configured holidays"
+              placeholder="Search by date or weekday"
+              value={searchTerm}
+              onChange={event => setSearchTerm(event.target.value)}
+            />
+          </label>
+        )}
+
+        {!sessionId ? (
+          <div className="holiday-empty-state">
+            <CalendarDays size={30}/>
+            <strong>Select an academic session</strong>
+            <span>Choose a session above to view and manage its holiday calendar.</span>
+          </div>
+        ) : loading ? (
+          <div className="holiday-empty-state" role="status">
+            <span className="holiday-spinner" aria-hidden="true"/>
+            <strong>Loading holiday calendar…</strong>
+            <span>Fetching the selected session and its configured dates.</span>
+          </div>
+        ) : holidays.length === 0 ? (
+          <div className="holiday-empty-state">
+            <CalendarOff size={30}/>
+            <strong>No additional holidays configured</strong>
+            <span>Use the form above to add a holiday. Sundays are already excluded automatically.</span>
+          </div>
+        ) : filteredHolidays.length === 0 ? (
+          <div className="holiday-empty-state compact">
+            <Search size={26}/>
+            <strong>No matching holiday dates</strong>
+            <span>Try a different date or weekday.</span>
+          </div>
+        ) : (
+          <div className="holiday-date-list">
+            {filteredHolidays.map(date => (
+              <div className="holiday-date-row" key={date}>
+                <div className="holiday-date-main">
+                  <span className="holiday-date-tile" aria-hidden="true">
+                    <strong>{dateLabel(date, {day: "2-digit"})}</strong>
+                    <small>{dateLabel(date, {month: "short"}).toUpperCase()}</small>
+                  </span>
+                  <div className="holiday-date-copy">
+                    <strong>{dateLabel(date, {weekday: "long"})}</strong>
+                    <span className="holiday-iso-date">{date}</span>
+                    <small>{dateLabel(date, {day: "numeric", month: "long", year: "numeric"})}</small>
+                  </div>
+                </div>
+                {canEdit && (
+                  <button
+                    className="secondary danger holiday-remove-button"
+                    type="button"
+                    onClick={() => removeHoliday(date)}
+                    disabled={saving || loading}
+                    aria-label={"Remove holiday " + date}
+                  >
+                    <Trash2 size={15}/> Remove
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+
+      <section className="panel holiday-rule-panel">
+        <div className="holiday-panel-heading">
+          <div>
+            <h3>Holiday rules</h3>
+            <p>How the holiday calendar affects scheduling.</p>
+          </div>
+        </div>
+        <div className="holiday-rules">
+          <div className="holiday-rule-card">
+            <span className="holiday-rule-icon"><CalendarOff size={19}/></span>
+            <div><strong>Sunday</strong><span>Always treated as a holiday. Classes cannot be scheduled on Sunday, even when Sunday time slots exist.</span></div>
+          </div>
+          <div className="holiday-rule-card">
+            <span className="holiday-rule-icon"><CalendarDays size={19}/></span>
+            <div><strong>Configured dates</strong><span>Dates listed above are excluded from date-wise Full Session Timetable generation for this academic session.</span></div>
+          </div>
+          <div className="holiday-rule-card">
+            <span className="holiday-rule-icon"><Clock3 size={19}/></span>
+            <div><strong>Weekly timetable</strong><span>A weekly timetable uses weekdays. Date-specific holidays are applied when generating the date-wise Full Session Timetable.</span></div>
+          </div>
+        </div>
+      </section>
+    </div>
+  );
 }
