@@ -243,10 +243,10 @@ test("invalid login shows a useful error and does not authenticate", async ({ pa
 test("admin can open and refresh a direct module URL", async ({ page }) => {
   await signIn(page);
   await page.locator('[data-nav="Academic Sessions"]').click();
-  await expect(page.getByRole("heading", { name: "Academic Sessions", exact: true })).toBeVisible();
+  await expect(page.locator("h1", { hasText: "Academic Sessions" })).toBeVisible();
   await expect(page.getByText("Program-wise academic calendar")).toBeVisible();
   await page.reload();
-  await expect(page.getByRole("heading", { name: "Academic Sessions", exact: true })).toBeVisible();
+  await expect(page.locator("h1", { hasText: "Academic Sessions" })).toBeVisible();
   await expect(page).toHaveURL(/\/academic-sessions$/);
 });
 
