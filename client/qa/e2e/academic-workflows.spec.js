@@ -123,7 +123,8 @@ async function installApiMocks(page, options = {}) {
     const method = request.method();
     const url = new URL(request.url());
     const path = url.pathname.replace(/^\/api/, "");
-    let body = {};\n    try { body = request.postDataJSON?.() || {}; } catch { body = {}; }
+    let body = {};
+    try { body = request.postDataJSON?.() || {}; } catch { body = {}; }
 
     const json = (payload, status = 200) => route.fulfill({
       status,
