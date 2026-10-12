@@ -81,15 +81,17 @@ export default function HolidayManagement({sessions = [], activeSession, role, s
     loadSession(sessionId);
   }, [sessionId]);
 
-  async function saveDates(nextDates) {
+  async function saveDates(nextDates, nextDetails = null) {
     if (!sessionId || !canEdit || saving) return false;
     const cleanDates = [...new Set(nextDates.filter(Boolean).map(isoDate))].sort();
 
     setSaving(true);
     setError("");
     try {
+      const detailsToSave = Array.isArray(nextDetails) ? nextDetails : (session?.holidayDetails || []);
       const response = await axios.patch(API + "/sessions/" + sessionId + "/holidays", {
-        holidayDates: cleanDates
+        holidayDates: cleanDates,
+        holidayDetails: detailsToSave.filter(item => cleanDates.includes(isoDate(item.date)))
       });
       const updatedSession = response.data || {};
       setSession(updatedSession);
@@ -134,7 +136,7 @@ export default function HolidayManagement({sessions = [], activeSession, role, s
 
 
   function downloadHolidayTemplate() {
-    const template = "Date,Holiday Name,Description\\r\\n";
+    const template = "Date,Holiday Name,Description\r\n";
     const blob = new Blob([template], {type: "text/csv;charset=utf-8;"});
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
@@ -165,15 +167,23 @@ export default function HolidayManagement({sessions = [], activeSession, role, s
 
   async function importPreviewedHolidays() {
     if (!importPreview || !canEdit || saving || previewLoading) return;
-    const incoming = (importPreview.rows || [])
-      .filter(item => item.status === "valid" && item.date)
-      .map(item => item.date);
-    const cleanIncoming = [...new Set(incoming)].filter(date => !holidays.includes(date));
+    const incomingRows = (importPreview.rows || [])
+      .filter(item => item.status === "valid" && item.date);
+    const cleanIncoming = [...new Set(incomingRows.map(item => item.date))].filter(date => !holidays.includes(date));
     if (!cleanIncoming.length) {
       setError("There are no new valid holiday dates to import. Review the preview or upload another file.");
       return;
     }
-    const saved = await saveDates([...holidays, ...cleanIncoming]);
+    const detailByDate = new Map((session?.holidayDetails || []).map(item => [isoDate(item.date), item]));
+    for (const item of incomingRows) {
+      if (!cleanIncoming.includes(item.date)) continue;
+      const name = String(item.holidayName || "").trim();
+      const description = String(item.description || "").trim();
+      if (name || description) detailByDate.set(item.date, {date:item.date, name, description});
+    }
+    const targetDates = [...holidays, ...cleanIncoming];
+    const detailsToSave = [...detailByDate.values()].filter(item => targetDates.includes(isoDate(item.date)));
+    const saved = await saveDates(targetDates, detailsToSave);
     if (saved) {
       setImportPreview(null);
       setUploadFile(null);
@@ -433,32 +443,37 @@ export default function HolidayManagement({sessions = [], activeSession, role, s
           </div>
         ) : (
           <div className="holiday-date-list">
-            {filteredHolidays.map(date => (
-              <div className="holiday-date-row" key={date}>
-                <div className="holiday-date-main">
-                  <span className="holiday-date-tile" aria-hidden="true">
-                    <strong>{dateLabel(date, {day: "2-digit"})}</strong>
-                    <small>{dateLabel(date, {month: "short"}).toUpperCase()}</small>
-                  </span>
-                  <div className="holiday-date-copy">
-                    <strong>{dateLabel(date, {weekday: "long"})}</strong>
-                    <span className="holiday-iso-date">{date}</span>
-                    <small>{dateLabel(date, {day: "numeric", month: "long", year: "numeric"})}</small>
+            {filteredHolidays.map(date => {
+              const detail = (session?.holidayDetails || []).find(item => isoDate(item.date) === date);
+              return (
+                <div className="holiday-date-row" key={date}>
+                  <div className="holiday-date-main">
+                    <span className="holiday-date-tile" aria-hidden="true">
+                      <strong>{dateLabel(date, {day: "2-digit"})}</strong>
+                      <small>{dateLabel(date, {month: "short"}).toUpperCase()}</small>
+                    </span>
+                    <div className="holiday-date-copy">
+                      <strong>{detail?.name || dateLabel(date, {weekday: "long"})}</strong>
+                      <span className="holiday-iso-date">{date}</span>
+                      <small>{dateLabel(date, {day: "numeric", month: "long", year: "numeric"})}</small>
+                      {detail?.name && <small className="holiday-detail-weekday">{dateLabel(date, {weekday: "long"})}</small>}
+                      {detail?.description && <small className="holiday-detail-description">{detail.description}</small>}
+                    </div>
                   </div>
+                  {canEdit && (
+                    <button
+                      className="secondary danger holiday-remove-button"
+                      type="button"
+                      onClick={() => removeHoliday(date)}
+                      disabled={saving || loading}
+                      aria-label={"Remove holiday " + date}
+                    >
+                      <Trash2 size={15}/> Remove
+                    </button>
+                  )}
                 </div>
-                {canEdit && (
-                  <button
-                    className="secondary danger holiday-remove-button"
-                    type="button"
-                    onClick={() => removeHoliday(date)}
-                    disabled={saving || loading}
-                    aria-label={"Remove holiday " + date}
-                  >
-                    <Trash2 size={15}/> Remove
-                  </button>
-                )}
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </section>
