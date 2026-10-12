@@ -98,6 +98,60 @@ export default function Login({ onLogin }) {
         </section>
 
         <section className="login-panel" aria-labelledby="login-title">
+          <svg className="login-academic-art" viewBox="0 0 360 650" fill="none" aria-hidden="true" focusable="false">
+            <defs>
+              <linearGradient id="loginArtBlue" x1="32" y1="54" x2="318" y2="555" gradientUnits="userSpaceOnUse">
+                <stop stopColor="#60A5FA" />
+                <stop offset="1" stopColor="#2563EB" />
+              </linearGradient>
+            </defs>
+            <path d="M32 92C110 30 191 50 241 112S321 228 292 307 188 408 169 477 203 572 300 586"
+              stroke="url(#loginArtBlue)" strokeWidth="2" strokeDasharray="5 9" strokeLinecap="round" opacity=".46"/>
+            <circle cx="32" cy="92" r="6" fill="#93C5FD" opacity=".72"/>
+            <circle cx="292" cy="307" r="6" fill="#93C5FD" opacity=".72"/>
+            <circle cx="300" cy="586" r="6" fill="#93C5FD" opacity=".72"/>
+            <circle cx="76" cy="28" r="4" fill="#DBEAFE"/>
+            <circle cx="325" cy="44" r="8" stroke="#BFDBFE" strokeWidth="2" opacity=".8"/>
+            <g transform="translate(72 63) rotate(10 106 78)">
+              <rect x="0" y="0" width="216" height="158" rx="17" fill="#EFF6FF" fillOpacity=".62" stroke="#93C5FD" strokeWidth="2"/>
+              <path d="M0 42H216" stroke="#93C5FD" strokeWidth="2"/>
+              <path d="M43 0V-13M174 0V-13" stroke="#60A5FA" strokeWidth="7" strokeLinecap="round"/>
+              <rect x="20" y="59" width="38" height="24" rx="5" fill="#DBEAFE"/>
+              <rect x="70" y="59" width="38" height="24" rx="5" fill="#DBEAFE"/>
+              <rect x="120" y="59" width="38" height="24" rx="5" fill="#DBEAFE"/>
+              <rect x="170" y="59" width="26" height="24" rx="5" fill="#BFDBFE"/>
+              <rect x="20" y="94" width="38" height="24" rx="5" fill="#DBEAFE"/>
+              <rect x="70" y="94" width="38" height="24" rx="5" fill="#BFDBFE"/>
+              <rect x="120" y="94" width="38" height="24" rx="5" fill="#DBEAFE"/>
+              <rect x="170" y="94" width="26" height="24" rx="5" fill="#DBEAFE"/>
+              <rect x="20" y="129" width="38" height="14" rx="5" fill="#DBEAFE"/>
+              <rect x="70" y="129" width="38" height="14" rx="5" fill="#DBEAFE"/>
+              <rect x="120" y="129" width="38" height="14" rx="5" fill="#DBEAFE"/>
+            </g>
+            <g transform="translate(222 220)">
+              <circle cx="44" cy="44" r="43" fill="#F8FBFF" fillOpacity=".92" stroke="#60A5FA" strokeWidth="3"/>
+              <circle cx="44" cy="44" r="31" stroke="#BFDBFE" strokeWidth="2"/>
+              <path d="M44 22V45L59 55" stroke="#3B82F6" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"/>
+              <circle cx="44" cy="44" r="4" fill="#3B82F6"/>
+              <path d="M44 8V14M44 74V80M8 44H14M74 44H80" stroke="#60A5FA" strokeWidth="3" strokeLinecap="round"/>
+            </g>
+            <g transform="translate(104 472) rotate(-5 94 62)">
+              <path d="M12 78C42 65 76 65 102 78V111C75 98 42 98 12 111V78Z" fill="#DBEAFE" stroke="#93C5FD" strokeWidth="2"/>
+              <path d="M102 78C130 65 163 65 190 78V111C163 98 130 98 102 111V78Z" fill="#EFF6FF" stroke="#93C5FD" strokeWidth="2"/>
+              <path d="M102 78V111" stroke="#60A5FA" strokeWidth="2"/>
+              <path d="M12 61C42 48 76 48 102 61V78C75 65 42 65 12 78V61Z" fill="#BFDBFE" stroke="#93C5FD" strokeWidth="2"/>
+              <path d="M102 61C130 48 163 48 190 61V78C163 65 130 65 102 78V61Z" fill="#DBEAFE" stroke="#93C5FD" strokeWidth="2"/>
+              <path d="M12 43C42 30 76 30 102 43V61C75 48 42 48 12 61V43Z" fill="#EFF6FF" stroke="#93C5FD" strokeWidth="2"/>
+              <path d="M102 43C130 30 163 30 190 43V61C163 48 130 48 102 61V43Z" fill="#F8FBFF" stroke="#93C5FD" strokeWidth="2"/>
+              <path d="M160 9C166 -2 184 -4 192 5C186 19 173 23 160 9Z" fill="#BFDBFE" fillOpacity=".78"/>
+              <path d="M160 9C166 19 171 28 173 37" stroke="#93C5FD" strokeWidth="2" strokeLinecap="round"/>
+              <path d="M176 24C188 16 202 20 205 31C194 40 183 37 176 24Z" fill="#DBEAFE"/>
+            </g>
+            <circle cx="52" cy="398" r="9" stroke="#BFDBFE" strokeWidth="2"/>
+            <circle cx="70" cy="419" r="3" fill="#93C5FD"/>
+            <circle cx="301" cy="431" r="5" fill="#BFDBFE"/>
+            <path d="M30 350L39 359L30 368L21 359L30 350Z" fill="#DBEAFE"/>
+          </svg>
           <div className="login-form-shell">
             <div className="login-mobile-brand">
               <span className="login-mobile-brand-icon"><CalendarDays size={22} aria-hidden="true" /></span>
