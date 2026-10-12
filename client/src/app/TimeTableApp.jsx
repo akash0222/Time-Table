@@ -4,8 +4,62 @@ import {API, API_CONFIGURATION_ERROR} from "../core/api";
 import {getPageForPath, getPathForPage} from "../core/pageRoutes";
 import {refId} from "../core/utils";
 import {navGroupsForRole} from "../core/navigation.jsx";
-import {CalendarDays, Users, BookOpen, DoorOpen, Clock3, WandSparkles, Check, History, ChevronLeft, ChevronRight} from "lucide-react";
+import {CalendarDays, Users, BookOpen, DoorOpen, Clock3, WandSparkles, Check, History, ChevronLeft, ChevronRight, ChevronDown} from "lucide-react";
 import Login from "../pages/LoginPage.jsx";
+
+const NAV_MODULE_CHILDREN = {
+  "Academic Sessions": ["Academic Structure", "Holiday Management", "Generation Readiness"],
+  "Full Session Timetable": ["All Program Timetables", "Timetable", "Calendar View", "Availability", "Optimization", "My Timetable"],
+  Students: ["Student Mapping", "Student Profile", "Student Promotion"],
+  "Master Data Settings": ["Subject & Faculty Mapping", "Program & Section Mapping"],
+  "Excel Import": ["Import Center", "Templates & Clone"],
+  Reports: ["Analytics", "Validation", "Change History", "Audit Logs"]
+};
+
+const NAV_CHILD_TO_PARENT = new Map(
+  Object.entries(NAV_MODULE_CHILDREN).flatMap(([parent, children]) => children.map(child => [child, parent]))
+);
+
+function buildNavigationTree(group) {
+  const byName = new Map(group.items.map(item => [item.name, item]));
+  const consumed = new Set();
+  const result = [];
+
+  for (const item of group.items) {
+    if (consumed.has(item.name)) continue;
+    const childNames = NAV_MODULE_CHILDREN[item.name];
+
+    if (childNames) {
+      const children = childNames.filter(name => byName.has(name)).map(name => byName.get(name));
+      children.forEach(child => consumed.add(child.name));
+      result.push({ ...item, routeAllowed: true, children });
+      continue;
+    }
+
+    const parentName = NAV_CHILD_TO_PARENT.get(item.name);
+    if (parentName && !byName.has(parentName)) {
+      const visibleChildren = NAV_MODULE_CHILDREN[parentName]
+        .filter(name => byName.has(name))
+        .map(name => byName.get(name));
+      visibleChildren.forEach(child => consumed.add(child.name));
+      if (visibleChildren.length) {
+        result.push({
+          name: parentName,
+          Icon: visibleChildren[0].Icon,
+          routeAllowed: false,
+          children: visibleChildren
+        });
+      }
+      continue;
+    }
+
+    if (parentName) continue;
+    result.push({ ...item, routeAllowed: true, children: [] });
+  }
+
+  return result;
+}
+
 const Attendance = lazy(() => import("../pages/AttendancePage.jsx"));
 const Students = lazy(() => import("../pages/StudentsPage.jsx"));
 const StudentMapping = lazy(() => import("../pages/StudentMappingPage.jsx"));
@@ -83,6 +137,17 @@ export default function App(){
     document.title=tab==="Dashboard" ? "Time Table" : `${tab} | Time Table`;
   },[tab,auth?.role]);
   const [sidebarCollapsed,setSidebarCollapsed]=useState(()=>localStorage.getItem("tt_sidebar_collapsed")==="true");
+  const [collapsedNavGroups,setCollapsedNavGroups]=useState(()=>{
+    try{return JSON.parse(localStorage.getItem("tt_nav_collapsed_groups")||"{}")}catch{return {}}
+  });
+  const [expandedNavModules,setExpandedNavModules]=useState(()=>{
+    const defaults={"Academic Sessions":true,"Full Session Timetable":true};
+    try{
+      const saved=localStorage.getItem("tt_nav_expanded_modules");
+      return saved ? {...defaults,...JSON.parse(saved)} : defaults;
+    }catch{return defaults;}
+  });
+
   const [data,setData]=useState({faculty:[],subjects:[],sections:[],rooms:[],timeslots:[],programs:[],students:[]});
   const [latest,setLatest]=useState(null);
   const [message,setMessage]=useState("");
@@ -188,6 +253,32 @@ export default function App(){
   },[auth?.username,activeSession?._id]);
 
   useEffect(()=>{localStorage.setItem("tt_sidebar_collapsed",String(sidebarCollapsed));},[sidebarCollapsed]);
+  useEffect(()=>{localStorage.setItem("tt_nav_collapsed_groups",JSON.stringify(collapsedNavGroups));},[collapsedNavGroups]);
+  useEffect(()=>{localStorage.setItem("tt_nav_expanded_modules",JSON.stringify(expandedNavModules));},[expandedNavModules]);
+
+  // If a deep-linked page is open, reveal its navigation group and parent module.
+  useEffect(()=>{
+    if(!auth) return;
+    for(const group of navGroupsForRole(auth.role)){
+      const tree=buildNavigationTree(group);
+      for(const item of tree){
+        if(item.name===tab || item.children.some(child=>child.name===tab)){
+          setCollapsedNavGroups(previous=>previous[group.label]?{...previous,[group.label]:false}:previous);
+          if(item.children.some(child=>child.name===tab)){
+            setExpandedNavModules(previous=>previous[item.name]?previous:{...previous,[item.name]:true});
+          }
+          return;
+        }
+      }
+    }
+  },[tab,auth?.role]);
+
+  function navigateToNavPage(page,groupLabel,moduleName){
+    setTab(page);
+    setCollapsedNavGroups(previous=>previous[groupLabel]?{...previous,[groupLabel]:false}:previous);
+    if(moduleName) setExpandedNavModules(previous=>previous[moduleName]?previous:{...previous,[moduleName]:true});
+  }
+
 
   if(!auth) return <Suspense fallback={<PageLoading label="sign in" />}><Login onLogin={u=>setAuth(u)} /></Suspense>;
 
@@ -255,11 +346,81 @@ export default function App(){
         </button>
       </div>
       <div className="workspace-label">ACADEMIC WORKSPACE</div>
-      <nav className="sidebar-nav">
-        {navGroupsForRole(auth.role).map(group=><div className="nav-group" key={group.label}>
-          <div className="nav-group-title">{group.label}</div>
-          {group.items.map(({name,Icon})=><button data-nav={name} className={tab===name?"nav active":"nav"} onClick={()=>setTab(name)} key={name}><Icon size={17}/><span className="nav-label">{name}</span></button>)}
-        </div>)}
+      <nav className="sidebar-nav" aria-label="Main navigation">
+        {navGroupsForRole(auth.role).map(group=>{
+          const groupId="nav-group-"+group.label.toLowerCase().replace(/[^a-z0-9]+/g,"-");
+          const groupCollapsed=Boolean(collapsedNavGroups[group.label]);
+          return <div className={"nav-group"+(groupCollapsed?" is-collapsed":"")} key={group.label}>
+            <button
+              type="button"
+              className="nav-group-title"
+              aria-expanded={!groupCollapsed}
+              aria-controls={groupId}
+              aria-label={(groupCollapsed?"Expand ":"Collapse ")+group.label}
+              onClick={()=>setCollapsedNavGroups(previous=>({...previous,[group.label]:!previous[group.label]}))}
+            >
+              <span className="nav-group-label">{group.label}</span>
+              <ChevronDown className={"nav-group-chevron"+(groupCollapsed?" is-collapsed":"")} size={13}/>
+            </button>
+            {!groupCollapsed&&<div className="nav-group-items" id={groupId}>
+              {buildNavigationTree(group).map(item=>{
+                const hasChildren=item.children.length>0;
+                const moduleExpanded=Boolean(expandedNavModules[item.name]);
+                const moduleId="nav-module-"+item.name.toLowerCase().replace(/[^a-z0-9]+/g,"-");
+                if(!hasChildren){
+                  return <button
+                    data-nav={item.name}
+                    title={sidebarCollapsed?item.name:undefined}
+                    className={tab===item.name?"nav active":"nav"}
+                    onClick={()=>navigateToNavPage(item.name,group.label)}
+                    key={item.name}
+                    aria-current={tab===item.name?"page":undefined}
+                  ><item.Icon size={17}/><span className="nav-label">{item.name}</span></button>;
+                }
+                const toggleModule=()=>setExpandedNavModules(previous=>({...previous,[item.name]:!previous[item.name]}));
+                return <div className={"nav-module"+(moduleExpanded?" is-expanded":"")} key={item.name}>
+                  <div className="nav-module-row">
+                    {item.routeAllowed
+                      ? <button
+                          data-nav={item.name}
+                          title={sidebarCollapsed?item.name:undefined}
+                          className={"nav nav-module-link"+(tab===item.name?" active":"")}
+                          onClick={()=>navigateToNavPage(item.name,group.label,item.name)}
+                          aria-current={tab===item.name?"page":undefined}
+                        ><item.Icon size={17}/><span className="nav-label">{item.name}</span></button>
+                      : <button
+                          type="button"
+                          title={sidebarCollapsed?item.name:undefined}
+                          className="nav nav-module-link nav-module-only"
+                          onClick={toggleModule}
+                          aria-expanded={moduleExpanded}
+                          aria-controls={moduleId}
+                        ><item.Icon size={17}/><span className="nav-label">{item.name}</span><ChevronDown className="nav-module-only-chevron" size={13}/></button>}
+                    {item.routeAllowed&&<button
+                      type="button"
+                      className="nav-module-toggle"
+                      onClick={toggleModule}
+                      aria-label={(moduleExpanded?"Collapse ":"Expand ")+item.name+" submodules"}
+                      aria-expanded={moduleExpanded}
+                      aria-controls={moduleId}
+                      title={(moduleExpanded?"Collapse ":"Expand ")+item.name+" submodules"}
+                    ><ChevronDown size={14}/></button>}
+                  </div>
+                  {moduleExpanded&&!sidebarCollapsed&&<div className="nav-subitems" id={moduleId}>
+                    {item.children.map(child=><button
+                      data-nav={child.name}
+                      className={"nav nav-subitem"+(tab===child.name?" active":"")}
+                      key={child.name}
+                      title={child.name}
+                      onClick={()=>navigateToNavPage(child.name,group.label,item.name)}
+                      aria-current={tab===child.name?"page":undefined}
+                    ><span className="nav-subitem-marker" aria-hidden="true"/><child.Icon size={15}/><span className="nav-label">{child.name}</span></button>)}
+                  </div>}
+                </div>;
+              })}
+            </div>}
+          </div>;
+        })}
       </nav>
       <div className="side-bottom">
         {(["ADMIN","SCHEDULER"].includes(auth.role)) && <button className="primary full" onClick={generate} disabled={loading}><WandSparkles size={17}/> Generate Timetable</button>}
