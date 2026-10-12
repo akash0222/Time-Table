@@ -1,7 +1,7 @@
 import React, {useEffect, useState} from "react";
 import axios from "axios";
 import {API} from "../core/api";
-import {CalendarDays, CalendarOff, Clock3, Search, ShieldCheck, Trash2} from "lucide-react";
+import {CalendarDays, CalendarOff, Clock3, Search, ShieldCheck, Trash2, FileSpreadsheet, Upload, Download, CheckCircle2, AlertTriangle} from "lucide-react";
 
 const isoDate = value => String(value || "").slice(0, 10);
 
@@ -38,6 +38,9 @@ export default function HolidayManagement({sessions = [], activeSession, role, s
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [uploadFile, setUploadFile] = useState(null);
+  const [importPreview, setImportPreview] = useState(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
 
   useEffect(() => {
     if (activeSession?._id && !sessionId) setSessionId(activeSession._id);
@@ -57,6 +60,8 @@ export default function HolidayManagement({sessions = [], activeSession, role, s
     setSession(null);
     setHolidays([]);
     setSearchTerm("");
+    setImportPreview(null);
+    setUploadFile(null);
 
     try {
       const response = await axios.get(API + "/academic-sessions/" + id);
@@ -125,6 +130,59 @@ export default function HolidayManagement({sessions = [], activeSession, role, s
 
     const saved = await saveDates([...holidays, holidayDate]);
     if (saved) setHolidayDate("");
+  }
+
+
+  function downloadHolidayTemplate() {
+    const template = "Date,Holiday Name,Description\\r\\n";
+    const blob = new Blob([template], {type: "text/csv;charset=utf-8;"});
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "holiday-list-template.csv";
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  async function previewHolidayUpload() {
+    if (!sessionId || !canEdit || !uploadFile || previewLoading || saving) return;
+    setPreviewLoading(true);
+    setError("");
+    setImportPreview(null);
+    try {
+      const form = new FormData();
+      form.append("file", uploadFile);
+      const response = await axios.post(API + "/sessions/" + sessionId + "/holidays/preview-import", form);
+      setImportPreview(response.data || null);
+    } catch (requestError) {
+      setError(requestError.response?.data?.message || requestError.message || "Unable to read the uploaded holiday list.");
+    } finally {
+      setPreviewLoading(false);
+    }
+  }
+
+  async function importPreviewedHolidays() {
+    if (!importPreview || !canEdit || saving || previewLoading) return;
+    const incoming = (importPreview.rows || [])
+      .filter(item => item.status === "valid" && item.date)
+      .map(item => item.date);
+    const cleanIncoming = [...new Set(incoming)].filter(date => !holidays.includes(date));
+    if (!cleanIncoming.length) {
+      setError("There are no new valid holiday dates to import. Review the preview or upload another file.");
+      return;
+    }
+    const saved = await saveDates([...holidays, ...cleanIncoming]);
+    if (saved) {
+      setImportPreview(null);
+      setUploadFile(null);
+      const fileInput = document.getElementById("holiday-upload-file");
+      if (fileInput) fileInput.value = "";
+      if (typeof setMessage === "function") {
+        setMessage(cleanIncoming.length + " holiday date(s) imported into " + selectedSessionName + ". Duplicates and Sunday dates were skipped.");
+      }
+    }
   }
 
   function removeHoliday(date) {
@@ -237,6 +295,95 @@ export default function HolidayManagement({sessions = [], activeSession, role, s
           </div>
         </div>
       </section>
+
+
+      {canEdit && (
+        <section className="panel holiday-upload-panel">
+          <div className="holiday-panel-heading holiday-upload-heading">
+            <div className="holiday-upload-title">
+              <span className="holiday-upload-icon"><FileSpreadsheet size={21}/></span>
+              <div>
+                <h3>Upload holiday list</h3>
+                <p>Import multiple holiday dates from an Excel (.xlsx) or CSV file. Review the preview before saving anything.</p>
+              </div>
+            </div>
+            <button className="secondary holiday-template-button" type="button" onClick={downloadHolidayTemplate}>
+              <Download size={16}/> Download CSV template
+            </button>
+          </div>
+
+          <div className="holiday-upload-workflow">
+            <label className="holiday-file-picker" htmlFor="holiday-upload-file">
+              <Upload size={19}/>
+              <span className="holiday-file-copy">
+                <strong>{uploadFile ? uploadFile.name : "Choose your holiday file"}</strong>
+                <small>{uploadFile ? Math.max(1, Math.round(uploadFile.size / 1024)) + " KB · Ready to preview" : "Excel .xlsx or comma-separated .csv"}</small>
+              </span>
+              <input
+                id="holiday-upload-file"
+                type="file"
+                accept=".xlsx,.csv,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                onChange={event => { setUploadFile(event.target.files?.[0] || null); setImportPreview(null); setError(""); }}
+                disabled={!sessionId || !session || loading || saving || previewLoading}
+              />
+            </label>
+            <button
+              className="primary holiday-preview-button"
+              type="button"
+              onClick={previewHolidayUpload}
+              disabled={!sessionId || !session || !uploadFile || loading || saving || previewLoading}
+            >
+              <Search size={16}/>{previewLoading ? "Reading file…" : "Preview Holiday List"}
+            </button>
+          </div>
+          <div className="holiday-upload-hint">
+            <strong>Expected format:</strong> a <code>Date</code> or <code>Holiday Date</code> column; optional <code>Holiday Name</code> and <code>Description</code> columns are supported. Dates can use YYYY-MM-DD or DD-MM-YYYY.
+          </div>
+
+          {importPreview && (
+            <div className="holiday-import-preview">
+              <div className="holiday-preview-summary">
+                <div><span>Total rows</span><strong>{importPreview.summary?.total ?? importPreview.rows?.length ?? 0}</strong></div>
+                <div className="valid"><span>Ready to import</span><strong>{importPreview.summary?.valid ?? 0}</strong></div>
+                <div className="skipped"><span>Skipped</span><strong>{importPreview.summary?.skipped ?? 0}</strong></div>
+                <div className="invalid"><span>Need correction</span><strong>{importPreview.summary?.invalid ?? 0}</strong></div>
+              </div>
+              <div className="holiday-preview-table-wrap">
+                <table className="holiday-preview-table">
+                  <thead><tr><th>Row</th><th>Date in file</th><th>Holiday name</th><th>Result</th></tr></thead>
+                  <tbody>
+                    {(importPreview.rows || []).map(item => (
+                      <tr key={item.rowNumber + "-" + item.sourceDate}>
+                        <td>{item.rowNumber}</td>
+                        <td>{item.date || item.sourceDate || "—"}</td>
+                        <td>{item.holidayName || "—"}</td>
+                        <td>
+                          <span className={"holiday-row-status " + (item.status || "invalid")}>
+                            {item.status === "valid" ? <CheckCircle2 size={14}/> : <AlertTriangle size={14}/>}
+                            {item.status === "valid" ? "Ready" : item.status === "skipped" ? "Skipped" : "Invalid"}
+                          </span>
+                          {item.reason && <small className="holiday-row-reason">{item.reason}</small>}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <div className="holiday-preview-footer">
+                <span>Nothing is saved until you confirm the import.</span>
+                <button
+                  className="primary"
+                  type="button"
+                  onClick={importPreviewedHolidays}
+                  disabled={saving || previewLoading || !(importPreview.summary?.valid > 0)}
+                >
+                  {saving ? "Importing…" : "Import " + (importPreview.summary?.valid || 0) + " Valid Dates"}
+                </button>
+              </div>
+            </div>
+          )}
+        </section>
+      )}
 
       <section className="panel holiday-list-panel">
         <div className="holiday-panel-heading holiday-list-heading">
