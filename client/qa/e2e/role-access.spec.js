@@ -284,13 +284,21 @@ test("dashboard shows visual analytics and the sidebar collapses to icon navigat
   const app = page.locator(".app");
   await expect(page.getByRole("button", { name: "Collapse navigation" })).toBeVisible();
 
+  await expect(page.getByRole("button", { name: "Collapse Academic & Scheduling" })).toBeVisible();
+  await page.getByRole("button", { name: "Collapse Academic & Scheduling" }).click();
+  await expect(page.locator('[data-nav="Academic Sessions"]')).toHaveCount(0);
+  await page.getByRole("button", { name: "Expand Academic & Scheduling" }).click();
+  await expect(page.locator('[data-nav="Academic Sessions"]')).toBeVisible();
+
+  await page.getByRole("button", { name: "Expand Academic Sessions submodules" }).click();
+  await expect(page.locator('[data-nav="Academic Structure"]')).toBeVisible();
+  await page.locator('[data-nav="Academic Structure"]').click();
+  await expect(page.locator("h1")).toHaveText("Academic Structure");
+  await expect(page.locator('[data-nav="Holiday Management"]')).toBeVisible();
+
   await page.getByRole("button", { name: "Collapse navigation" }).click();
   await expect(app).toHaveClass(/sidebar-collapsed/);
   await expect(sidebar).toHaveCSS("width", "82px");
   await expect(sidebar.locator(".nav-label").first()).toBeHidden();
-  await expect(page.locator('[data-nav="Holiday Management"]')).toBeVisible();
-
-  await page.locator('[data-nav="Holiday Management"]').click();
-  await expect(page.locator("h1")).toHaveText("Holiday Management");
   await expect(page.getByRole("button", { name: "Expand navigation" })).toBeVisible();
 });
