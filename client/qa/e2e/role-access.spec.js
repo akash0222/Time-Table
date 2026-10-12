@@ -271,3 +271,26 @@ test("Viewer can only see assigned section timetable and cannot open another sec
   await expect(page).toHaveURL(/\/dashboard$/);
   await expect(page.locator("h1")).toHaveText("Dashboard");
 });
+
+
+test("dashboard shows visual analytics and the sidebar collapses to icon navigation", async ({ page }) => {
+  await installRoleApiMocks(page, "ADMIN");
+
+  await expect(page.getByRole("heading", { name: "Class distribution" })).toBeVisible();
+  await expect(page.getByText("Your weekly view will appear here")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Timetable at a glance" })).toBeVisible();
+
+  const sidebar = page.locator(".erp-sidebar");
+  const app = page.locator(".app");
+  await expect(page.getByRole("button", { name: "Collapse navigation" })).toBeVisible();
+
+  await page.getByRole("button", { name: "Collapse navigation" }).click();
+  await expect(app).toHaveClass(/sidebar-collapsed/);
+  await expect(sidebar).toHaveCSS("width", "82px");
+  await expect(sidebar.locator(".nav-label").first()).toBeHidden();
+  await expect(page.locator('[data-nav="Holiday Management"]')).toBeVisible();
+
+  await page.locator('[data-nav="Holiday Management"]').click();
+  await expect(page.locator("h1")).toHaveText("Holiday Management");
+  await expect(page.getByRole("button", { name: "Expand navigation" })).toBeVisible();
+});
