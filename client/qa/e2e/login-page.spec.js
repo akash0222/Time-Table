@@ -33,6 +33,7 @@ test.describe("Login page", () => {
     const artwork = page.locator(".login-academic-art");
     await expect(artwork).toBeVisible();
     await expect(artwork).toHaveAttribute("aria-hidden", "true");
+    await expect(artwork.locator(".login-art-study-card")).toHaveCount(1);
 
     await page.setViewportSize({ width: 768, height: 900 });
     await expect(artwork).toBeHidden();
