@@ -1,4 +1,4 @@
-import React, {useEffect, useState} from "react";
+import React, {lazy, Suspense, useEffect, useState} from "react";
 import axios from "axios";
 import {API, API_CONFIGURATION_ERROR} from "../core/api";
 import {getPageForPath, getPathForPage} from "../core/pageRoutes";
@@ -6,41 +6,48 @@ import {refId} from "../core/utils";
 import {navGroupsForRole} from "../core/navigation.jsx";
 import {CalendarDays, Users, BookOpen, DoorOpen, Clock3, WandSparkles, Check, History, ChevronLeft, ChevronRight} from "lucide-react";
 import Login from "../pages/LoginPage.jsx";
-import Attendance from "../pages/AttendancePage.jsx";
-import Students from "../pages/StudentsPage.jsx";
-import StudentMapping from "../pages/StudentMappingPage.jsx";
-import StudentProfile from "../pages/StudentProfilePage.jsx";
-import StudentPromotion from "../pages/StudentPromotionPage.jsx";
-import FeeManagement from "../pages/FeeManagementPage.jsx";
-import FullSessionTimetable from "../pages/FullSessionTimetablePage.jsx";
-import AllProgramTimetables from "../pages/AllProgramTimetablesPage.jsx";
-import AcademicSessions from "../pages/AcademicSessionsPage.jsx";
-import AcademicStructure from "../pages/AcademicStructurePage.jsx";
-import HolidayManagement from "../pages/HolidayManagementPage.jsx";
-import TimetableTemplates from "../pages/TimetableTemplatesPage.jsx";
-import PublicSharing from "../pages/PublicSharingPage.jsx";
-import Dashboard from "../pages/DashboardPage.jsx";
-import PersonalTimetable from "../pages/PersonalTimetablePage.jsx";
-import CalendarView from "../pages/CalendarViewPage.jsx";
-import FacultyPortal from "../pages/FacultyPortalPage.jsx";
-import SectionPortal from "../pages/SectionPortalPage.jsx";
-import Notifications from "../pages/NotificationsPage.jsx";
-import ChangeHistory from "../pages/ChangeHistoryPage.jsx";
-import UserManagement from "../pages/UserManagementPage.jsx";
-import Analytics from "../pages/AnalyticsPage.jsx";
-import Reports from "../pages/ReportsPage.jsx";
-import AuditLogs from "../pages/AuditLogsPage.jsx";
-import Optimization from "../pages/OptimizationPage.jsx";
-import GenerationReadiness from "../pages/GenerationReadinessPage.jsx";
-import Validation from "../pages/ValidationPage.jsx";
-import TimetableView from "../pages/TimetableViewPage.jsx";
-import TimetableVersions from "../pages/TimetableVersionsPage.jsx";
-import SchedulerSettings from "../pages/SchedulerSettingsPage.jsx";
-import MasterDataSettings from "../pages/MasterDataSettingsPage.jsx";
-import SubjectFacultyMapping from "../pages/SubjectFacultyMappingPage.jsx";
-import ExcelImport from "../pages/ExcelImportPage.jsx";
-import MasterView from "../pages/MasterViewPage.jsx";
-import AvailabilityMatrix from "../pages/AvailabilityMatrixPage.jsx";
+const Attendance = lazy(() => import("../pages/AttendancePage.jsx"));
+const Students = lazy(() => import("../pages/StudentsPage.jsx"));
+const StudentMapping = lazy(() => import("../pages/StudentMappingPage.jsx"));
+const StudentProfile = lazy(() => import("../pages/StudentProfilePage.jsx"));
+const StudentPromotion = lazy(() => import("../pages/StudentPromotionPage.jsx"));
+const FeeManagement = lazy(() => import("../pages/FeeManagementPage.jsx"));
+const FullSessionTimetable = lazy(() => import("../pages/FullSessionTimetablePage.jsx"));
+const AllProgramTimetables = lazy(() => import("../pages/AllProgramTimetablesPage.jsx"));
+const AcademicSessions = lazy(() => import("../pages/AcademicSessionsPage.jsx"));
+const AcademicStructure = lazy(() => import("../pages/AcademicStructurePage.jsx"));
+const HolidayManagement = lazy(() => import("../pages/HolidayManagementPage.jsx"));
+const TimetableTemplates = lazy(() => import("../pages/TimetableTemplatesPage.jsx"));
+const PublicSharing = lazy(() => import("../pages/PublicSharingPage.jsx"));
+const Dashboard = lazy(() => import("../pages/DashboardPage.jsx"));
+const PersonalTimetable = lazy(() => import("../pages/PersonalTimetablePage.jsx"));
+const CalendarView = lazy(() => import("../pages/CalendarViewPage.jsx"));
+const FacultyPortal = lazy(() => import("../pages/FacultyPortalPage.jsx"));
+const SectionPortal = lazy(() => import("../pages/SectionPortalPage.jsx"));
+const Notifications = lazy(() => import("../pages/NotificationsPage.jsx"));
+const ChangeHistory = lazy(() => import("../pages/ChangeHistoryPage.jsx"));
+const UserManagement = lazy(() => import("../pages/UserManagementPage.jsx"));
+const Analytics = lazy(() => import("../pages/AnalyticsPage.jsx"));
+const Reports = lazy(() => import("../pages/ReportsPage.jsx"));
+const AuditLogs = lazy(() => import("../pages/AuditLogsPage.jsx"));
+const Optimization = lazy(() => import("../pages/OptimizationPage.jsx"));
+const GenerationReadiness = lazy(() => import("../pages/GenerationReadinessPage.jsx"));
+const Validation = lazy(() => import("../pages/ValidationPage.jsx"));
+const TimetableView = lazy(() => import("../pages/TimetableViewPage.jsx"));
+const TimetableVersions = lazy(() => import("../pages/TimetableVersionsPage.jsx"));
+const SchedulerSettings = lazy(() => import("../pages/SchedulerSettingsPage.jsx"));
+const MasterDataSettings = lazy(() => import("../pages/MasterDataSettingsPage.jsx"));
+const SubjectFacultyMapping = lazy(() => import("../pages/SubjectFacultyMappingPage.jsx"));
+const ExcelImport = lazy(() => import("../pages/ExcelImportPage.jsx"));
+const MasterView = lazy(() => import("../pages/MasterViewPage.jsx"));
+const AvailabilityMatrix = lazy(() => import("../pages/AvailabilityMatrixPage.jsx"));
+
+function PageLoading({label="page"}) {
+  return <div className="page-loading" role="status" aria-live="polite">
+    <span className="page-loading-spinner" aria-hidden="true"/>
+    <span>Loading {String(label).toLowerCase()}…</span>
+  </div>;
+}
 
 export default function App(){
   const [auth,setAuth]=useState(()=>{try{return JSON.parse(localStorage.getItem("tt_user")||"null")}catch{return null}});
@@ -182,7 +189,7 @@ export default function App(){
 
   useEffect(()=>{localStorage.setItem("tt_sidebar_collapsed",String(sidebarCollapsed));},[sidebarCollapsed]);
 
-  if(!auth) return <Login onLogin={u=>setAuth(u)} />;
+  if(!auth) return <Suspense fallback={<PageLoading label="sign in" />}><Login onLogin={u=>setAuth(u)} /></Suspense>;
 
   async function generate(){
     setLoading(true);
@@ -267,6 +274,7 @@ export default function App(){
       {message && <div className={`message ${/error|network|failed|unable|cannot|start the backend|could not be loaded|not configured/i.test(message)?"error":"success"}`}>{message}{/some data could not be loaded|backend api is not configured/i.test(message) && <button className="secondary" type="button" onClick={()=>load()} style={{marginLeft:10}}>Retry</button>}</div>}
 
 
+      <Suspense fallback={<PageLoading label={tab} />}>
       {tab==="Attendance" && <Attendance data={data} auth={auth} setMessage={setMessage}/>}
       {tab==="Students" && <Students data={data} reload={load} setMessage={setMessage}/>}
       {tab==="Student Mapping" && <StudentMapping data={data} sessions={sessions} activeSession={activeSession} reload={load} setMessage={setMessage}/>}
@@ -305,6 +313,7 @@ export default function App(){
         <MasterView type={tab} data={data} setData={setData} reload={load}/>}
       {tab==="Availability" && <AvailabilityMatrix data={data} reload={load} setMessage={setMessage}/>}
       {tab==="Excel Import" && <ExcelImport reload={load} setMessage={setMessage}/>}
+      </Suspense>
     </main>
   </div>
 }
