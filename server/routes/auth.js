@@ -41,8 +41,8 @@ function loginLimiter(req, res, next) {
 
 router.post("/login", loginLimiter, async (req, res) => {
   try {
-    const username = String(req.body.username || "").trim().toLowerCase();
-    const password = String(req.body.password || "");
+    const username = String(req.body?.username || "").trim().toLowerCase();
+    const password = String(req.body?.password || "");
     const user = await User.findOne({ username }).populate("faculty").populate("section");
     if (!user || !user.active || !(await bcrypt.compare(password, user.passwordHash))) {
       return res.status(401).json({ message: "Invalid username or password." });
