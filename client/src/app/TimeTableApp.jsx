@@ -1,10 +1,10 @@
-import React, {lazy, Suspense, useEffect, useState} from "react";
+import React, {lazy, Suspense, useEffect, useRef, useState} from "react";
 import axios from "axios";
 import {API, API_CONFIGURATION_ERROR} from "../core/api";
 import {getPageForPath, getPathForPage} from "../core/pageRoutes";
 import {refId} from "../core/utils";
 import {navGroupsForRole} from "../core/navigation.jsx";
-import {CalendarDays, Users, BookOpen, DoorOpen, Clock3, WandSparkles, Check, History, ChevronLeft, ChevronRight, ChevronDown, Menu, X} from "lucide-react";
+import {CalendarDays, Users, BookOpen, DoorOpen, Clock3, WandSparkles, Check, History, ChevronLeft, ChevronRight, ChevronDown, Menu, X, Search} from "lucide-react";
 import Login from "../pages/LoginPage.jsx";
 
 // The eight navigation group headings are the only main modules.
@@ -91,6 +91,9 @@ export default function App(){
   },[tab,auth?.role]);
   const [sidebarCollapsed,setSidebarCollapsed]=useState(()=>localStorage.getItem("tt_sidebar_collapsed")==="true");
   const [mobileNavOpen,setMobileNavOpen]=useState(false);
+  const [navQuery,setNavQuery]=useState("");
+  const navSearchRef=useRef(null);
+  const [focusNavSearchOnExpand,setFocusNavSearchOnExpand]=useState(false);
   const [collapsedNavGroups,setCollapsedNavGroups]=useState(()=>{
     try{return JSON.parse(localStorage.getItem("tt_nav_collapsed_groups")||"{}")}catch{return {}}
   });
@@ -202,6 +205,31 @@ export default function App(){
 
   useEffect(()=>{localStorage.setItem("tt_sidebar_collapsed",String(sidebarCollapsed));},[sidebarCollapsed]);
   useEffect(()=>{
+    if(!sidebarCollapsed&&focusNavSearchOnExpand){
+      navSearchRef.current?.focus();
+      setFocusNavSearchOnExpand(false);
+    }
+  },[sidebarCollapsed,focusNavSearchOnExpand]);
+  useEffect(()=>{
+    const onKeyboardShortcut=event=>{
+      if((event.ctrlKey||event.metaKey)&&event.key.toLowerCase()==="k"){
+        event.preventDefault();
+        setMobileNavOpen(false);
+        if(sidebarCollapsed){
+          setFocusNavSearchOnExpand(true);
+          setSidebarCollapsed(false);
+        }else{
+          navSearchRef.current?.focus();
+        }
+      }else if(event.key==="Escape"&&document.activeElement===navSearchRef.current){
+        if(navQuery.trim())setNavQuery("");
+        else navSearchRef.current?.blur();
+      }
+    };
+    window.addEventListener("keydown",onKeyboardShortcut);
+    return ()=>window.removeEventListener("keydown",onKeyboardShortcut);
+  },[sidebarCollapsed,navQuery]);
+  useEffect(()=>{
     if(!mobileNavOpen)return;
     const closeOnEscape=event=>{if(event.key==="Escape")setMobileNavOpen(false);};
     window.addEventListener("keydown",closeOnEscape);
@@ -218,6 +246,7 @@ export default function App(){
 
   function navigateToNavPage(page,groupLabel){
     setTab(page);
+    setNavQuery("");
     setMobileNavOpen(false);
     setCollapsedNavGroups(previous=>previous[groupLabel]?{...previous,[groupLabel]:false}:previous);
   }
@@ -230,9 +259,15 @@ export default function App(){
       }
     }
     setTab(page);
+    setNavQuery("");
     setMobileNavOpen(false);
   }
 
+  const normalizedNavQuery=navQuery.trim().toLowerCase();
+  const visibleNavGroups=auth?navGroupsForRole(auth.role).map(group=>({
+    ...group,
+    items:group.items.filter(item=>!normalizedNavQuery||item.name.toLowerCase().includes(normalizedNavQuery))
+  })).filter(group=>group.items.length):[];
 
   if(!auth) return <Suspense fallback={<PageLoading label="sign in" />}><Login onLogin={u=>setAuth(u)} /></Suspense>;
 
@@ -300,10 +335,25 @@ export default function App(){
         </button>
       </div>
       <div className="workspace-label">ACADEMIC WORKSPACE</div>
+      <div className="nav-search" role="search">
+        <Search size={16} aria-hidden="true"/>
+        <input
+          ref={navSearchRef}
+          className="nav-search-input"
+          type="search"
+          value={navQuery}
+          onChange={event=>setNavQuery(event.target.value)}
+          placeholder="Search pages…"
+          aria-label="Search pages"
+          aria-describedby="nav-search-shortcut"
+        />
+        <kbd id="nav-search-shortcut" className="nav-search-shortcut">Ctrl K</kbd>
+        <button type="button" className="nav-search-collapsed-trigger" aria-label="Search pages" title="Search pages (Ctrl+K)" onClick={()=>{setFocusNavSearchOnExpand(true);setSidebarCollapsed(false);}}><Search size={17}/></button>
+      </div>
       <nav className="sidebar-nav" aria-label="Main navigation">
-        {navGroupsForRole(auth.role).map(group=>{
+        {visibleNavGroups.map(group=>{
           const groupId="nav-group-"+group.label.toLowerCase().replace(/[^a-z0-9]+/g,"-");
-          const groupCollapsed=Boolean(collapsedNavGroups[group.label]);
+          const groupCollapsed=!normalizedNavQuery&&Boolean(collapsedNavGroups[group.label]);
           return <div className={"nav-group"+(groupCollapsed?" is-collapsed":"")} key={group.label} data-nav-group={group.label}>
             <button
               type="button"
@@ -329,6 +379,7 @@ export default function App(){
             </div>}
           </div>;
         })}
+        {normalizedNavQuery&&!visibleNavGroups.length&&<div className="nav-search-empty" role="status">No pages match “{navQuery.trim()}”.</div>}
       </nav>
       <div className="side-bottom">
         {(["ADMIN","SCHEDULER"].includes(auth.role)) && <button className="primary full" onClick={generate} disabled={loading}><WandSparkles size={17}/> Generate Timetable</button>}
