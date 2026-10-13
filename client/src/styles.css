@@ -1333,3 +1333,72 @@ button.danger:hover{background:#fff1f2}
   .app.sidebar-collapsed.mobile-nav-open .erp-sidebar .nav svg{width:17px;height:17px}
   .app.sidebar-collapsed.mobile-nav-open .erp-sidebar .nav-subitem{justify-content:flex-start;padding:8px 9px 8px 10px;gap:8px}
 }
+
+
+/* Academic reports: workload drill-down, subject coverage and responsive tables. */
+.reports-page{display:flex;flex-direction:column;gap:14px;min-width:0}
+.reports-toolbar{align-items:center;gap:16px;flex-wrap:wrap;margin-bottom:0}
+.reports-toolbar>div:first-child{min-width:220px}
+.reports-toolbar h2{margin:0}
+.reports-toolbar p{margin:5px 0 0;color:#64748b;font-size:12px}
+.reports-toolbar .form-actions{display:flex;gap:8px;flex-wrap:wrap}
+.reports-metrics{margin:0;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px}
+.reports-context-panel,.report-panel{margin:0;min-width:0}
+.report-section-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:15px}
+.report-section-title{display:flex;align-items:flex-start;gap:10px;min-width:0}
+.report-section-icon{display:grid;place-items:center;width:34px;height:34px;flex:0 0 34px;border-radius:10px;background:#eff6ff;color:#2563eb}
+.report-section-title h3{margin:0 0 4px;font-size:15px;color:#172033}
+.report-section-title p{margin:0;color:#64748b;font-size:12px;line-height:1.5}
+.report-count{flex:0 0 auto;padding:4px 9px;border:1px solid #e2e8f0;border-radius:999px;background:#f8fafc;color:#475569;font-size:11px;font-weight:800}
+.report-toolbar-row{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:12px}
+.report-search{display:flex;align-items:center;gap:8px;width:min(420px,100%);min-height:38px;padding:0 11px;border:1px solid #d8e1ed;border-radius:9px;background:#fff;color:#64748b}
+.report-search:focus-within{border-color:#60a5fa;box-shadow:0 0 0 3px rgba(59,130,246,.1)}
+.report-search input{width:100%;min-width:0;border:0;outline:none;background:transparent;color:#172033;font-size:12px}
+.report-sort{display:flex;align-items:center;gap:8px;color:#64748b;font-size:12px}
+.report-sort select{min-height:36px;border:1px solid #d8e1ed;border-radius:8px;background:#fff;color:#334155;padding:6px 9px;font-size:12px}
+.report-table-wrap{max-width:100%;margin-top:0}
+.report-table{min-width:730px}
+.report-table th{font-size:10px;white-space:nowrap}
+.report-table td{vertical-align:middle}
+.report-table td strong{display:block;color:#172033}
+.report-subcode{display:block;color:#64748b;font-size:10px;margin-top:3px}
+.report-load-cell{display:grid;gap:4px;min-width:105px}
+.report-load-cell small{color:#64748b;font-size:10px;white-space:nowrap}
+.report-detail-toggle{display:inline-flex;align-items:center;gap:4px;border:1px solid #dbe3ef;border-radius:8px;background:#fff;color:#334155;padding:6px 9px;font-size:11px;font-weight:700}
+.report-detail-toggle:hover{border-color:#93c5fd;background:#f8fbff}
+.report-detail-toggle[aria-expanded="true"] svg{transform:rotate(180deg)}
+.report-parent-row.expanded td{background:#f8fbff}
+.report-detail-row>td{padding:13px;background:#f8fbff}
+.faculty-detail-grid{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(260px,1fr);gap:14px}
+.faculty-detail-block{min-width:0;padding:13px;border:1px solid #e2e8f0;border-radius:10px;background:#fff}
+.faculty-detail-block h4{margin:0 0 10px;color:#334155;font-size:12px}
+.faculty-detail-block .table-wrap{margin:0}
+.faculty-detail-block table{min-width:400px}
+.faculty-detail-block th,.faculty-detail-block td{padding:8px;font-size:11px}
+.faculty-day-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px}
+.faculty-day-card{display:flex;flex-direction:column;gap:4px;padding:9px 7px;border:1px solid #edf0f4;border-radius:8px;background:#f8fafc}
+.faculty-day-card span{font-size:10px;color:#64748b;font-weight:800}
+.faculty-day-card strong{font-size:18px;color:#1d4ed8}
+.faculty-day-card small{font-size:9px;color:#64748b}
+.report-footnote{margin:10px 0 0;color:#8491a5;font-size:10px;line-height:1.5}
+.report-summary-pills{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:13px}
+.report-summary-pills span{display:inline-flex;align-items:center;gap:6px;padding:6px 9px;border:1px solid #e2e8f0;border-radius:999px;background:#f8fafc;color:#475569;font-size:10px;font-weight:700}
+.report-warning-text{display:inline-flex;color:#b45309;font-weight:700;font-size:11px}
+.report-empty-cell{display:block;padding:13px;color:#8491a5;text-align:center;font-size:12px}
+.report-empty-note{padding:14px;border:1px dashed #dbe3ef;border-radius:8px;color:#8491a5;text-align:center;font-size:11px}
+.report-empty-state{display:flex;align-items:center;flex-direction:column;gap:6px;padding:24px 12px;color:#16a34a;text-align:center}
+.report-empty-state strong{font-size:13px;color:#334155}
+.report-empty-state span{font-size:11px;color:#64748b}
+.report-notice{display:flex;align-items:center;gap:8px;margin-top:13px;padding:10px 12px;border-radius:9px;border:1px solid #fde68a;background:#fffbeb;color:#92400e;font-size:11px}
+.report-notice svg{flex:0 0 auto}
+.report-daily-chart{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));column-gap:24px;row-gap:12px}
+.report-daily-row{display:grid;grid-template-columns:42px minmax(40px,1fr) 34px 62px;align-items:center;gap:9px}
+.report-daily-row>strong{font-size:11px;color:#475569}
+.report-daily-row>b{font-size:11px;color:#172033;text-align:right}
+.report-daily-row>small{font-size:10px;color:#8491a5;text-align:right}
+.report-daily-track{height:9px;overflow:hidden;border-radius:999px;background:#edf2f8}
+.report-daily-track span{display:block;height:100%;border-radius:inherit;background:linear-gradient(90deg,#60a5fa,#2563eb)}
+.reports-error{margin:0}
+@media(max-width:1200px){.reports-metrics{grid-template-columns:repeat(3,minmax(0,1fr))}.faculty-detail-grid{grid-template-columns:1fr}}
+@media(max-width:760px){.reports-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.report-daily-chart{grid-template-columns:1fr}.reports-toolbar{align-items:flex-start}.reports-toolbar .form-actions{width:100%}.reports-toolbar .form-actions button{flex:1}.report-toolbar-row{align-items:stretch;flex-direction:column}.report-search{width:100%;box-sizing:border-box}.report-sort{justify-content:space-between}.report-sort select{flex:1;max-width:65%}.report-section-heading{gap:8px}.report-section-title p{max-width:100%}.faculty-day-grid{grid-template-columns:repeat(4,minmax(0,1fr))}}
+@media(max-width:480px){.reports-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.report-daily-row{grid-template-columns:35px minmax(30px,1fr) 25px 52px;gap:6px}.report-count{font-size:10px}.report-section-icon{width:30px;height:30px;flex-basis:30px}.faculty-day-card{padding:8px 5px}}
