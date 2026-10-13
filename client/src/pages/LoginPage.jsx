@@ -13,13 +13,38 @@ import {
   UserRound,
 } from "lucide-react";
 
+const LOGIN_LOCKOUT_STORAGE_KEY = "tt_login_locked_until";
+
+function readLoginLockoutUntil() {
+  try {
+    const stored = Number(window.localStorage.getItem(LOGIN_LOCKOUT_STORAGE_KEY) || 0);
+    if (stored > Date.now()) return stored;
+    window.localStorage.removeItem(LOGIN_LOCKOUT_STORAGE_KEY);
+  } catch {}
+  return 0;
+}
+
+function formatLockoutTime(totalSeconds) {
+  const seconds = Math.max(0, Math.floor(Number(totalSeconds) || 0));
+  const minutes = Math.floor(seconds / 60);
+  const remainingSeconds = seconds % 60;
+  return minutes > 0
+    ? `${String(minutes).padStart(2, "0")}:${String(remainingSeconds).padStart(2, "0")}`
+    : `00:${String(remainingSeconds).padStart(2, "0")}`;
+}
+
 export default function Login({ onLogin }) {
   const [form, setForm] = useState({ username: "", password: "" });
-  const [error, setError] = useState("");
+  const [lockoutUntil, setLockoutUntil] = useState(() => readLoginLockoutUntil());
+  const [lockoutSeconds, setLockoutSeconds] = useState(() => Math.max(0, Math.ceil((readLoginLockoutUntil() - Date.now()) / 1000)));
+  const [error, setError] = useState(() => lockoutUntil > Date.now()
+    ? "Too many sign-in attempts. Sign-in is temporarily locked."
+    : "");
   const [busy, setBusy] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [capsLockOn, setCapsLockOn] = useState(false);
   const [serviceStatus, setServiceStatus] = useState("checking");
+  const signInLocked = lockoutSeconds > 0;
 
   useEffect(() => {
     if (!API) {
@@ -50,12 +75,37 @@ export default function Login({ onLogin }) {
     };
   }, []);
 
+  useEffect(() => {
+    if (!lockoutUntil) {
+      setLockoutSeconds(0);
+      return undefined;
+    }
+    const updateCountdown = () => {
+      const remaining = Math.max(0, Math.ceil((lockoutUntil - Date.now()) / 1000));
+      setLockoutSeconds(remaining);
+      if (remaining === 0) {
+        try {
+          window.localStorage.removeItem(LOGIN_LOCKOUT_STORAGE_KEY);
+        } catch {}
+        setLockoutUntil(0);
+        setError("");
+      }
+    };
+    updateCountdown();
+    const timer = window.setInterval(updateCountdown, 1000);
+    return () => window.clearInterval(timer);
+  }, [lockoutUntil]);
+
   function updateCapsLock(event) {
     setCapsLockOn(Boolean(event.getModifierState?.("CapsLock")));
   }
 
   async function submit(event) {
     event.preventDefault();
+    if (signInLocked) {
+      setError("Too many sign-in attempts. Sign-in is temporarily locked.");
+      return;
+    }
     setError("");
 
     if (!API) {
@@ -78,7 +128,22 @@ export default function Login({ onLogin }) {
       } else if (status === 401) {
         setError("Invalid username or password.");
       } else if (status === 429) {
-        setError("Too many sign-in attempts. Please wait a few minutes before trying again.");
+        const responseData = requestError.response?.data || {};
+        const retryHeader = Number(requestError.response?.headers?.["retry-after"] || 0);
+        const bodyRetrySeconds = Number(responseData.retryAfterSeconds || 0);
+        const bodyLockedUntil = Date.parse(responseData.lockedUntil || "");
+        const retryAfterSeconds = bodyRetrySeconds > 0
+          ? bodyRetrySeconds
+          : Number.isFinite(bodyLockedUntil) && bodyLockedUntil > Date.now()
+            ? Math.ceil((bodyLockedUntil - Date.now()) / 1000)
+            : retryHeader > 0 ? retryHeader : 60;
+        const deadline = Date.now() + retryAfterSeconds * 1000;
+        try {
+          window.localStorage.setItem(LOGIN_LOCKOUT_STORAGE_KEY, String(deadline));
+        } catch {}
+        setLockoutUntil(deadline);
+        setLockoutSeconds(retryAfterSeconds);
+        setError(responseData.message || "Too many sign-in attempts. Sign-in is temporarily locked.");
       } else if ([502, 503, 504].includes(status)) {
         setServiceStatus("waking");
         setError("The sign-in service is starting up or temporarily unavailable. Wait a moment and try again.");
@@ -205,7 +270,7 @@ export default function Login({ onLogin }) {
                     spellCheck="false"
                     placeholder="Enter your username"
                     required
-                    disabled={busy}
+                    disabled={busy || signInLocked}
                   />
                 </div>
               </div>
@@ -226,7 +291,7 @@ export default function Login({ onLogin }) {
                     autoComplete="current-password"
                     placeholder="Enter your password"
                     required
-                    disabled={busy}
+                    disabled={busy || signInLocked}
                   />
                   <button
                     type="button"
@@ -235,7 +300,7 @@ export default function Login({ onLogin }) {
                     aria-label={showPassword ? "Hide password" : "Show password"}
                     aria-pressed={showPassword}
                     title={showPassword ? "Hide password" : "Show password"}
-                    disabled={busy}
+                    disabled={busy || signInLocked}
                   >
                     {showPassword ? <EyeOff size={18} aria-hidden="true" /> : <Eye size={18} aria-hidden="true" />}
                   </button>
@@ -248,10 +313,15 @@ export default function Login({ onLogin }) {
                 )}
               </div>
 
-              {error && <div className="login-error" role="alert" aria-live="assertive">{error}</div>}
+              {error && <div className="login-error" role="alert" aria-live="assertive">
+                <span>{error}</span>
+                {signInLocked && <span className="login-lockout-countdown">Try again in {formatLockoutTime(lockoutSeconds)}.</span>}
+              </div>}
 
-              <button className="primary login-submit" type="submit" disabled={busy} aria-busy={busy}>
-                <span>{busy ? (serviceStatus === "ready" ? "Signing in…" : "Connecting…") : "Sign In"}</span>
+              <button className="primary login-submit" type="submit" disabled={busy || signInLocked} aria-busy={busy}>
+                <span>{busy
+                  ? (serviceStatus === "ready" ? "Signing in…" : "Connecting…")
+                  : signInLocked ? `Sign-in locked · ${formatLockoutTime(lockoutSeconds)}` : "Sign In"}</span>
                 {busy
                   ? <LoaderCircle className="login-submit-spinner" size={18} aria-hidden="true" />
                   : <ArrowRight size={18} aria-hidden="true" />}
