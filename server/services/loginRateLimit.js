@@ -69,7 +69,8 @@ export function createLoginAttemptLimiter({
     current.count += 1;
     const remaining = Math.max(0, limit - current.count);
     const locked = current.count >= limit;
-    return { count: current.count, remaining, locked, retryAfterSeconds: locked ? Math.ceil(windowMs / 1000) : 0 };
+    const windowRemainingSeconds = Math.max(1, Math.ceil((windowMs - (currentTime - current.startedAt)) / 1000));
+    return { count: current.count, remaining, locked, retryAfterSeconds: locked ? windowRemainingSeconds : 0 };
   }
 
   function clearFailedLogins(req) {
