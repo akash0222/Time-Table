@@ -379,7 +379,7 @@ test("admin can download saved full-session timetable as Excel and PDF", async (
         contentType: format === "excel"
           ? "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
           : "application/pdf",
-        body: format === "excel" ? Buffer.from("PK\\u0003\\u0004test-xlsx") : Buffer.from("%PDF-1.4 test-pdf")
+        body: format === "excel" ? Buffer.from([0x50, 0x4b, 0x03, 0x04, 0x74, 0x65, 0x73, 0x74]) : Buffer.from("%PDF-1.4 test-pdf")
       });
     }
 
