@@ -43,7 +43,7 @@ const VIEWER_QUICK_ACCESS = [
   { label: "Analytics", icon: BarChart3, tab: "Analytics" },
 ];
 
-export default function Dashboard({ cards, generate, loading, latest, role }) {
+export default function Dashboard({ cards, generate, loading, latest, role, onNavigate }) {
   const quickAccess = ["ADMIN", "SCHEDULER"].includes(role)
     ? ADMIN_QUICK_ACCESS
     : role === "FACULTY"
@@ -64,6 +64,10 @@ export default function Dashboard({ cards, generate, loading, latest, role }) {
   const runs = latest?.optimizationRuns ?? latest?.optimization?.runsCompleted;
 
   function navigate(tab) {
+    if (onNavigate) {
+      onNavigate(tab);
+      return;
+    }
     document.querySelector('[data-nav="' + tab + '"]')?.click();
   }
 
