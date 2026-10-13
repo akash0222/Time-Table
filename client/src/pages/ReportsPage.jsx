@@ -13,6 +13,7 @@ const shortDay = day => String(day || "").slice(0, 3);
 
 const LOAD_STATUS = {
   OVER_CAPACITY: {label:"Over capacity", className:"over", icon:CircleAlert},
+  NO_AVAILABLE_CAPACITY: {label:"No available periods", className:"no-capacity", icon:CircleAlert},
   NEAR_CAPACITY: {label:"Near capacity", className:"near", icon:Gauge},
   WITHIN_CAPACITY: {label:"Within capacity", className:"within", icon:CheckCircle2},
   LOW_UTILIZATION: {label:"Low utilization", className:"low", icon:TrendingDown},
@@ -139,6 +140,7 @@ export default function Reports({activeSession}={}) {
   const nearCapacityFaculty = faculty.filter(item=>item.loadStatus==="NEAR_CAPACITY");
   const lowUtilizationFaculty = faculty.filter(item=>item.loadStatus==="LOW_UTILIZATION");
   const unconfiguredFaculty = faculty.filter(item=>!item.capacityConfigured);
+  const zeroCapacityFaculty = faculty.filter(item=>item.capacityConfigured&&!(Number(item.capacityClasses)>0));
   const totalFacultyPeriods = faculty.reduce((sum,item)=>sum+Number(item.periods||0),0);
   const maxDayPeriods = Math.max(1,...daily.map(item=>Number(item.periods||0)));
   const hasTimetable = Boolean(report?.timetable);
@@ -185,6 +187,7 @@ export default function Reports({activeSession}={}) {
         <div className="faculty-workload-stat near"><Gauge size={16}/><strong>{nearCapacityFaculty.length}</strong><span>Near capacity</span></div>
         <div className="faculty-workload-stat low"><TrendingDown size={16}/><strong>{lowUtilizationFaculty.length}</strong><span>Low utilization</span></div>
         <div className="faculty-workload-stat unknown"><SlidersHorizontal size={16}/><strong>{unconfiguredFaculty.length}</strong><span>Limits not configured</span></div>
+        <div className="faculty-workload-stat no-capacity"><AlertTriangle size={16}/><strong>{zeroCapacityFaculty.length}</strong><span>No available capacity</span></div>
       </div>
       <div className="report-toolbar-row">
         <label className="report-search"><Search size={15}/><input value={facultyQuery} onChange={e=>setFacultyQuery(e.target.value)} placeholder="Search faculty name" aria-label="Search faculty workload"/></label>
@@ -210,8 +213,8 @@ export default function Reports({activeSession}={}) {
                   <td><strong>{item.periods}</strong></td>
                   <td>{item.workingDays}</td>
                   <td>{dailyMax||0} periods</td>
-                  <td>{capacityConfigured?<><strong>{item.capacityClasses} classes</strong><small className="report-subcode">{item.maxClassesPerDay}/day · {item.maxWorkingDays} days/week</small></>:"—"}</td>
-                  <td>{capacityConfigured?<div className={`report-load-cell faculty-capacity-use ${item.loadStatus==="OVER_CAPACITY"?"over":item.loadStatus==="NEAR_CAPACITY"?"near":""}><Progress value={Math.min(100,capacityUse)}/><small>{capacityUse.toFixed(0)}% used</small></div>:<span className="report-warning-text">Not configured</span>}</td>
+                  <td>{capacityConfigured?(Number(item.capacityClasses)>0?<><strong>{item.capacityClasses} classes</strong><small className="report-subcode">{item.maxClassesPerDay}/day · {item.maxWorkingDays} days/week</small></>:<span className="report-warning-text">No available periods</span>):"—"}</td>
+                  <td>{capacityConfigured&&Number(item.capacityClasses)>0?<div className={`report-load-cell faculty-capacity-use ${item.loadStatus==="OVER_CAPACITY"?"over":item.loadStatus==="NEAR_CAPACITY"?"near":""}><div className="progress-wrap"><div className="progress"><span style={{width:`${Math.min(100,Math.max(0,capacityUse))}%`}}/></div></div><small>{capacityUse.toFixed(0)}% used</small></div>:<span className="report-warning-text">{capacityConfigured?"No capacity":"Not configured"}</span>}</td>
                   <td>{Number(item.freePeriods||0)} periods</td>
                   <td><LoadStatus status={item.loadStatus}/></td>
                   <td><button type="button" className="report-detail-toggle" aria-expanded={isExpanded} onClick={()=>setExpandedFacultyId(isExpanded?"":item.id)}>{isExpanded?"Hide":"Details"} <ChevronDown size={14}/></button></td>
@@ -223,12 +226,12 @@ export default function Reports({activeSession}={}) {
                       <div className="faculty-capacity-detail">
                         <div><span>Scheduled classes</span><strong>{item.classes}</strong></div>
                         <div><span>Scheduled periods</span><strong>{item.periods}</strong></div>
-                        <div><span>Estimated weekly class capacity</span><strong>{capacityConfigured?item.capacityClasses:"Not configured"}</strong></div>
+                        <div><span>Estimated weekly class capacity</span><strong>{!capacityConfigured?"Not configured":Number(item.capacityClasses)>0?item.capacityClasses:"No capacity"}</strong></div>
                         <div><span>Available periods</span><strong>{item.availablePeriods??"—"}</strong></div>
                         <div><span>Free periods</span><strong>{item.freePeriods??"—"}</strong></div>
-                        <div><span>Capacity utilization</span><strong>{capacityConfigured?`${capacityUse.toFixed(0)}%`:"Not configured"}</strong></div>
+                        <div><span>Capacity utilization</span><strong>{!capacityConfigured?"Not configured":Number(item.capacityClasses)>0?`${capacityUse.toFixed(0)}%`:"No capacity"}</strong></div>
                       </div>
-                      <div className="report-footnote">{capacityConfigured?`Capacity is based on ${item.maxClassesPerDay} classes/day across up to ${item.maxWorkingDays} working days, constrained by configured faculty availability and non-holiday time slots.`:"Configure Max Classes Per Day and Max Working Days in Faculty settings to calculate capacity utilization."}</div>
+                      <div className="report-footnote">{!capacityConfigured?"Configure Max Classes Per Day and Max Working Days in Faculty settings to calculate capacity utilization.":Number(item.capacityClasses)<=0?"No usable time slots match this faculty member's configured availability and working-day limits.":`Capacity is based on ${item.maxClassesPerDay} classes/day across up to ${item.maxWorkingDays} working days, constrained by configured faculty availability and non-holiday time slots.`}</div>
                       <h4 className="faculty-subject-heading">Subject allocation</h4>
                       {(item.subjectBreakdown||[]).length?<div className="table-wrap compact"><table><thead><tr><th>Subject</th><th>Section</th><th>Required / week</th><th>Scheduled</th><th>Gap</th></tr></thead><tbody>
                         {item.subjectBreakdown.map(subject=><tr key={subject.id}><td><strong>{subject.name}</strong>{subject.code&&<small className="report-subcode">{subject.code}</small>}</td><td>{subject.section||"—"}</td><td>{subject.required}</td><td>{subject.scheduled}</td><td className={subject.unscheduled>0?"missing-cell":""}>{subject.unscheduled}</td></tr>)}
@@ -240,7 +243,7 @@ export default function Reports({activeSession}={}) {
                         {WEEK_DAYS.map(day=>{
                           const data=(item.dailyBreakdown||[]).find(value=>value.day===day);
                           const dayUtilization=Number(data?.capacityUtilization);
-                          const dayState=data?.capacityClasses==null?"unknown":data.classes>data.capacityClasses?"over":dayUtilization>=85?"near":"within";
+                          const dayState=data?.capacityClasses==null||data.capacityClasses===0?"unknown":data.classes>data.capacityClasses?"over":dayUtilization>=85?"near":"within";
                           return <div className={`faculty-day-card ${dayState}`} key={day}>
                             <span>{shortDay(day)}</span>
                             <strong>{data?.periods||0}</strong>
@@ -258,7 +261,7 @@ export default function Reports({activeSession}={}) {
           </tbody>
         </table>
       </div>
-      <p className="report-footnote">Capacity utilization compares scheduled class count with the configured weekly class capacity. “Free periods” are based on available non-break time slots after configured holidays and faculty unavailable slots are excluded; values are planning indicators, not proof that all periods form continuous free blocks.</p>
+      <p className="report-footnote">Capacity use above 100% is over capacity; 85–100% is near capacity; below 40% is flagged as low utilization. Capacity utilization compares scheduled class count with configured weekly class capacity. Free periods are available non-break slots after holidays and unavailable faculty slots are excluded; they may not form continuous free blocks.</p>
     </section>
 
     <section className="panel report-panel">
