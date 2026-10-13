@@ -433,13 +433,12 @@ router.get('/:id/export/:format',async(req,res)=>{
       // This is the primary sheet and mirrors the date-by-time grid on screen.
       const gridSheet=workbook.addWorksheet('Session Grid');
       gridSheet.columns=[
-        {header:'Week',key:'Week',width:8},
         {header:'Week / Date',key:'Date',width:15},
         {header:'Day',key:'Day',width:14},
         ...timeSlots.map((slot,index)=>({header:slot.startTime+'–'+slot.endTime,key:'slot'+index,width:29}))
       ];
       for(const gridRow of gridRows){
-        const dataRow={Week:gridRow.weekNumber,Date:gridRow.date,Day:gridRow.day};
+        const dataRow={Date:gridRow.date,Day:gridRow.day};
         gridRow.cells.forEach((value,index)=>{dataRow['slot'+index]=value;});
         const excelRow=gridSheet.addRow(dataRow);
         const lineCount=Math.max(1,...gridRow.cells.map(value=>String(value||'').split('\n').length));
@@ -463,7 +462,7 @@ router.get('/:id/export/:format',async(req,res)=>{
           });
         }
       }
-      gridSheet.views=[{state:'frozen',ySplit:1,xSplit:3}];
+      gridSheet.views=[{state:'frozen',ySplit:1,xSplit:2}];
       gridSheet.getRow(1).height=25;
       gridSheet.getRow(1).font={bold:true,color:{argb:'FFFFFFFF'}};
       gridSheet.getRow(1).fill={type:'pattern',pattern:'solid',fgColor:{argb:'FF1D4ED8'}};
@@ -537,11 +536,10 @@ router.get('/:id/export/:format',async(req,res)=>{
     const left=24;
     const right=24;
     const usableWidth=pageWidth-left-right;
-    const fixedWidths=[34,70,56];
+    const fixedWidths=[82,56];
     const columns=[
-      {label:'Week',width:fixedWidths[0]},
-      {label:'Week / Date',width:fixedWidths[1]},
-      {label:'Day',width:fixedWidths[2]},
+      {label:'Week / Date',width:fixedWidths[0]},
+      {label:'Day',width:fixedWidths[1]},
       ...timeSlots.map(slot=>({label:slot.startTime+'–'+slot.endTime,width:(usableWidth-fixedWidths.reduce((sum,n)=>sum+n,0))/Math.max(1,timeSlots.length)}))
     ];
     const tableWidth=columns.reduce((sum,column)=>sum+column.width,0);
@@ -582,7 +580,7 @@ router.get('/:id/export/:format',async(req,res)=>{
     drawHeader();
     const fontSize=timeSlots.length>10?5.2:6.1;
     function drawGridRow(row){
-      const cellValues=['W'+String(row.weekNumber||''),row.date,row.day,...row.cells];
+      const cellValues=[row.date,row.day,...row.cells];
       const heights=cellValues.map((value,index)=>{
         const width=columns[index].width-7;
         pdf.font('Helvetica').fontSize(fontSize);
@@ -600,7 +598,7 @@ router.get('/:id/export/:format',async(req,res)=>{
         const column=columns[index];
         const value=String(cellValues[index]??'—');
         const isHoliday=row.holiday;
-        const hasClass=index>=3&&value!=='—'&&value!=='Holiday';
+        const hasClass=index>=2&&value!=='—'&&value!=='Holiday';
         const fill=isHoliday?'#FFF1E6':hasClass?'#EFF6FF':'#FFFFFF';
         pdf.save().fillColor(fill).rect(x,y,column.width,rowHeight).fill().restore();
         pdf.strokeColor('#D8E0EA').lineWidth(0.4).rect(x,y,column.width,rowHeight).stroke();
