@@ -3,11 +3,12 @@ import {CalendarDays, CalendarOff, Users, BookOpen, Clock3, Settings2, FileSprea
 export function navGroupsForRole(role){
   const base = [
     {label:"Overview",items:["Dashboard"]},
-    {label:"Academic & Scheduling",items:["Academic Sessions","Academic Structure","Holiday Management","Generation Readiness","Full Session Timetable","All Program Timetables","Timetable","Calendar View","Availability","Optimization","My Timetable"]},
-    {label:"People & Attendance",items:["Students","Student Mapping","Student Profile","Student Promotion","Attendance","Fees","Notifications","Faculty Portal","Section Portal"]},
-    {label:"Master Data",items:["Master Data Settings","Subject & Faculty Mapping","Program & Section Mapping"]},
+    {label:"Academic Setup",items:["Academic Sessions","Academic Structure","Holiday Management","Master Data Settings","Subject & Faculty Mapping","Program & Section Mapping"]},
+    {label:"Timetable & Scheduling",items:["Generation Readiness","Availability","Optimization","Full Session Timetable","All Program Timetables","Timetable","Calendar View"]},
+    {label:"Students & Operations",items:["Students","Student Mapping","Student Profile","Student Promotion","Attendance","Fees"]},
+    {label:"Portals & Communication",items:["My Timetable","Faculty Portal","Section Portal","Notifications"]},
     {label:"Tools & Sharing",items:["Excel Import","Import Center","Templates & Clone","Public Sharing"]},
-    {label:"Reports & Audit",items:["Reports","Analytics","Validation","Change History","Audit Logs"]}
+    {label:"Reports & Audit",items:["Reports","Analytics","Validation","Audit Logs","Change History"]}
   ];
   if(role==="ADMIN") base.push({label:"Administration",items:["User Management","Settings"]});
   else if(role==="SCHEDULER") base.push({label:"Administration",items:["Settings"]});
