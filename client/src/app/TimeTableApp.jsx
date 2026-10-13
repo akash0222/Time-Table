@@ -464,7 +464,7 @@ export default function App(){
       {tab==="Validation" && <Validation/>}
       {tab==="Timetable" && <TimetableView timetable={latest} data={data} onMoved={load} timetableStatus={timetableStatus} setTimetableStatus={setTimetableStatus} setMessage={setMessage} approvalHistory={approvalHistory} activeSession={activeSession} role={auth.role}/>}
       {tab==="Approval & Versions" && <ApprovalVersions activeSession={activeSession} role={auth.role} onRefresh={load} setMessage={setMessage}/>}
-      {tab==="Timetable" && <TimetableVersions activeSession={activeSession} versionList={versionList} setVersionList={setVersionList} setLatest={setLatest} setMessage={setMessage}/>}
+      {tab==="Timetable" && <TimetableVersions activeSession={activeSession} versionList={versionList} setVersionList={setVersionList} setLatest={setLatest} setMessage={setMessage} role={auth.role}/>}
       {tab==="Settings" && <SchedulerSettings settings={settings} setSettings={setSettings} setMessage={setMessage} activeSession={activeSession}/>} 
       {tab==="Master Data Settings" && <MasterDataSettings data={data} setData={setData} reload={load} setMessage={setMessage}/>}
       {(tab==="Subject & Faculty Mapping") && <SubjectFacultyMapping data={data} sessions={sessions} activeSession={activeSession} reload={load} setMessage={setMessage}/>}
