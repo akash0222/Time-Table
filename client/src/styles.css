@@ -1565,7 +1565,7 @@ button.danger:hover{background:#fff1f2}
 
 
 /* Faculty workload capacity analytics and status indicators. */
-.faculty-workload-summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px;margin:0 0 14px}
+.faculty-workload-summary{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:9px;margin:0 0 14px}
 .faculty-workload-stat{display:grid;grid-template-columns:20px auto;grid-template-rows:auto auto;align-items:center;column-gap:8px;padding:12px;border:1px solid var(--ui-border);border-radius:11px;background:#fff;min-width:0}
 .faculty-workload-stat>svg{grid-row:1/3}
 .faculty-workload-stat>strong{font-size:19px;line-height:1.1;color:#172033}
@@ -1582,8 +1582,12 @@ button.danger:hover{background:#fff1f2}
 .faculty-load-status.low{background:#dbeafe;border-color:#bfdbfe;color:#1d4ed8}
 .faculty-load-status.unknown{background:#f1f5f9;border-color:#e2e8f0;color:#475569}
 .faculty-capacity-use{min-width:115px}
-.faculty-capacity-use.over .progress span{background:#dc2626}
-.faculty-capacity-use.near .progress span{background:#d97706}
+.faculty-capacity-meter{width:100%;height:7px;overflow:hidden;border-radius:999px;background:#e9eef6}
+.faculty-capacity-meter span{display:block;height:100%;border-radius:inherit;background:#16a34a;transition:width .2s ease}
+.faculty-capacity-use.over .faculty-capacity-meter span{background:#dc2626}
+.faculty-capacity-use.near .faculty-capacity-meter span{background:#d97706}
+.faculty-workload-stat.no-capacity>svg{color:#ea580c}
+.faculty-load-status.no-capacity{background:#ffedd5;border-color:#fed7aa;color:#9a3412}
 .faculty-capacity-detail{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:0 0 12px}
 .faculty-capacity-detail>div{display:flex;flex-direction:column;gap:5px;min-width:0;padding:10px;border:1px solid #e2e8f0;border-radius:9px;background:#f8fafc}
 .faculty-capacity-detail span{font-size:10px;line-height:1.4;color:#64748b}
