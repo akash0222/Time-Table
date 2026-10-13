@@ -172,7 +172,7 @@ export default function TimetableView({timetable, data, onMoved, timetableStatus
 
   return <div className="panel">
     <div className="toolbar">
-      <div><h3>{viewLabel} Timetable</h3><p>View the generated schedule by section, faculty or room. Multi-period classes occupy consecutive periods.</p></div>
+      <div><h3>{viewLabel} Timetable</h3><p>Multi-period classes occupy consecutive periods.</p></div>
       <div className="toolbar-actions">
         <button className="secondary" onClick={()=>downloadTimetable("excel")}>Excel</button>
         <button className="secondary" onClick={()=>downloadTimetable("pdf")}>PDF</button>
@@ -240,7 +240,7 @@ export default function TimetableView({timetable, data, onMoved, timetableStatus
     </div></div>}
 
     {(approvalHistory?.length || timetable?.approvalHistory?.length) ? <section className="approval-history panel">
-      <div className="panel-head"><div><h3>Approval History</h3><p>Every workflow transition is recorded with remarks and user details.</p></div></div>
+      <div className="panel-head"><div><h3>Approval History</h3></div></div>
       <div className="table-wrap"><table><thead><tr><th>Date/Time</th><th>From</th><th>To</th><th>User</th><th>Role</th><th>Remarks</th></tr></thead><tbody>{(timetable?.approvalHistory||approvalHistory||[]).slice().reverse().map((h,i)=><tr key={h._id||i}><td>{h.changedAt?new Date(h.changedAt).toLocaleString():"—"}</td><td>{h.from||"—"}</td><td><span className={`status-badge ${String(h.to||"").toLowerCase()}`}>{h.to}</span></td><td>{h.user?.name||h.username||"—"}</td><td>{h.role||"—"}</td><td>{h.note||"—"}</td></tr>)}</tbody></table></div>
     </section> : null}
     {timetable?.warnings?.length>0&&<div className="warning">{timetable.warnings.join(" ")}</div>}
