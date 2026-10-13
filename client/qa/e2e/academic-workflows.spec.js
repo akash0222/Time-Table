@@ -492,7 +492,7 @@ test("dashboard action center shows real readiness blockers and links to the fix
 
   const actionCenter = page.locator(".dashboard-action-center");
   await expect(actionCenter.getByRole("heading", { name: "Action Center", exact: true })).toBeVisible();
-  await expect(actionCenter.getByText("1 errors", { exact: true })).toBeVisible();
+  await expect(actionCenter.getByText("1 error", { exact: true })).toBeVisible();
   await expect(actionCenter.getByText("Generation blocked", { exact: true })).toBeVisible();
   await expect(actionCenter.getByText("No active subject mappings are configured for this academic session.")).toBeVisible();
 
@@ -516,6 +516,11 @@ test("generation is stopped when pre-generation readiness reports blockers", asy
   await expect(page.getByRole("heading", { name: "Generation Readiness", exact: true })).toBeVisible();
   await expect(page.getByText(/Generation blocked: 1 setup error/)).toBeVisible();
   await expect(page.getByText("No active subject mappings are configured for this academic session.")).toBeVisible();
+  await expect(page.getByRole("button", { name: /Fix issue/ })).toBeVisible();
+  expect(generationRequests).toBe(0);
+
+  await page.getByRole("button", { name: /Fix issue/ }).click();
+  await expect(page).toHaveURL(/\\/subject-and-faculty-mapping$/);
   expect(generationRequests).toBe(0);
 });
 
