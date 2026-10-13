@@ -38,7 +38,7 @@ export default function SchedulerSettings({settings,setSettings,setMessage,activ
     <div className="panel-head">
       <div>
         <h3>Scheduler Settings</h3>
-        <p>Configure the rules used by the timetable generator.</p>
+        
       </div>
     </div>
 
