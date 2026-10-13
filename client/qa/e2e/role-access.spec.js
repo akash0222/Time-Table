@@ -360,6 +360,28 @@ test("navigation submodules are mapped to the correct parent and module group", 
   }
 });
 
+test("Students submodules are visible when opening Students with a saved collapsed preference", async ({ page }) => {
+  await installRoleApiMocks(page, "ADMIN");
+  await page.goto("/students");
+  await expect(page.locator('[data-nav="Students"]')).toBeVisible();
+
+  // Recreate the browser state shown in the bug report: Students was saved closed.
+  await page.evaluate(() => {
+    const saved = JSON.parse(localStorage.getItem("tt_nav_expanded_modules") || "{}");
+    saved.Students = false;
+    localStorage.setItem("tt_nav_expanded_modules", JSON.stringify(saved));
+  });
+  await page.reload();
+
+  await expect(page.locator('[data-nav="Students"]')).toBeVisible();
+  await expect(page.getByRole("button", { name: "Collapse Students submodules" })).toBeVisible();
+  for (const child of ["Student Mapping", "Student Profile", "Student Promotion"]) {
+    await expect(page.locator(`[data-nav="${child}"]`), child + " should appear under Students").toBeVisible();
+    await expect(page.locator(`[data-nav="${child}"]`)).toHaveAttribute("data-nav-parent", "Students");
+    await expect(page.locator(`[data-nav="${child}"]`)).toHaveAttribute("data-nav-group", "Students & Operations");
+  }
+});
+
 test("direct URL navigation expands the correct group and parent module", async ({ page }) => {
   await page.addInitScript(() => {
     if (window.location.origin !== "null") {
