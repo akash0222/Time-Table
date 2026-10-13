@@ -277,6 +277,250 @@ router.get('/:id',async(req,res)=>{
   }catch(e){res.status(500).json({message:e.message});}
 });
 
+
+router.get('/:id/export/:format',async(req,res)=>{
+  try{
+    const format=String(req.params.format||'').toLowerCase();
+    if(!['excel','pdf'].includes(format)){
+      return res.status(400).json({message:'Export format must be excel or pdf.'});
+    }
+
+    const doc=await SessionPlan.findById(req.params.id)
+      .populate(populated)
+      .populate('academicSession','name');
+    if(!doc)return res.status(404).json({message:'Session plan not found.'});
+
+    // Keep exports subject to the same assignment scope as plan viewing.
+    if(req.user?.role==='FACULTY'){
+      const account=await User.findById(req.user?.id).select('faculty active').lean();
+      if(!account||account.active===false){
+        return res.status(401).json({message:'User account is inactive or no longer available. Please sign in again.'});
+      }
+      const assignedFacultyId=String(account.faculty||'');
+      if(!assignedFacultyId){
+        return res.status(400).json({message:'No Faculty is mapped to this account. Ask an administrator to assign a faculty member.'});
+      }
+      for(const week of doc.weeks) week.entries=week.entries.filter(entry=>idOf(entry.faculty)===assignedFacultyId);
+    }else if(req.user?.role==='VIEWER'){
+      const account=await User.findById(req.user?.id).select('section active').lean();
+      if(!account||account.active===false){
+        return res.status(401).json({message:'User account is inactive or no longer available. Please sign in again.'});
+      }
+      const assignedSectionId=String(account.section||'');
+      if(!assignedSectionId){
+        return res.status(400).json({message:'No Section is mapped to this Viewer account. Ask an administrator to assign a section.'});
+      }
+      for(const week of doc.weeks) week.entries=week.entries.filter(entry=>idOf(entry.section)===assignedSectionId);
+    }
+
+    const requestedSectionId=String(req.query.sectionId||'');
+    const requestedFacultyId=String(req.query.facultyId||'');
+    const allEntries=[];
+    for(const week of doc.weeks||[]){
+      for(const entry of week.entries||[]){
+        allEntries.push({...entry.toObject?.()||entry,weekNumber:Number(week.weekNumber||0)});
+      }
+    }
+
+    const selectedEntries=allEntries.filter(entry=>
+      (!requestedSectionId||idOf(entry.section)===requestedSectionId)&&
+      (!requestedFacultyId||idOf(entry.faculty)===requestedFacultyId)
+    ).sort((a,b)=>String(a.date||'').localeCompare(String(b.date||''))||
+      String(a.startTime||'').localeCompare(String(b.startTime||'')));
+
+    if(!selectedEntries.length){
+      return res.status(404).json({message:'No scheduled classes found for this session or selected filters.'});
+    }
+
+    const sessionName=String(doc.academicSession?.name||'Academic Session');
+    const cleanName=value=>String(value||'').trim().replace(/[^a-z0-9_-]+/gi,'-').replace(/^-+|-+$/g,'').slice(0,55)||'session';
+    const fileBase='full-session-timetable-'+cleanName(sessionName)+'-v'+String(doc.version||1);
+    const sectionLabel=selectedEntries.find(entry=>requestedSectionId&&idOf(entry.section)===requestedSectionId)?.section?.name||'All sections';
+    const facultyLabel=selectedEntries.find(entry=>requestedFacultyId&&idOf(entry.faculty)===requestedFacultyId)?.faculty?.name||'All faculty';
+    const programOf=entry=>entry.section?.program||entry.section?.programId?.name||'';
+    const scheduleRows=selectedEntries.map(entry=>({
+      Date:entry.date||'',
+      Day:entry.day||'',
+      Week:entry.weekNumber||'',
+      Start:entry.startTime||'',
+      End:entry.endTime||'',
+      Program:programOf(entry),
+      Semester:entry.section?.semester||'',
+      Section:entry.section?.name||'',
+      Subject:entry.subject?.name||'',
+      SubjectCode:entry.subject?.code||'',
+      Faculty:entry.faculty?.name||'',
+      Room:entry.room?.name||'',
+      Duration:Number(entry.duration||1)
+    }));
+
+    const holidaySet=new Set((doc.holidays||[]).map(String));
+    const calendarItems=(doc.weeks||[]).flatMap(week=>{
+      if(Array.isArray(week.calendarDates)&&week.calendarDates.length){
+        return week.calendarDates.map(item=>({...item,weekNumber:Number(week.weekNumber||0)}));
+      }
+      return (week.workingDates||[]).map(date=>({
+        date,
+        day:new Date(String(date)+'T00:00:00.000Z').toLocaleDateString('en-US',{weekday:'long',timeZone:'UTC'}),
+        status:holidaySet.has(String(date))?'HOLIDAY':'WORKING',
+        title:holidaySet.has(String(date))?'Holiday':'',
+        weekNumber:Number(week.weekNumber||0)
+      }));
+    }).sort((a,b)=>String(a.date).localeCompare(String(b.date)));
+    const countsByDate=new Map();
+    for(const entry of selectedEntries) countsByDate.set(String(entry.date||''),(countsByDate.get(String(entry.date||''))||0)+1);
+    const calendarRows=calendarItems.map(item=>({
+      Week:item.weekNumber||'',
+      Date:item.date||'',
+      Day:item.day||'',
+      Status:String(item.status||((holidaySet.has(String(item.date))||item.day==='Sunday')?'HOLIDAY':'WORKING')).toUpperCase(),
+      Note:item.title||(String(item.status).toUpperCase()==='HOLIDAY'?'Holiday':''),
+      ScheduledClasses:countsByDate.get(String(item.date||''))||0
+    }));
+
+    if(format==='excel'){
+      const ExcelJS=(await import('exceljs')).default;
+      const workbook=new ExcelJS.Workbook();
+      workbook.creator='Time Table';
+      workbook.subject='Full academic session timetable';
+      workbook.title=sessionName+' - Full Session Timetable';
+      workbook.created=new Date();
+
+      const scheduleSheet=workbook.addWorksheet('Schedule');
+      scheduleSheet.columns=[
+        {header:'Date',key:'Date',width:13},{header:'Day',key:'Day',width:14},
+        {header:'Week',key:'Week',width:9},{header:'Start',key:'Start',width:10},
+        {header:'End',key:'End',width:10},{header:'Program',key:'Program',width:24},
+        {header:'Semester',key:'Semester',width:12},{header:'Section',key:'Section',width:18},
+        {header:'Subject',key:'Subject',width:28},{header:'Subject Code',key:'SubjectCode',width:16},
+        {header:'Faculty',key:'Faculty',width:24},{header:'Room',key:'Room',width:15},
+        {header:'Duration',key:'Duration',width:11}
+      ];
+      scheduleSheet.addRows(scheduleRows);
+
+      const calendarSheet=workbook.addWorksheet('Academic Calendar');
+      calendarSheet.columns=[
+        {header:'Week',key:'Week',width:9},{header:'Date',key:'Date',width:13},
+        {header:'Day',key:'Day',width:14},{header:'Status',key:'Status',width:14},
+        {header:'Note',key:'Note',width:28},{header:'Scheduled Classes',key:'ScheduledClasses',width:20}
+      ];
+      calendarSheet.addRows(calendarRows);
+
+      const summarySheet=workbook.addWorksheet('Summary');
+      summarySheet.columns=[{header:'Item',key:'Item',width:28},{header:'Value',key:'Value',width:48}];
+      summarySheet.addRows([
+        {Item:'Academic Session',Value:sessionName},
+        {Item:'Version',Value:doc.version||1},
+        {Item:'Status',Value:doc.status||'DRAFT'},
+        {Item:'First Date',Value:doc.weeks?.[0]?.startDate||''},
+        {Item:'Last Date',Value:doc.weeks?.[doc.weeks.length-1]?.endDate||''},
+        {Item:'Academic Weeks',Value:doc.weeks?.length||0},
+        {Item:'Scheduled Classes',Value:selectedEntries.length},
+        {Item:'Section Filter',Value:requestedSectionId?sectionLabel:'All sections'},
+        {Item:'Faculty Filter',Value:requestedFacultyId?facultyLabel:'All faculty'}
+      ]);
+
+      for(const sheet of [scheduleSheet,calendarSheet,summarySheet]){
+        sheet.views=[{state:'frozen',ySplit:1}];
+        sheet.getRow(1).height=23;
+        sheet.getRow(1).font={bold:true,color:{argb:'FFFFFFFF'}};
+        sheet.getRow(1).fill={type:'pattern',pattern:'solid',fgColor:{argb:'FF1D4ED8'}};
+        sheet.autoFilter={from:{row:1,column:1},to:{row:1,column:sheet.columnCount}};
+        sheet.pageSetup={orientation:'landscape',fitToPage:true,fitToWidth:1,fitToHeight:0};
+      }
+      for(let rowIndex=2;rowIndex<=calendarSheet.rowCount;rowIndex++){
+        const row=calendarSheet.getRow(rowIndex);
+        if(row.getCell(4).value==='HOLIDAY'){
+          row.eachCell(cell=>{cell.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFFFF1E6'}};});
+        }
+      }
+
+      const buffer=Buffer.from(await workbook.xlsx.writeBuffer());
+      res.setHeader('Content-Disposition','attachment; filename="'+fileBase+'.xlsx"');
+      res.type('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet').send(buffer);
+      return;
+    }
+
+    const PDFDocument=(await import('pdfkit')).default;
+    res.setHeader('Content-Disposition','attachment; filename="'+fileBase+'.pdf"');
+    res.setHeader('Content-Type','application/pdf');
+    const pdf=new PDFDocument({margin:28,size:'A4',layout:'landscape'});
+    pdf.pipe(res);
+    pdf.font('Helvetica-Bold').fontSize(16).fillColor('#172033').text('Full Academic Session Timetable',{align:'center'});
+    pdf.moveDown(0.35);
+    pdf.font('Helvetica').fontSize(9).fillColor('#475569')
+      .text(sessionName+' · Version '+String(doc.version||1)+' · '+String(doc.status||'DRAFT')+' · '+selectedEntries.length+' classes',{align:'center'});
+    pdf.text('Section: '+(requestedSectionId?sectionLabel:'All sections')+' · Faculty: '+(requestedFacultyId?facultyLabel:'All faculty'),{align:'center'});
+    pdf.moveDown(0.8);
+
+    const columns=[
+      {label:'Date',width:58},{label:'Day',width:48},{label:'Week',width:40},
+      {label:'Start',width:48},{label:'End',width:48},{label:'Program',width:86},
+      {label:'Semester',width:48},{label:'Section',width:70},{label:'Subject',width:160},
+      {label:'Faculty',width:112},{label:'Room',width:65}
+    ];
+    const tableWidth=columns.reduce((sum,column)=>sum+column.width,0);
+    const left=28;
+    let y=pdf.y;
+    function drawHeader(){
+      pdf.save().fillColor('#EAF1FF').rect(left,y,tableWidth,22).fill().restore();
+      let x=left;
+      pdf.font('Helvetica-Bold').fontSize(7.5).fillColor('#172033');
+      for(const column of columns){
+        pdf.text(column.label,x+3,y+6,{width:column.width-6,height:12,lineBreak:false});
+        x+=column.width;
+      }
+      y+=22;
+    }
+    function drawRow(values,isHoliday=false){
+      const rowHeight=22;
+      if(y+rowHeight>pdf.page.height-28){
+        pdf.addPage();
+        y=28;
+        drawHeader();
+      }
+      if(isHoliday) pdf.save().fillColor('#FFF1E6').rect(left,y,tableWidth,rowHeight).fill().restore();
+      pdf.strokeColor('#E2E8F0').lineWidth(0.45).rect(left,y,tableWidth,rowHeight).stroke();
+      let x=left;
+      pdf.font('Helvetica').fontSize(7).fillColor('#172033');
+      values.forEach((value,index)=>{
+        const column=columns[index];
+        const raw=String(value??'—');
+        const maxChars=Math.max(5,Math.floor((column.width-8)/3.5));
+        const visible=raw.length>maxChars?raw.slice(0,maxChars-1)+'…':raw;
+        pdf.text(visible,x+4,y+6,{width:column.width-8,height:11,lineBreak:false});
+        x+=column.width;
+        pdf.strokeColor('#E2E8F0').lineWidth(0.35).moveTo(x,y).lineTo(x,y+rowHeight).stroke();
+      });
+      y+=rowHeight;
+    }
+
+    drawHeader();
+    const entriesByDate=new Map();
+    for(const entry of selectedEntries){
+      const date=String(entry.date||'');
+      if(!entriesByDate.has(date))entriesByDate.set(date,[]);
+      entriesByDate.get(date).push(entry);
+    }
+    for(const dayItem of calendarItems){
+      const date=String(dayItem.date||'');
+      const entriesForDate=entriesByDate.get(date)||[];
+      const isHoliday=String(dayItem.status||'').toUpperCase()==='HOLIDAY'||holidaySet.has(date)||dayItem.day==='Sunday';
+      if(entriesForDate.length){
+        for(const entry of entriesForDate){
+          drawRow([date,dayItem.day,'W'+String(dayItem.weekNumber||''),entry.startTime,entry.endTime,programOf(entry),entry.section?.semester,entry.section?.name,entry.subject?.name||entry.subject?.code,entry.faculty?.name,entry.room?.name],false);
+        }
+      }else{
+        drawRow([date,dayItem.day,'W'+String(dayItem.weekNumber||''),'—','—','—','—','—','—',isHoliday?(dayItem.title||'Holiday'):'No classes scheduled','—'],isHoliday);
+      }
+    }
+    pdf.end();
+  }catch(e){
+    if(res.headersSent){res.end();return;}
+    res.status(e.status||500).json({message:e.message});
+  }
+});
+
 router.post('/generate',allowRoles('ADMIN','SCHEDULER'),async(req,res)=>{
   try{
     const session=await AcademicSession.findById(req.body.sessionId).lean();
