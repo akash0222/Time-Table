@@ -74,7 +74,7 @@ export default function AcademicSessions({sessions,programs,activeSession,setSes
     }catch(e){setMessage(e.response?.data?.message||e.message)}
   }
   return <div className="panel">
-    <div className="panel-head"><div><h3>Academic Sessions</h3><p>Session dates are configured independently for each Program. The overall session range is calculated from the earliest program start to the latest program end.</p></div>{activeSession&&<span className="status-badge approved">Active: {activeSession.name}</span>}</div>
+    <div className="panel-head"><div><h3>Academic Sessions</h3><p>Configure session dates for each program.</p></div>{activeSession&&<span className="status-badge approved">Active: {activeSession.name}</span>}</div>
     <div className="form-grid">
       <Input label="Academic Session Name" value={form.name} onChange={v=>setForm({...form,name:v})}/>
       <Input label="Description" value={form.description} onChange={v=>setForm({...form,description:v})}/>
