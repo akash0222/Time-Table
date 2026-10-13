@@ -252,6 +252,12 @@ async function installApiMocks(page, options = {}) {
           capacityConfigured: false, maxClassesPerDay: null, maxWorkingDays: null,
           capacityClasses: null, capacityUtilization: null, loadStatus: "LIMITS_NOT_CONFIGURED",
           availablePeriods: 24, freePeriods: 24, dailyBreakdown: [], subjectBreakdown: []
+        },
+        {
+          id: "faculty-4", name: "Ms. No Periods", classes: 0, periods: 0, workingDays: 0, utilization: 0,
+          capacityConfigured: true, maxClassesPerDay: 3, maxWorkingDays: 5,
+          capacityClasses: 0, capacityUtilization: null, loadStatus: "NO_AVAILABLE_CAPACITY",
+          availablePeriods: 0, freePeriods: 0, dailyBreakdown: [], subjectBreakdown: []
         }
       ],
       rooms: [{ id: "room-1", name: "Room 101", type: "Classroom", classes: 3, periods: 4, utilization: 100 }],
@@ -493,6 +499,7 @@ test("admin can review capacity-based faculty workload, overload alerts and dail
   await expect(facultyPanel.getByText("1", { exact: true }).first()).toBeVisible();
   await expect(facultyPanel.getByText("Over capacity", { exact: true }).first()).toBeVisible();
   await expect(facultyPanel.getByText("Limits not configured", { exact: true }).first()).toBeVisible();
+  await expect(facultyPanel.getByText("No available capacity", { exact: true }).first()).toBeVisible();
   await expect(facultyPanel.getByRole("columnheader", {name:"Weekly Capacity"})).toBeVisible();
   await expect(facultyPanel.getByRole("columnheader", {name:"Capacity Used"})).toBeVisible();
 
