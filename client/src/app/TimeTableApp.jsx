@@ -279,6 +279,29 @@ export default function App(){
     setLoading(true);
     setMessage("");
     try {
+      if(!activeSession?._id){
+        setTab("Academic Sessions");
+        setMessage("Generation was not started. Set an active academic session first.");
+        return;
+      }
+
+      // Always run the authoritative readiness endpoint before attempting generation.
+      // Warnings are surfaced in the Readiness page, but blocking errors stop generation.
+      let preflight;
+      try{
+        preflight=(await axios.get(`${API}/timetable/readiness`,{params:{sessionId:activeSession._id}})).data;
+      }catch(checkError){
+        setTab("Generation Readiness");
+        setMessage(`Generation was not started because pre-generation checks could not be completed. ${checkError.response?.data?.message||checkError.message||"Retry the readiness check."}`);
+        return;
+      }
+      const preflightErrors=Number(preflight?.summary?.errors||0);
+      if(preflight?.status==="NOT_READY"||preflightErrors>0){
+        setTab("Generation Readiness");
+        setMessage(`Generation blocked: ${preflightErrors||1} setup error(s) must be resolved first. Review the findings in Generation Readiness.`);
+        return;
+      }
+
       const currentSessionId=refId(activeSession);
       const currentSectionIds=new Set(
         (data.sections||[])
@@ -418,7 +441,7 @@ export default function App(){
       {tab==="Holiday Management" && <HolidayManagement sessions={sessions} activeSession={activeSession} role={auth.role} setMessage={setMessage}/> }
       {tab==="Templates & Clone" && <TimetableTemplates sessions={sessions} activeSession={activeSession} setLatest={setLatest} setMessage={setMessage}/>}
       {tab==="Public Sharing" && <PublicSharing data={data} setMessage={setMessage}/>}
-      {tab==="Dashboard" && <Dashboard cards={cards} generate={generate} loading={loading} latest={latest} role={auth.role} onNavigate={navigateFromDashboard}/>}
+      {tab==="Dashboard" && <Dashboard cards={cards} generate={generate} loading={loading} latest={latest} role={auth.role} onNavigate={navigateFromDashboard} activeSession={activeSession}/>}
       {tab==="My Timetable" && <PersonalTimetable auth={auth} data={data}/> }
       {tab==="Calendar View" && <CalendarView timetable={latest} data={data} role={auth.role} onMoved={load} setMessage={setMessage}/>}
       {tab==="Faculty Portal" && <FacultyPortal activeSession={activeSession}/>}
