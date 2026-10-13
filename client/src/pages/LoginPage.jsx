@@ -126,7 +126,12 @@ export default function Login({ onLogin }) {
       } else if (!requestError.response) {
         setError("Unable to reach the sign-in service. Check your connection and try again.");
       } else if (status === 401) {
-        setError("Invalid username or password.");
+        const responseData = requestError.response?.data || {};
+        const remaining = Number(responseData.attemptsRemaining);
+        const detail = responseData.messageDetail;
+        setError(Number.isInteger(remaining)
+          ? `Invalid username or password. ${detail || `${remaining} attempt(s) remaining before temporary lockout.`}`
+          : "Invalid username or password.");
       } else if (status === 429) {
         const responseData = requestError.response?.data || {};
         const retryHeader = Number(requestError.response?.headers?.["retry-after"] || 0);
@@ -143,7 +148,7 @@ export default function Login({ onLogin }) {
         } catch {}
         setLockoutUntil(deadline);
         setLockoutSeconds(retryAfterSeconds);
-        setError(responseData.message || "Too many sign-in attempts. Sign-in is temporarily locked.");
+        setError(responseData.message || "Too many failed sign-in attempts. Sign-in is temporarily locked.");
       } else if ([502, 503, 504].includes(status)) {
         setServiceStatus("waking");
         setError("The sign-in service is starting up or temporarily unavailable. Wait a moment and try again.");
