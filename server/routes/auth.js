@@ -55,7 +55,11 @@ router.post("/login", loginLimiter, async (req, res) => {
     clearFailedLogins(req);
     const token = signUser(user);
     res.json({ token, user: { id: user._id, name: user.name, username: user.username, role: user.role, faculty: user.faculty, section: user.section } });
-  } catch (e) { res.status(500).json({ message: e.message }); }
+  } catch (e) {
+    // Keep infrastructure details in server logs, never in public login responses.
+    console.error("POST /api/auth/login failed:", e?.message || e);
+    res.status(500).json({ message: "Sign-in is temporarily unavailable. Please try again shortly." });
+  }
 });
 
 router.get("/me", requireAuth, async (req, res) => {
