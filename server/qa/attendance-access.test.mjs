@@ -7,6 +7,7 @@ import {
   canAccessStudentSectionList
 } from "../services/attendanceAccess.js";
 import { currentUserClaims } from "../middleware/auth.js";
+import { isValidIsoCalendarDate } from "../services/dateValidation.js";
 
 const faculty = {_id:"faculty-a"};
 const assignedSection = {_id:"section-a"};
@@ -71,5 +72,15 @@ assert.deepEqual(currentClaims, {
   faculty: null,
   section: "section-a"
 });
+
+
+assert.equal(isValidIsoCalendarDate("2026-10-13"), true);
+assert.equal(isValidIsoCalendarDate("2024-02-29"), true);
+assert.equal(isValidIsoCalendarDate("2026-02-29"), false);
+assert.equal(isValidIsoCalendarDate("2026-13-01"), false);
+assert.equal(isValidIsoCalendarDate("2026-04-31"), false);
+assert.equal(isValidIsoCalendarDate("13-10-2026"), false);
+assert.equal(isValidIsoCalendarDate(""), false);
+assert.equal(isValidIsoCalendarDate(null), false);
 
 console.log("Attendance access isolation tests passed.");
