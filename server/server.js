@@ -16,6 +16,7 @@ import AcademicSession from "./models/AcademicSession.js";
 import Timetable from "./models/Timetable.js";
 import SchedulerSetting from "./models/SchedulerSetting.js";
 import { generateTimetable, generateBestTimetable } from "./services/generator.js";
+import { calculateFacultyWorkloadCapacity } from "./services/facultyWorkload.js";
 import ExcelJS from "exceljs";
 import { parseHolidayImportDate, parseHolidayCsv, holidayImportCell } from "./services/holidayImport.js";
 import multer from "multer";
@@ -2768,64 +2769,18 @@ app.get("/api/reports/summary", requireAuth, allowRoles("ADMIN","SCHEDULER"), as
       issues
     };
     const maxFacultyPeriods=Math.max(1,...[...facultyMap.values()].map(x=>x.periods));
-    const dayOrder=new Map(["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"].map((day,index)=>[day,index]));
     const faculty=[...facultyMap.values()].map(x=>{
       const assignedSubjects=subjects.filter(subject=>subject.facultyId===x.id);
-      const maxClassesPerDay=Number(x.maxClassesPerDay||0);
-      const maxWorkingDays=Number(x.maxWorkingDays||0);
-      const capacityConfigured=maxClassesPerDay>0&&maxWorkingDays>0;
-      const availableDays=Array.isArray(x.availableDays)&&x.availableDays.length
-        ? x.availableDays.filter(day=>scheduleDays.includes(day))
-        : scheduleDays;
-      const unavailableSlots=new Set(Array.isArray(x.unavailableSlots)?x.unavailableSlots:[]);
-      const periodsByDay=new Map();
-      const availablePeriodsByDay=new Map();
-      for(const day of availableDays){
-        const possibleSlots=usableWorkloadSlots.filter(slot=>
-          String(slot.day)===String(day)&&
-          !unavailableSlots.has(`${slot.day}|${slot.startTime}-${slot.endTime}`)
-        );
-        availablePeriodsByDay.set(day,possibleSlots.length);
-      }
-      const allowedWorkingDays=[...availablePeriodsByDay.entries()]
-        .filter(([,count])=>count>0)
-        .sort((a,b)=>b[1]-a[1]||(dayOrder.get(a[0])??99)-(dayOrder.get(b[0])??99));
-      const weeklyAvailablePeriods=[...availablePeriodsByDay.values()].reduce((sum,count)=>sum+count,0);
-      const capacityDays=capacityConfigured
-        ? allowedWorkingDays.slice(0,Math.min(maxWorkingDays,allowedWorkingDays.length))
-        : [];
-      const capacityClasses=capacityConfigured
-        ? capacityDays.reduce((sum,[,slotCount])=>sum+Math.min(maxClassesPerDay,slotCount),0)
-        : null;
-      const capacityUtilization=capacityClasses>0?Number((x.classes/capacityClasses*100).toFixed(1)):null;
-      const loadStatus=!capacityConfigured
-        ?"LIMITS_NOT_CONFIGURED"
-        : !(capacityClasses>0)
-          ?"NO_AVAILABLE_CAPACITY"
-          : x.classes>capacityClasses
-            ?"OVER_CAPACITY"
-            : capacityUtilization>=85
-              ?"NEAR_CAPACITY"
-              : capacityUtilization<40
-                ?"LOW_UTILIZATION"
-                :"WITHIN_CAPACITY";
-      const dailyBreakdown=["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"].map(day=>{
-        const current=x.dailyMap.get(day)||{day,classes:0,periods:0};
-        const availablePeriods=availablePeriodsByDay.get(day)||0;
-        const configuredDayCapacity=capacityConfigured&&availableDays.includes(day)
-          ?Math.min(maxClassesPerDay,availablePeriods)
-          :null;
-        return {
-          ...current,
-          availablePeriods,
-          freePeriods:Math.max(0,availablePeriods-Number(current.periods||0)),
-          capacityClasses:configuredDayCapacity,
-          capacityUtilization:configuredDayCapacity>0
-            ?Number((Number(current.classes||0)/configuredDayCapacity*100).toFixed(1))
-            :null
-        };
+      const capacity=calculateFacultyWorkloadCapacity({
+        classes:x.classes,
+        periods:x.periods,
+        maxWorkingDays:x.maxWorkingDays,
+        maxClassesPerDay:x.maxClassesPerDay,
+        availableDays:x.availableDays,
+        unavailableSlots:x.unavailableSlots,
+        dailyMap:x.dailyMap,
+        usableSlots:usableWorkloadSlots
       });
-      const freePeriods=Math.max(0,weeklyAvailablePeriods-x.periods);
       return {
         id:x.id,
         name:x.name,
@@ -2833,15 +2788,7 @@ app.get("/api/reports/summary", requireAuth, allowRoles("ADMIN","SCHEDULER"), as
         periods:x.periods,
         workingDays:x.workingDays.size,
         utilization:Number((x.periods/maxFacultyPeriods*100).toFixed(1)),
-        capacityConfigured,
-        maxClassesPerDay:capacityConfigured?maxClassesPerDay:null,
-        maxWorkingDays:capacityConfigured?maxWorkingDays:null,
-        capacityClasses,
-        capacityUtilization,
-        loadStatus,
-        availablePeriods:weeklyAvailablePeriods,
-        freePeriods,
-        dailyBreakdown,
+        ...capacity,
         subjectBreakdown:assignedSubjects.map(subject=>({
           id:subject.id,
           name:subject.name,
@@ -3009,52 +2956,28 @@ app.get("/api/reports/export/:type", requireAuth, allowRoles("ADMIN","SCHEDULER"
     }
 
     const daysOfWeek=days;
+    const daysOfWeek=days;
     const faculty=[...facultyMap.values()].map(item=>{
-      const maxWorkingDays=Number(item.maxWorkingDays||0);
-      const maxClassesPerDay=Number(item.maxClassesPerDay||0);
-      const capacityConfigured=maxWorkingDays>0&&maxClassesPerDay>0;
-      const availableDays=Array.isArray(item.availableDays)&&item.availableDays.length
-        ?item.availableDays.filter(day=>scheduleDays.includes(day))
-        :scheduleDays;
-      const unavailableSlots=new Set(Array.isArray(item.unavailableSlots)?item.unavailableSlots:[]);
-      const periodsAvailableByDay=new Map();
-      for(const day of availableDays){
-        periodsAvailableByDay.set(day,usableWorkloadSlots.filter(slot=>
-          String(slot.day)===String(day)&&
-          !unavailableSlots.has(`${slot.day}|${slot.startTime}-${slot.endTime}`)
-        ).length);
-      }
-      const possibleDays=[...periodsAvailableByDay.entries()]
-        .filter(([,count])=>count>0)
-        .sort((a,b)=>b[1]-a[1]||(workloadDayOrder.get(a[0])??99)-(workloadDayOrder.get(b[0])??99));
-      const availablePeriods=[...periodsAvailableByDay.values()].reduce((sum,value)=>sum+value,0);
-      const capacityDays=capacityConfigured?possibleDays.slice(0,Math.min(maxWorkingDays,possibleDays.length)):[];
-      const capacityClasses=capacityConfigured
-        ?capacityDays.reduce((sum,[,count])=>sum+Math.min(maxClassesPerDay,count),0)
-        :null;
-      const capacityUtilization=capacityClasses>0?Number((item.classes/capacityClasses*100).toFixed(1)):null;
-      const loadStatus=!capacityConfigured
-        ?"LIMITS_NOT_CONFIGURED"
-        :!(capacityClasses>0)
-          ?"NO_AVAILABLE_CAPACITY"
-          :item.classes>capacityClasses
-            ?"OVER_CAPACITY"
-            :capacityUtilization>=85
-              ?"NEAR_CAPACITY"
-              :capacityUtilization<40
-                ?"LOW_UTILIZATION"
-                :"WITHIN_CAPACITY";
+      const capacity=calculateFacultyWorkloadCapacity({
+        classes:item.classes,
+        periods:item.periods,
+        maxWorkingDays:item.maxWorkingDays,
+        maxClassesPerDay:item.maxClassesPerDay,
+        availableDays:item.availableDays,
+        unavailableSlots:item.unavailableSlots,
+        dailyMap:item.daily,
+        usableSlots:usableWorkloadSlots
+      });
       const daysOfLoad=Object.fromEntries(days.map(day=>[day,item.daily.get(day)?.periods||0]));
-      const dayClassLoad=Object.fromEntries(days.map(day=>[day,item.daily.get(day)?.classes||0]));
-      const freePeriods=Math.max(0,availablePeriods-item.periods);
+      const dayClassLoad=Object.fromEntries(days.map(day=>[`${day}Classes`,item.daily.get(day)?.classes||0]));
       return {
-        name:item.name,classes:item.classes,periods:item.periods,workingDays:item.workingDays.size,
-        maxClassesPerDay:capacityConfigured?maxClassesPerDay:null,
-        maxWorkingDays:capacityConfigured?maxWorkingDays:null,
-        capacityClasses,capacityUtilization,capacityConfigured,loadStatus,
-        availablePeriods,freePeriods,
+        name:item.name,
+        classes:item.classes,
+        periods:item.periods,
+        workingDays:item.workingDays.size,
+        ...capacity,
         ...daysOfLoad,
-        ...Object.fromEntries(days.map(day=>[`${day}Classes`,dayClassLoad[day]]))
+        ...dayClassLoad
       };
     }).sort((a,b)=>b.classes-a.classes||a.name.localeCompare(b.name));
 
