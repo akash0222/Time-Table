@@ -33,9 +33,9 @@ export default function Notifications({auth,data,setMessage}){
   async function markAll(){try{await axios.post(`${API}/notifications/read-all`);setItems(items.map(x=>({...x,read:true})));setMessage("All visible notifications marked as read.")}catch(e){setMessage(e.response?.data?.message||e.message)}}
 
   return <div>
-    <div className="notification-toolbar"><div><h2>Notifications & Announcements</h2><p>View relevant announcements and timetable-related updates.</p></div><div className="form-actions"><button className="secondary" onClick={load}><RefreshCw size={15}/> Refresh</button><button className="secondary" onClick={markAll}>Mark all read</button></div></div>
+    <div className="notification-toolbar"><div><h2>Notifications & Announcements</h2></div><div className="form-actions"><button className="secondary" onClick={load}><RefreshCw size={15}/> Refresh</button><button className="secondary" onClick={markAll}>Mark all read</button></div></div>
     {canManage&&<div className="notification-grid">
-      <section className="panel"><div className="panel-head"><div><h3>Create Announcement</h3><p>Publish to everyone or target a specific audience.</p></div></div>
+      <section className="panel"><div className="panel-head"><div><h3>Create Announcement</h3></div></div>
         <div className="notification-form">
           <label>Title<input value={form.title} onChange={e=>setForm({...form,title:e.target.value})} placeholder="e.g. Timetable updated"/></label>
           <label>Message<textarea value={form.message} onChange={e=>setForm({...form,message:e.target.value})} placeholder="Write the announcement..."/></label>
@@ -48,7 +48,7 @@ export default function Notifications({auth,data,setMessage}){
           <div className="notification-actions"><button className="primary" onClick={create}><Bell size={15}/> Publish Announcement</button></div>
         </div>
       </section>
-      <section className="panel"><div className="panel-head"><div><h3>Notification Management</h3><p>Recent announcements created by administrators and schedulers.</p></div></div><div className="notification-table-wrap"><table className="notification-table"><thead><tr><th>Title</th><th>Audience</th><th>Priority</th><th>Published</th><th></th></tr></thead><tbody>{items.map(n=><tr key={n._id}><td>{n.title}</td><td>{n.audience}</td><td><span className={`notification-pill ${n.priority}`}>{n.priority}</span></td><td>{n.published?"Yes":"No"}</td><td><button className="secondary" onClick={()=>remove(n._id)}><Trash2 size={14}/></button></td></tr>)}</tbody></table></div></section>
+      <section className="panel"><div className="panel-head"><div><h3>Notification Management</h3></div></div><div className="notification-table-wrap"><table className="notification-table"><thead><tr><th>Title</th><th>Audience</th><th>Priority</th><th>Published</th><th></th></tr></thead><tbody>{items.map(n=><tr key={n._id}><td>{n.title}</td><td>{n.audience}</td><td><span className={`notification-pill ${n.priority}`}>{n.priority}</span></td><td>{n.published?"Yes":"No"}</td><td><button className="secondary" onClick={()=>remove(n._id)}><Trash2 size={14}/></button></td></tr>)}</tbody></table></div></section>
     </div>}
 
     {!canManage&&<section className="panel"><div className="view-filter"><label>Section notifications<select value={sectionId} onChange={e=>setSectionId(e.target.value)}><option value="">All relevant notifications</option>{data.sections.map(s=><option key={s._id} value={s._id}>{s.program} {s.semester} - {s.name}</option>)}</select></label></div></section>}
