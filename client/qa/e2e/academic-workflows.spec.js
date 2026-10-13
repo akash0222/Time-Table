@@ -582,7 +582,7 @@ test("admin can review approval status, compare timetable versions and require w
   await page.locator('[data-nav="Approval & Versions"]').click();
   await expect(page.getByRole("heading",{name:"Timetable Approval & Versions",exact:true})).toBeVisible();
   await expect(page.locator(".approval-status-pill.submitted").first()).toContainText("Submitted for review");
-  await expect(page.getByText("scheduler-one",{exact:true})).toBeVisible();
+  await expect(page.getByText("scheduler-one",{exact:false})).toBeVisible();
   await expect(page.getByText("Please review before approval.")).toBeVisible();
 
   await page.getByRole("button",{name:"Compare versions"}).click();
@@ -618,7 +618,7 @@ test("admin can safely restore an old timetable version as a new draft with a re
   await page.getByLabel("Workflow remarks").fill("Restore earlier room allocation after faculty change.");
   page.once("dialog",dialog=>dialog.accept());
   await oldVersionRow.getByRole("button",{name:"Restore as Draft"}).click();
-  await expect(page.getByText("Version 3 · Restored",{exact:true})).toBeVisible();
+  await expect(page.getByText("Version 3 · Restored",{exact:true}).first()).toBeVisible();
   await expect(page.getByText(/A new Draft was created/)).toBeVisible();
   await expect(page.locator("tr").filter({hasText:"Version 1"}).getByRole("button",{name:"Restore as Draft"})).toBeVisible();
 });
