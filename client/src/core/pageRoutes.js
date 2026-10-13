@@ -11,6 +11,7 @@ export const PAGE_NAMES = [
   "Full Session Timetable",
   "All Program Timetables",
   "Timetable",
+  "Approval & Versions",
   "Calendar View",
   "My Timetable",
   "Students",
