@@ -33,6 +33,13 @@ function VersionLabel({version}){
   return <>{version.versionLabel||("Version "+version.version)}{version.isCurrent?" · Current":""} · {version.status||"DRAFT"}</>;
 }
 
+function actionLabel(action,currentStatus){
+  if(action.status==="DRAFT")return "Return to draft";
+  if(currentStatus==="LOCKED"&&action.status==="PUBLISHED")return "Unlock to published";
+  if(currentStatus==="APPROVED"&&action.status==="SUBMITTED")return "Request changes";
+  return ACTION_LABELS[action.status]||action.status;
+}
+
 function TypeIcon({type}){
   if(type==="ADDED")return <Plus size={14}/>;
   if(type==="REMOVED")return <Minus size={14}/>;
@@ -210,7 +217,7 @@ export default function ApprovalVersionsPage({activeSession,role,onRefresh,setMe
                 disabled={Boolean(busy)}
                 onClick={()=>runAction(action)}
               >{action.status==="SUBMITTED"?<Send size={15}/>:action.status==="LOCKED"?<Lock size={15}/>:action.status==="DRAFT"?<RotateCcw size={15}/>:<CheckCircle2 size={15}/>}
-                {ACTION_LABELS[action.status]||action.status}{action.requiresNote?" *":""}
+                {actionLabel(action,currentStatus)}{action.requiresNote?" *":""}
               </button>)}
             </div>
             :<div className="approval-info-line"><CheckCircle2 size={16}/> No workflow action is currently available.</div>}
