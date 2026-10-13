@@ -85,7 +85,7 @@ export default function ApprovalVersionsPage({activeSession,role,onRefresh,setMe
 
   useEffect(()=>{load();},[activeSession?._id]);
 
-  const currentVersion=versions.find(item=>item.isCurrent)||versions[0]||null;
+  const currentVersion=versions.find(item=>item.isCurrent)||null;
   const currentStatus=workflow?.status||currentVersion?.status||"DRAFT";
   const actions=(workflow?.actions||[]).filter(action=>action.allowed);
   const fromVersion=versions.find(item=>String(item._id)===String(compareFrom));
