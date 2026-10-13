@@ -195,7 +195,7 @@ export default function Reports({activeSession}={}) {
         </label>
       </div>
       <div className="table-wrap report-table-wrap">
-        <table className="report-table">
+        <table className="report-table faculty-workload-table">
           <thead><tr><th>Faculty</th><th>Classes</th><th>Periods</th><th>Working Days</th><th>Daily Peak</th><th>Weekly Capacity</th><th>Capacity Used</th><th>Free Periods</th><th>Load Status</th><th>Details</th></tr></thead>
           <tbody>
             {sortedFaculty.map(item=>{
