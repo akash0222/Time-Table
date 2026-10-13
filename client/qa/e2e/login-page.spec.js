@@ -65,6 +65,37 @@ test.describe("Login page", () => {
     await expect(page.locator(".login-caps-lock-warning")).toContainText("Caps Lock is on");
   });
 
+  test("shows the server cooldown after too many sign-in attempts and re-enables sign-in when it expires", async ({ page }) => {
+    await page.route("**/api/auth/login", async route => {
+      await route.fulfill({
+        status: 429,
+        headers: { "Retry-After": "3" },
+        contentType: "application/json",
+        body: JSON.stringify({
+          code: "LOGIN_RATE_LIMITED",
+          message: "Too many sign-in attempts. Please wait before trying again.",
+          retryAfterSeconds: 3,
+          lockedUntil: new Date(Date.now() + 3000).toISOString()
+        })
+      });
+    });
+
+    await page.locator("#login-username").fill("admin");
+    await page.locator("#login-password").fill("wrong-password");
+    await page.getByRole("button", { name: "Sign In" }).click();
+
+    await expect(page.getByRole("alert")).toContainText("Too many sign-in attempts");
+    await expect(page.getByRole("alert")).toContainText(/Try again in 00:0[0-3]\./);
+    await expect(page.locator(".login-submit")).toBeDisabled();
+    await expect(page.locator("#login-username")).toBeDisabled();
+    await expect(page.locator("#login-password")).toBeDisabled();
+    await expect(page.getByRole("button", { name: /Sign-in locked/ })).toBeDisabled();
+
+    await expect(page.getByRole("button", { name: "Sign In" })).toBeEnabled({ timeout: 6000 });
+    await expect(page.getByRole("alert")).toHaveCount(0);
+    await expect(page.locator("#login-username")).toBeEnabled();
+  });
+
   test("uses a friendly message for backend failures and shows a loading state", async ({ page }) => {
     await page.route("**/api/auth/login", async route => {
       await new Promise(resolve => setTimeout(resolve, 300));
