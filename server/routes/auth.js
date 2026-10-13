@@ -6,11 +6,11 @@ import { createLoginAttemptLimiter } from "../services/loginRateLimit.js";
 
 const router = express.Router();
 
-const LOGIN_WINDOW_MS = 15 * 60 * 1000;
+const LOGIN_WINDOW_MS = 5 * 60 * 1000;
 const configuredLimit = Number(process.env.LOGIN_MAX_ATTEMPTS);
 const LOGIN_LIMIT = Number.isInteger(configuredLimit) && configuredLimit >= 5 && configuredLimit <= 100
   ? configuredLimit
-  : process.env.NODE_ENV === "production" ? 5 : 100;
+  : 5;
 const LOGIN_MAX_KEYS = 20000;
 const {
   middleware: loginLimiter,
@@ -28,8 +28,28 @@ router.post("/login", loginLimiter, async (req, res) => {
     const password = String(req.body?.password || "");
     const user = await User.findOne({ username }).populate("faculty").populate("section");
     if (!user || user.active === false || !(await bcrypt.compare(password, user.passwordHash))) {
-      recordFailedLogin(req);
-      return res.status(401).json({ message: "Invalid username or password." });
+      const attempt = recordFailedLogin(req);
+      if (attempt?.locked) {
+        res.set("Retry-After", String(attempt.retryAfterSeconds));
+        return res.status(429).json({
+          code: "LOGIN_RATE_LIMITED",
+          message: "Too many failed sign-in attempts. Sign-in is locked for 5 minutes.",
+          attemptsUsed: attempt.count,
+          attemptsRemaining: 0,
+          retryAfterSeconds: attempt.retryAfterSeconds,
+          lockedUntil: new Date(Date.now() + attempt.retryAfterSeconds * 1000).toISOString()
+        });
+      }
+      return res.status(401).json({
+        message: "Invalid username or password.",
+        attemptsUsed: attempt?.count ?? null,
+        attemptsRemaining: attempt?.remaining ?? null,
+        messageDetail: Number.isInteger(attempt?.remaining)
+          ? attempt.remaining > 0
+            ? `${attempt.remaining} failed sign-in attempt(s) remaining before a 5-minute lockout.`
+            : "Sign-in is temporarily locked for 5 minutes."
+          : undefined
+      });
     }
     // A successful authentication clears the failed-attempt bucket for this
     // IP and username so old mistakes do not lock out a legitimate sign-in.
