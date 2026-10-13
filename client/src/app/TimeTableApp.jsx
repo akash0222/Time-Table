@@ -449,7 +449,7 @@ export default function App(){
       </div>
     </aside>
     <main className="erp-main">
-      <header><div><h1>{tab}</h1></div></header>
+      {tab==="Dashboard"&&<header><div><h1>{tab}</h1></div></header>}
       {message && <div className={`message ${/error|network|failed|unable|cannot|start the backend|could not be loaded|not configured/i.test(message)?"error":"success"}`}>{message}{/some data could not be loaded|backend api is not configured/i.test(message) && <button className="secondary" type="button" onClick={()=>load()} style={{marginLeft:10}}>Retry</button>}</div>}
 
 
