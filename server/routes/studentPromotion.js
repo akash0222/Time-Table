@@ -141,18 +141,53 @@ router.post("/bulk", allowRoles("ADMIN","SCHEDULER"), async (req,res)=>{
       changedByName:req.user.name||req.user.username||"",
       status:"COMPLETED"
     }));
-    await dbSession.withTransaction(async()=>{
+    try {
+      await dbSession.withTransaction(async()=>{
+        const operations=moving.map(s=>({
+          updateOne:{
+            filter:{_id:s._id,active:true,section:s.section._id},
+            update:{$set:{section:target._id,program,semester}}
+          }
+        }));
+        const result=await Student.bulkWrite(operations,{ordered:true,session:dbSession});
+        const updated=result.modifiedCount??result.nModified??0;
+        if(updated!==moving.length) throw new Error("Student assignments changed during promotion. No changes were committed; refresh and try again.");
+        await StudentPromotion.insertMany(history,{session:dbSession,ordered:true});
+      });
+    } catch (transactionError) {
+      // Local MongoDB installations are often standalone and cannot run transactions.
+      // Fall back only for that explicit server limitation, and compensate the
+      // student changes if audit-history insertion fails.
+      const message=String(transactionError?.message||"");
+      const transactionUnsupported=/Transaction numbers are only allowed|replica set member or mongos|does not support retryable writes/i.test(message);
+      if(!transactionUnsupported) throw transactionError;
+
       const operations=moving.map(s=>({
         updateOne:{
           filter:{_id:s._id,active:true,section:s.section._id},
           update:{$set:{section:target._id,program,semester}}
         }
       }));
-      const result=await Student.bulkWrite(operations,{ordered:true,session:dbSession});
+      const result=await Student.bulkWrite(operations,{ordered:true});
       const updated=result.modifiedCount??result.nModified??0;
-      if(updated!==moving.length) throw new Error("Student assignments changed during promotion. No changes were committed; refresh and try again.");
-      await StudentPromotion.insertMany(history,{session:dbSession,ordered:true});
-    });
+      if(updated!==moving.length) throw new Error("Student assignments changed during promotion. Refresh and try again.");
+      try {
+        await StudentPromotion.insertMany(history,{ordered:true});
+      } catch (historyError) {
+        const restore=moving.map(s=>({
+          updateOne:{
+            filter:{_id:s._id,active:true,section:target._id},
+            update:{$set:{
+              section:s.section._id,
+              program:s.section.program||s.section.programId?.name||"",
+              semester:s.section.semester||""
+            }}
+          }
+        }));
+        await Student.bulkWrite(restore,{ordered:true});
+        throw historyError;
+      }
+    }
     return res.json({ok:true,updated:moving.length,skipped:allStudents.length-moving.length,message:`${moving.length} student(s) ${action==="PROMOTED"?"promoted":"transferred"} successfully.`,historyCount:history.length});
   }catch(e){
     return res.status(400).json({message:e.message});
