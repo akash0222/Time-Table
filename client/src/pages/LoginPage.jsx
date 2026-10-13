@@ -4,8 +4,6 @@ import { API, API_CONFIGURATION_ERROR } from "../core/api";
 import {
   AlertTriangle,
   ArrowRight,
-  BookOpen,
-  CalendarCheck2,
   CalendarDays,
   Eye,
   EyeOff,
@@ -13,7 +11,6 @@ import {
   LockKeyhole,
   ShieldCheck,
   UserRound,
-  UsersRound
 } from "lucide-react";
 
 export default function Login({ onLogin }) {
@@ -107,28 +104,7 @@ export default function Login({ onLogin }) {
           </div>
 
           <div className="login-story-copy">
-            <h2>Bring your academic week into focus.</h2>
-
-            <div className="login-feature-list">
-              <div className="login-feature">
-                <span className="login-feature-icon"><CalendarCheck2 size={19} aria-hidden="true" /></span>
-                <span className="login-feature-copy">
-                  <strong>Timetables at a glance</strong>
-                </span>
-              </div>
-              <div className="login-feature">
-                <span className="login-feature-icon"><BookOpen size={19} aria-hidden="true" /></span>
-                <span className="login-feature-copy">
-                  <strong>Academic structure, connected</strong>
-                </span>
-              </div>
-              <div className="login-feature">
-                <span className="login-feature-icon"><UsersRound size={19} aria-hidden="true" /></span>
-                <span className="login-feature-copy">
-                  <strong>Role-aware workspace</strong>
-                </span>
-              </div>
-            </div>
+            <h2>Academic timetable management</h2>
           </div>
 
           <span className="login-decor-orb login-decor-orb-one" aria-hidden="true" />
