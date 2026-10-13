@@ -1262,9 +1262,6 @@ app.post("/api/timetable/generate", requireAuth, allowRoles("ADMIN", "SCHEDULER"
 
 
 app.get("/api/timetable/versions", requireAuth, async (req,res)=>{
-  if(!["ADMIN","SCHEDULER"].includes(req.user?.role)){
-    return res.status(403).json({message:"Only Admin or Scheduler can review timetable versions."});
-  }
   try{
     const sessionId=String(req.query.sessionId||"").trim();
     if(!sessionId)return res.status(400).json({message:"An academic session is required to list timetable versions."});
