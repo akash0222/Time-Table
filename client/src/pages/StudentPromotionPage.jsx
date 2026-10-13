@@ -74,7 +74,7 @@ export default function StudentPromotion({data,sessions,activeSession,reload,set
 
   return <div className="promotion-page">
     <section className="promotion-hero">
-      <div><span className="promotion-eyebrow">ACADEMIC OPERATIONS · PHASE 2</span><h2>Student Promotion & Section Transfer</h2><p>Promote students between academic sessions or transfer them between sections with preview, capacity checks and rollback-safe history.</p></div>
+      <div><span className="promotion-eyebrow">ACADEMIC OPERATIONS · PHASE 2</span><h2>Student Promotion & Section Transfer</h2></div>
       <div className="promotion-stat"><strong>{students.length}</strong><span>students in selected source</span></div>
     </section>
 
