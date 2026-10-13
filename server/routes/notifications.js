@@ -17,6 +17,16 @@ const manager = allowRoles("ADMIN", "SCHEDULER");
 const MANAGER_ROLES = new Set(["ADMIN", "SCHEDULER"]);
 const idOf = value => String(value?._id ?? value ?? "");
 
+function parseBoolean(value, fallback = true) {
+  if (value === undefined || value === null) return fallback;
+  if (typeof value === "boolean") return value;
+  if (typeof value === "number") return value !== 0;
+  const normalized = String(value).trim().toLowerCase();
+  if (["true", "1", "yes", "on"].includes(normalized)) return true;
+  if (["false", "0", "no", "off", ""].includes(normalized)) return false;
+  return fallback;
+}
+
 function cleanTarget(body = {}) {
   const audience = String(body.audience || "ALL").toUpperCase();
   return {
@@ -260,7 +270,7 @@ router.post("/", manager, async (req, res) => {
       title: title.trim(),
       message: message.trim(),
       priority,
-      published: Boolean(published),
+      published: parseBoolean(published, true),
       startAt: start,
       endAt: end,
       createdBy: req.user.id,
@@ -282,7 +292,7 @@ router.put("/:id", manager, async (req, res) => {
 
     const body = {};
     for (const key of ["title", "message", "priority", "published", "startAt", "endAt"]) {
-      if (req.body[key] !== undefined) body[key] = req.body[key];
+      if (req.body[key] !== undefined) body[key] = key === "published" ? parseBoolean(req.body[key], notification.published) : req.body[key];
     }
 
     // A partial edit must not silently reset a targeted announcement to ALL.
