@@ -216,7 +216,7 @@ test("Scheduler can run timetable workflows but cannot administer users", async 
   await expect(page.locator('[data-nav="User Management"]')).toHaveCount(0);
 
   await page.locator('[data-nav="Academic Sessions"]').click();
-  await expect(page.locator("h1")).toHaveText("Academic Sessions");
+  await expect(page.getByRole("heading", { name: "Academic Sessions", exact: true })).toBeVisible();
 
   await page.goto("/user-management");
   await expect(page).toHaveURL(/\/dashboard$/);
@@ -296,7 +296,7 @@ test("dashboard shows visual analytics and the sidebar collapses to icon navigat
   await page.getByRole("button", { name: "Expand Academic Sessions submodules" }).click();
   await expect(page.locator('[data-nav="Academic Structure"]')).toBeVisible();
   await page.locator('[data-nav="Academic Structure"]').click();
-  await expect(page.locator("h1")).toHaveText("Academic Structure");
+  await expect(page.getByRole("heading", { name: "Academic Structure", exact: true })).toBeVisible();
   await expect(page.locator('[data-nav="Holiday Management"]')).toBeVisible();
 
   await page.getByRole("button", { name: "Collapse navigation" }).click();
