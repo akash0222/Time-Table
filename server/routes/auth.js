@@ -7,8 +7,22 @@ const router = express.Router();
 
 const loginAttempts = new Map();
 const LOGIN_WINDOW_MS = 15 * 60 * 1000;
-const LOGIN_LIMIT = process.env.NODE_ENV === "production" ? 10 : 100;
+const configuredLimit = Number(process.env.LOGIN_MAX_ATTEMPTS);
+const LOGIN_LIMIT = Number.isInteger(configuredLimit) && configuredLimit >= 5 && configuredLimit <= 100
+  ? configuredLimit
+  : process.env.NODE_ENV === "production" ? 10 : 100;
 const LOGIN_MAX_KEYS = 20000;
+
+function sendLoginRateLimit(res, retryAfterSeconds) {
+  const waitSeconds = Math.max(1, Math.ceil(Number(retryAfterSeconds) || 60));
+  res.set("Retry-After", String(waitSeconds));
+  return res.status(429).json({
+    code: "LOGIN_RATE_LIMITED",
+    message: "Too many sign-in attempts. Please wait before trying again.",
+    retryAfterSeconds: waitSeconds,
+    lockedUntil: new Date(Date.now() + waitSeconds * 1000).toISOString()
+  });
+}
 let limiterRequests = 0;
 
 function pruneLoginAttempts(now) {
@@ -23,18 +37,23 @@ function loginLimiter(req, res, next) {
   const ip = String(req.ip || "unknown").slice(0, 100);
   const username = String(req.body?.username || "").trim().toLowerCase().slice(0, 100);
   const key = `${ip}|${username}`;
+  req.loginAttemptKey = key;
   const now = Date.now();
   pruneLoginAttempts(now);
 
   const current = loginAttempts.get(key);
   if (!current || now - current.startedAt > LOGIN_WINDOW_MS) {
     if (!current && loginAttempts.size >= LOGIN_MAX_KEYS) {
-      return res.status(429).json({ message: "Login protection is busy. Please retry in a few minutes." });
+      return sendLoginRateLimit(res, 60);
     }
     loginAttempts.set(key, { startedAt: now, count: 1 });
     return next();
   }
-  if (current.count >= LOGIN_LIMIT) return res.status(429).json({ message: "Too many login attempts. Please try again later." });
+  if (current.count >= LOGIN_LIMIT) {
+    const elapsed = Math.max(0, now - current.startedAt);
+    const remainingSeconds = Math.ceil((LOGIN_WINDOW_MS - elapsed) / 1000);
+    return sendLoginRateLimit(res, remainingSeconds);
+  }
   current.count += 1;
   next();
 }
@@ -47,6 +66,9 @@ router.post("/login", loginLimiter, async (req, res) => {
     if (!user || user.active === false || !(await bcrypt.compare(password, user.passwordHash))) {
       return res.status(401).json({ message: "Invalid username or password." });
     }
+    // A successful authentication clears the failed-attempt bucket for this
+    // IP and username so old mistakes do not lock out a legitimate sign-in.
+    if (req.loginAttemptKey) loginAttempts.delete(req.loginAttemptKey);
     const token = signUser(user);
     res.json({ token, user: { id: user._id, name: user.name, username: user.username, role: user.role, faculty: user.faculty, section: user.section } });
   } catch (e) { res.status(500).json({ message: e.message }); }
