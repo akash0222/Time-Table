@@ -103,49 +103,34 @@ export default function Login({ onLogin }) {
             <span className="login-story-logo"><CalendarDays size={24} aria-hidden="true" /></span>
             <span className="login-story-brand-copy">
               <strong>Time Table</strong>
-              <small>ACADEMIC WORKSPACE</small>
             </span>
           </div>
 
           <div className="login-story-copy">
-            <div className="login-story-kicker">
-              <span className="login-kicker-dot" aria-hidden="true" />
-              MADE FOR ACADEMIC TEAMS
-            </div>
             <h2>Bring your academic week into focus.</h2>
-            <p className="login-story-description">
-              Plan with clarity, keep your academic structure organized, and bring every timetable into one workspace.
-            </p>
 
             <div className="login-feature-list">
               <div className="login-feature">
                 <span className="login-feature-icon"><CalendarCheck2 size={19} aria-hidden="true" /></span>
                 <span className="login-feature-copy">
                   <strong>Timetables at a glance</strong>
-                  <small>Keep scheduling work organized in one place.</small>
                 </span>
               </div>
               <div className="login-feature">
                 <span className="login-feature-icon"><BookOpen size={19} aria-hidden="true" /></span>
                 <span className="login-feature-copy">
                   <strong>Academic structure, connected</strong>
-                  <small>Bring programs, sections, subjects, and sessions together.</small>
                 </span>
               </div>
               <div className="login-feature">
                 <span className="login-feature-icon"><UsersRound size={19} aria-hidden="true" /></span>
                 <span className="login-feature-copy">
                   <strong>Role-aware workspace</strong>
-                  <small>Access features based on your assigned role.</small>
                 </span>
               </div>
             </div>
           </div>
 
-          <div className="login-story-footer">
-            <ShieldCheck size={16} aria-hidden="true" />
-            <span>One workspace for academic planning</span>
-          </div>
           <span className="login-decor-orb login-decor-orb-one" aria-hidden="true" />
           <span className="login-decor-orb login-decor-orb-two" aria-hidden="true" />
         </section>
@@ -214,7 +199,6 @@ export default function Login({ onLogin }) {
             <div className="login-heading">
               <span className="login-heading-kicker">WELCOME BACK</span>
               <h2 id="login-title">Sign in to your workspace</h2>
-              <p>Enter the credentials provided by your system administrator to continue.</p>
               <div className={`login-service-status login-service-status-${serviceStatus}`} role="status" aria-live="polite">
                 <span className="login-service-status-dot" aria-hidden="true" />
                 <span>
@@ -303,10 +287,6 @@ export default function Login({ onLogin }) {
               </p>
             </form>
 
-            <div className="login-panel-footer">
-              <span className="login-panel-footer-dot" aria-hidden="true" />
-              Academic planning · Role-based access
-            </div>
           </div>
         </section>
       </div>
