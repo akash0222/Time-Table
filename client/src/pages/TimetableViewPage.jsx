@@ -112,6 +112,7 @@ export default function TimetableView({timetable, data, onMoved, timetableStatus
   function needsApprovalNote(status){
     return (timetableStatus === "SUBMITTED" && ["DRAFT","APPROVED"].includes(status)) ||
       (timetableStatus === "APPROVED" && status === "SUBMITTED") ||
+      (timetableStatus === "PUBLISHED" && status === "DRAFT") ||
       (timetableStatus === "LOCKED" && status === "PUBLISHED");
   }
 
@@ -185,7 +186,7 @@ export default function TimetableView({timetable, data, onMoved, timetableStatus
         {timetableStatus==="DRAFT" && ["ADMIN","SCHEDULER"].includes(role) && <button className="secondary" disabled={approvalBusy} onClick={()=>changeStatus("SUBMITTED")}><Send size={15}/> Submit for Review</button>}
         {timetableStatus==="SUBMITTED" && ["ADMIN","SCHEDULER"].includes(role) && <><button className="secondary" disabled={approvalBusy} onClick={()=>changeStatus("DRAFT")}><RotateCcw size={15}/> Return to Draft</button>{role==="ADMIN"&&<button className="primary" disabled={approvalBusy} onClick={()=>changeStatus("APPROVED")}><Check size={15}/> Approve</button>}</>}
         {timetableStatus==="APPROVED" && role==="ADMIN" && <><button className="secondary" disabled={approvalBusy} onClick={()=>changeStatus("SUBMITTED")}><RotateCcw size={15}/> Request Changes</button><button className="primary" disabled={approvalBusy} onClick={()=>changeStatus("PUBLISHED")}><Send size={15}/> Publish</button></>}
-        {timetableStatus==="PUBLISHED" && role==="ADMIN" && <button className="primary" disabled={approvalBusy} onClick={()=>changeStatus("LOCKED")}><Lock size={15}/> Lock Timetable</button>}
+        {timetableStatus==="PUBLISHED" && role==="ADMIN" && <><button className="secondary" disabled={approvalBusy} onClick={()=>changeStatus("DRAFT")}><RotateCcw size={15}/> Return to Draft</button><button className="primary" disabled={approvalBusy} onClick={()=>changeStatus("LOCKED")}><Lock size={15}/> Lock Timetable</button></>}
         {timetableStatus==="LOCKED" && role==="ADMIN" && <button className="secondary" disabled={approvalBusy} onClick={()=>changeStatus("PUBLISHED")}><Lock size={15}/> Unlock to Published</button>}
       </div>
       {!["DRAFT"].includes(timetableStatus) && <div className="approval-note-box">
