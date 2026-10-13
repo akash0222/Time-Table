@@ -2690,13 +2690,45 @@ app.get("/api/reports/summary", requireAuth, allowRoles("ADMIN","SCHEDULER"), as
         unscheduled:Math.max(0,required-scheduled)
       };
     });
-    // Include faculty assigned to subjects in this session even when no
-    // class was scheduled, so the workload report exposes zero-load assignments.
+    // Load faculty limits and availability from master data so workload is
+    // measured against configured capacity, including faculty with zero classes.
+    const [facultyRows,workloadSlots,defaultSchedulerSettings]=await Promise.all([
+      Faculty.find({active:{$ne:false}}).lean(),
+      TimeSlot.find().sort({day:1,order:1}).lean(),
+      SchedulerSetting.findOne({key:"default"}).lean()
+    ]);
+    const sessionOverride=defaultSchedulerSettings?.sessionOverrides?.find(
+      item=>String(item.academicSession||"")===sessionId
+    );
+    const workloadSettings={...(defaultSchedulerSettings||{}),...(sessionOverride||{})};
+    const holidayDays=new Set(["Sunday",...(Array.isArray(workloadSettings.holidayDays)?workloadSettings.holidayDays:[])]);
+    const usableWorkloadSlots=workloadSlots.filter(slot=>slot&&!slot.isBreak&&!holidayDays.has(String(slot.day||"")));
+    const workloadDayOrder=new Map(["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"].map((day,index)=>[day,index]));
+    const scheduleDays=[...new Set(usableWorkloadSlots.map(slot=>String(slot.day||"")))]
+      .sort((a,b)=>(workloadDayOrder.get(a)??99)-(workloadDayOrder.get(b)??99));
+
+    for(const row of facultyRows){
+      const id=String(row._id);
+      const existing=facultyMap.get(id)||{
+        id,name:row.name||"Unknown",classes:0,periods:0,
+        workingDays:new Set(),dailyMap:new Map()
+      };
+      existing.name=row.name||existing.name||"Unknown";
+      existing.maxWorkingDays=Math.max(0,Number(row.maxWorkingDays||0));
+      existing.maxClassesPerDay=Math.max(0,Number(row.maxClassesPerDay||0));
+      existing.availableDays=Array.isArray(row.availableDays)?row.availableDays:[];
+      existing.unavailableSlots=Array.isArray(row.unavailableSlots)?row.unavailableSlots:[];
+      facultyMap.set(id,existing);
+    }
+
+    // Include any stale timetable/subject references as report rows too; missing
+    // limits remain explicitly unconfigured instead of being inferred.
     for(const subject of subjects){
       if(subject.facultyId&&!facultyMap.has(subject.facultyId)){
         facultyMap.set(subject.facultyId,{
           id:subject.facultyId,name:subject.faculty||"Unknown",classes:0,periods:0,
-          workingDays:new Set(),dailyMap:new Map(),maxWorkingDays:0,maxClassesPerDay:0
+          workingDays:new Set(),dailyMap:new Map(),maxWorkingDays:0,maxClassesPerDay:0,
+          availableDays:[],unavailableSlots:[]
         });
       }
     }
@@ -2739,8 +2771,59 @@ app.get("/api/reports/summary", requireAuth, allowRoles("ADMIN","SCHEDULER"), as
     const dayOrder=new Map(["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"].map((day,index)=>[day,index]));
     const faculty=[...facultyMap.values()].map(x=>{
       const assignedSubjects=subjects.filter(subject=>subject.facultyId===x.id);
-      const capacityKnown=Number(x.maxWorkingDays)>0&&Number(x.maxClassesPerDay)>0;
-      const estimatedCapacity=capacityKnown?Number(x.maxWorkingDays)*Number(x.maxClassesPerDay):null;
+      const maxClassesPerDay=Number(x.maxClassesPerDay||0);
+      const maxWorkingDays=Number(x.maxWorkingDays||0);
+      const capacityConfigured=maxClassesPerDay>0&&maxWorkingDays>0;
+      const availableDays=Array.isArray(x.availableDays)&&x.availableDays.length
+        ? x.availableDays.filter(day=>scheduleDays.includes(day))
+        : scheduleDays;
+      const unavailableSlots=new Set(Array.isArray(x.unavailableSlots)?x.unavailableSlots:[]);
+      const periodsByDay=new Map();
+      const availablePeriodsByDay=new Map();
+      for(const day of availableDays){
+        const possibleSlots=usableWorkloadSlots.filter(slot=>
+          String(slot.day)===String(day)&&
+          !unavailableSlots.has(`${slot.day}|${slot.startTime}-${slot.endTime}`)
+        );
+        availablePeriodsByDay.set(day,possibleSlots.length);
+      }
+      const allowedWorkingDays=[...availablePeriodsByDay.entries()]
+        .filter(([,count])=>count>0)
+        .sort((a,b)=>b[1]-a[1]||(dayOrder.get(a[0])??99)-(dayOrder.get(b[0])??99));
+      const weeklyAvailablePeriods=[...availablePeriodsByDay.values()].reduce((sum,count)=>sum+count,0);
+      const capacityDays=capacityConfigured
+        ? allowedWorkingDays.slice(0,Math.min(maxWorkingDays,allowedWorkingDays.length))
+        : [];
+      const capacityClasses=capacityConfigured
+        ? capacityDays.reduce((sum,[,slotCount])=>sum+Math.min(maxClassesPerDay,slotCount),0)
+        : null;
+      const capacityUtilization=capacityClasses>0?Number((x.classes/capacityClasses*100).toFixed(1)):null;
+      const loadStatus=!capacityConfigured
+        ?"LIMITS_NOT_CONFIGURED"
+        : x.classes>capacityClasses
+          ?"OVER_CAPACITY"
+          : capacityUtilization>=85
+            ?"NEAR_CAPACITY"
+            : capacityUtilization<40
+              ?"LOW_UTILIZATION"
+              :"WITHIN_CAPACITY";
+      const dailyBreakdown=["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"].map(day=>{
+        const current=x.dailyMap.get(day)||{day,classes:0,periods:0};
+        const availablePeriods=availablePeriodsByDay.get(day)||0;
+        const configuredDayCapacity=capacityConfigured&&availableDays.includes(day)
+          ?Math.min(maxClassesPerDay,availablePeriods)
+          :null;
+        return {
+          ...current,
+          availablePeriods,
+          freePeriods:Math.max(0,availablePeriods-Number(current.periods||0)),
+          capacityClasses:configuredDayCapacity,
+          capacityUtilization:configuredDayCapacity>0
+            ?Number((Number(current.classes||0)/configuredDayCapacity*100).toFixed(1))
+            :null
+        };
+      });
+      const freePeriods=Math.max(0,weeklyAvailablePeriods-x.periods);
       return {
         id:x.id,
         name:x.name,
@@ -2748,9 +2831,15 @@ app.get("/api/reports/summary", requireAuth, allowRoles("ADMIN","SCHEDULER"), as
         periods:x.periods,
         workingDays:x.workingDays.size,
         utilization:Number((x.periods/maxFacultyPeriods*100).toFixed(1)),
-        capacityPeriods:estimatedCapacity,
-        capacityUtilization:estimatedCapacity?Number((x.periods/estimatedCapacity*100).toFixed(1)):null,
-        dailyBreakdown:[...x.dailyMap.values()].sort((a,b)=>(dayOrder.get(a.day)??99)-(dayOrder.get(b.day)??99)),
+        capacityConfigured,
+        maxClassesPerDay:capacityConfigured?maxClassesPerDay:null,
+        maxWorkingDays:capacityConfigured?maxWorkingDays:null,
+        capacityClasses,
+        capacityUtilization,
+        loadStatus,
+        availablePeriods:weeklyAvailablePeriods,
+        freePeriods,
+        dailyBreakdown,
         subjectBreakdown:assignedSubjects.map(subject=>({
           id:subject.id,
           name:subject.name,
@@ -2761,7 +2850,7 @@ app.get("/api/reports/summary", requireAuth, allowRoles("ADMIN","SCHEDULER"), as
           unscheduled:subject.unscheduled
         }))
       };
-    }).sort((a,b)=>b.periods-a.periods||a.name.localeCompare(b.name));
+    }).sort((a,b)=>b.classes-a.classes||a.name.localeCompare(b.name));
     const maxRoomPeriods=Math.max(1,...[...roomMap.values()].map(x=>x.periods));
     const rooms=[...roomMap.values()].map(x=>({
       ...x,
