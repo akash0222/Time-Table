@@ -47,7 +47,7 @@ router.post("/preview", allowRoles("ADMIN","SCHEDULER"), async (req,res)=>{
       Section.findById(toSectionId).populate("programId","name code").lean(),
       AcademicSession.findById(academicSessionId).lean(),
       sourceAcademicSessionId ? AcademicSession.findById(sourceAcademicSessionId).lean() : Promise.resolve(null),
-      Student.find({_id:{$in:studentIds},active:true}).populate("section").lean()
+      Student.find({_id:{$in:studentIds}}).populate("section").lean()
     ]);
     if(!target) return res.status(404).json({message:"Target section not found."});
     if(!session) return res.status(404).json({message:"Target academic session not found."});
@@ -59,6 +59,9 @@ router.post("/preview", allowRoles("ADMIN","SCHEDULER"), async (req,res)=>{
     const available=capacity>0?Math.max(capacity-currentCount,0):null;
     const issues=[];
     const warnings=[];
+    if(students.length!==studentIds.length) issues.push("One or more selected student records no longer exist. Refresh the roster before continuing.");
+    const inactiveStudent=students.find(s=>s.active===false);
+    if(inactiveStudent) issues.push(`${inactiveStudent.name} is inactive and cannot be moved.`);
     const details=students.map(s=>{
       const from=s.section;
       const same=String(from?._id||"")===String(target._id);
