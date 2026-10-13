@@ -307,6 +307,41 @@ test("dashboard shows visual analytics and the sidebar collapses to icon navigat
 });
 
 
+
+test("mobile navigation drawer opens, dismisses, and navigates with persisted collapsed preference", async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem("tt_sidebar_collapsed", "true"));
+  await installRoleApiMocks(page, "ADMIN");
+  await page.setViewportSize({ width: 390, height: 844 });
+
+  const sidebar = page.locator(".erp-sidebar");
+  const trigger = page.locator(".mobile-nav-trigger");
+  await expect(trigger).toBeVisible();
+  await expect(trigger).toHaveAttribute("aria-label", "Open navigation");
+  await expect(sidebar).toBeHidden();
+
+  await trigger.click();
+  await expect(trigger).toHaveAttribute("aria-expanded", "true");
+  await expect(sidebar).toBeVisible();
+  await expect(sidebar.getByText("Time Table", { exact: true })).toBeVisible();
+  await expect(sidebar.locator('[data-nav="Academic Sessions"]')).toBeVisible();
+  await expect(sidebar.getByRole("button", { name: "Collapse Academic & Scheduling" })).toBeVisible();
+
+  await page.keyboard.press("Escape");
+  await expect(sidebar).toBeHidden();
+  await expect(trigger).toHaveAttribute("aria-expanded", "false");
+
+  await trigger.click();
+  await expect(sidebar).toBeVisible();
+  await page.locator(".sidebar-backdrop").click({ position: { x: 380, y: 420 } });
+  await expect(sidebar).toBeHidden();
+
+  await trigger.click();
+  await page.locator('[data-nav="Academic Sessions"]').click();
+  await expect(page.getByRole("heading", { name: "Academic Sessions", exact: true })).toBeVisible();
+  await expect(page).toHaveURL(/\\/academic-sessions$/);
+  await expect(sidebar).toBeHidden();
+});
+
 test("navigation groups and modules collapse independently and active submodules reopen their parent", async ({ page }) => {
   await installRoleApiMocks(page, "ADMIN");
 
