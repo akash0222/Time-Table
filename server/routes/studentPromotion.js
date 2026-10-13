@@ -209,8 +209,27 @@ router.post("/rollback/:id", allowRoles("ADMIN"), async (req,res)=>{
     if(String(student.section)!==String(history.toSection)) return res.status(409).json({message:"Rollback blocked because the student's current section has changed since this movement."});
     const from=await Section.findById(history.fromSection).populate("programId","name code").lean();
     if(!from) return res.status(409).json({message:"Original section no longer exists; rollback cannot be completed."});
-    await Student.updateOne({_id:student._id},{$set:{section:from._id,program:from.program||from.programId?.name||"",semester:from.semester||""}});
-    await StudentPromotion.updateOne({_id:history._id},{$set:{status:"ROLLED_BACK",rolledBackAt:new Date(),rolledBackBy:req.user.id}});
+    const capacity=Number(from.capacity||from.maxStudents||0);
+    if(capacity>0){
+      const currentCount=await Student.countDocuments({section:from._id,active:true,_id:{$ne:student._id}});
+      if(currentCount>=capacity) return res.status(409).json({message:`Rollback blocked because the original section is at capacity (${currentCount}/${capacity}).`});
+    }
+    const moved=await Student.updateOne(
+      {_id:student._id,section:history.toSection,active:true},
+      {$set:{section:from._id,program:from.program||from.programId?.name||"",semester:from.semester||""}}
+    );
+    if((moved.modifiedCount??moved.nModified??0)!==1) return res.status(409).json({message:"Student assignment changed during rollback. Refresh and try again."});
+    const marked=await StudentPromotion.updateOne(
+      {_id:history._id,status:"COMPLETED"},
+      {$set:{status:"ROLLED_BACK",rolledBackAt:new Date(),rolledBackBy:req.user.id}}
+    );
+    if((marked.modifiedCount??marked.nModified??0)!==1){
+      await Student.updateOne(
+        {_id:student._id,section:from._id,active:true},
+        {$set:{section:history.toSection}}
+      );
+      return res.status(409).json({message:"Movement history changed during rollback. The student assignment was restored; refresh and try again."});
+    }
     res.json({ok:true,message:`${student.name} was restored to ${sectionLabel(from)}.`});
   }catch(e){res.status(400).json({message:e.message});}
 });
