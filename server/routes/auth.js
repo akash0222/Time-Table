@@ -33,29 +33,46 @@ function pruneLoginAttempts(now) {
   }
 }
 
-function loginLimiter(req, res, next) {
+function loginAttemptKeyFor(req) {
   const ip = String(req.ip || "unknown").slice(0, 100);
   const username = String(req.body?.username || "").trim().toLowerCase().slice(0, 100);
-  const key = `${ip}|${username}`;
+  return `${ip}|${username}`;
+}
+
+function loginLimiter(req, res, next) {
+  const key = loginAttemptKeyFor(req);
   req.loginAttemptKey = key;
   const now = Date.now();
   pruneLoginAttempts(now);
 
-  const current = loginAttempts.get(key);
-  if (!current || now - current.startedAt > LOGIN_WINDOW_MS) {
-    if (!current && loginAttempts.size >= LOGIN_MAX_KEYS) {
-      return sendLoginRateLimit(res, 60);
-    }
-    loginAttempts.set(key, { startedAt: now, count: 1 });
-    return next();
+  let current = loginAttempts.get(key);
+  if (current && now - current.startedAt > LOGIN_WINDOW_MS) {
+    loginAttempts.delete(key);
+    current = null;
   }
-  if (current.count >= LOGIN_LIMIT) {
+  if (!current && loginAttempts.size >= LOGIN_MAX_KEYS) {
+    return sendLoginRateLimit(res, 60);
+  }
+  if (current && current.count >= LOGIN_LIMIT) {
     const elapsed = Math.max(0, now - current.startedAt);
     const remainingSeconds = Math.ceil((LOGIN_WINDOW_MS - elapsed) / 1000);
     return sendLoginRateLimit(res, remainingSeconds);
   }
-  current.count += 1;
+
+  // Only rejected credentials are counted below. A backend or database error
+  // must not consume a user's password-attempt allowance.
   next();
+}
+
+function recordFailedLogin(req) {
+  const key = req.loginAttemptKey || loginAttemptKeyFor(req);
+  const now = Date.now();
+  const current = loginAttempts.get(key);
+  if (!current || now - current.startedAt > LOGIN_WINDOW_MS) {
+    loginAttempts.set(key, { startedAt: now, count: 1 });
+    return;
+  }
+  current.count += 1;
 }
 
 router.post("/login", loginLimiter, async (req, res) => {
@@ -64,6 +81,7 @@ router.post("/login", loginLimiter, async (req, res) => {
     const password = String(req.body?.password || "");
     const user = await User.findOne({ username }).populate("faculty").populate("section");
     if (!user || user.active === false || !(await bcrypt.compare(password, user.passwordHash))) {
+      recordFailedLogin(req);
       return res.status(401).json({ message: "Invalid username or password." });
     }
     // A successful authentication clears the failed-attempt bucket for this
