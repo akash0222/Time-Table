@@ -3003,7 +3003,7 @@ app.get("/api/reports/export/:type", requireAuth, allowRoles("ADMIN","SCHEDULER"
       {Item:"Scheduled Sessions",Value:scheduledSessions},
       {Item:"Coverage",Value:String(coverage)+"%"},
       {Item:"Unscheduled Subject Requirements",Value:unscheduled.reduce((sum,subject)=>sum+subject.unscheduled,0)},
-      {Item:"Faculty with Scheduled or Assigned Classes",Value:faculty.length},
+      {Item:"Faculty in Master Data",Value:faculty.length},
       {Item:"Rooms in Master Data",Value:rooms.length},
       {Item:"Sections in Academic Session",Value:sections.length},
       {Item:"Resource Conflicts Detected",Value:conflicts.length}
