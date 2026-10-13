@@ -273,32 +273,22 @@ test("Viewer can only see assigned section timetable and cannot open another sec
 });
 
 
-test("dashboard shows visual analytics and the sidebar collapses to icon navigation", async ({ page }) => {
+test("dashboard navigation collapses top-level groups while all pages stay directly accessible", async ({ page }) => {
   await installRoleApiMocks(page, "ADMIN");
-
   await expect(page.getByRole("heading", { name: "Class distribution" })).toBeVisible();
   await expect(page.getByRole("img", { name: "Bar chart of scheduled classes by day" })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Timetable at a glance" })).toBeVisible();
-
-  const sidebar = page.locator(".erp-sidebar");
-  const app = page.locator(".app");
+  const sidebar=page.locator(".erp-sidebar"), app=page.locator(".app");
   await expect(page.getByRole("button", { name: "Collapse navigation" })).toBeVisible();
-
-  await expect(page.getByRole("button", { name: "Collapse Academic Setup" })).toBeVisible();
-  await page.getByRole("button", { name: "Collapse Academic Setup" }).click();
-  await expect(page.locator('[data-nav="Academic Sessions"]')).toHaveCount(0);
-  await page.getByRole("button", { name: "Expand Academic Setup" }).click();
-  await expect(page.locator('[data-nav="Academic Sessions"]')).toBeVisible();
-
-  await expect(page.getByRole("button", { name: "Collapse Academic Sessions submodules" })).toBeVisible();
-  await page.getByRole("button", { name: "Collapse Academic Sessions submodules" }).click();
-  await expect(page.locator('[data-nav="Academic Structure"]')).toHaveCount(0);
-  await page.getByRole("button", { name: "Expand Academic Sessions submodules" }).click();
-  await expect(page.locator('[data-nav="Academic Structure"]')).toBeVisible();
-  await page.locator('[data-nav="Academic Structure"]').click();
+  const group=page.locator('.nav-group[data-nav-group="Academic Setup"]');
+  await group.getByRole("button", { name: "Collapse Academic Setup" }).click();
+  await expect(group.locator('[data-nav="Academic Sessions"]')).toHaveCount(0);
+  await group.getByRole("button", { name: "Expand Academic Setup" }).click();
+  await expect(group.locator('[data-nav="Academic Sessions"]')).toBeVisible();
+  await expect(group.locator('[data-nav="Academic Structure"]')).toBeVisible();
+  await expect(group.locator('[data-nav="Holiday Management"]')).toBeVisible();
+  await group.locator('[data-nav="Academic Structure"]').click();
   await expect(page.getByRole("heading", { name: "Academic Structure", exact: true })).toBeVisible();
-  await expect(page.locator('[data-nav="Holiday Management"]')).toBeVisible();
-
+  await expect(group.locator('[data-nav="Holiday Management"]')).toBeVisible();
   await page.getByRole("button", { name: "Collapse navigation" }).click();
   await expect(app).toHaveClass(/sidebar-collapsed/);
   await expect(sidebar).toHaveCSS("width", "82px");
@@ -306,102 +296,65 @@ test("dashboard shows visual analytics and the sidebar collapses to icon navigat
   await expect(page.getByRole("button", { name: "Expand navigation" })).toBeVisible();
 });
 
-
-
-test("navigation submodules are mapped to the correct parent and module group", async ({ page }) => {
+test("the eight top-level navigation groups contain only direct page submodules", async ({ page }) => {
   await installRoleApiMocks(page, "ADMIN");
-
-  const mappings = [
-    ["Academic Structure", "Academic Sessions", "Academic Setup"],
-    ["Holiday Management", "Academic Sessions", "Academic Setup"],
-    ["Subject & Faculty Mapping", "Master Data Settings", "Academic Setup"],
-    ["Program & Section Mapping", "Master Data Settings", "Academic Setup"],
-    ["All Program Timetables", "Full Session Timetable", "Timetable & Scheduling"],
-    ["Timetable", "Full Session Timetable", "Timetable & Scheduling"],
-    ["Calendar View", "Full Session Timetable", "Timetable & Scheduling"],
-    ["Student Mapping", "Students", "Students & Operations"],
-    ["Student Profile", "Students", "Students & Operations"],
-    ["Student Promotion", "Students", "Students & Operations"],
-    ["Import Center", "Excel Import", "Tools & Sharing"],
-    ["Templates & Clone", "Excel Import", "Tools & Sharing"],
-    ["Analytics", "Reports", "Reports & Audit"],
-    ["Validation", "Reports", "Reports & Audit"],
-    ["Change History", "Audit Logs", "Reports & Audit"]
-  ];
-
-  for (const [childName, parentName, groupName] of mappings) {
-    const group = page.locator(`.nav-group[data-nav-group="${groupName}"]`);
-    await expect(group).toHaveCount(1);
-    const child = page.locator(`[data-nav="${childName}"]`);
-    const expand = page.getByRole("button", { name: `Expand ${parentName} submodules` });
-    if (await expand.count()) await expand.click();
-
-    await expect(child, `${childName} should be visible under ${parentName}`).toBeVisible();
-    await expect(child).toHaveAttribute("data-nav-parent", parentName);
-    await expect(child).toHaveAttribute("data-nav-group", groupName);
+  const expected = {
+    "Overview": ["Dashboard"],
+    "Academic Setup": ["Academic Sessions","Academic Structure","Holiday Management","Master Data Settings","Subject & Faculty Mapping","Program & Section Mapping"],
+    "Timetable & Scheduling": ["Generation Readiness","Availability","Optimization","Full Session Timetable","All Program Timetables","Timetable","Calendar View"],
+    "Students & Operations": ["Students","Student Mapping","Student Profile","Student Promotion","Attendance","Fees"],
+    "Portals & Communication": ["My Timetable","Faculty Portal","Section Portal","Notifications"],
+    "Tools & Sharing": ["Excel Import","Import Center","Templates & Clone","Public Sharing"],
+    "Reports & Audit": ["Reports","Analytics","Validation","Audit Logs","Change History"],
+    "Administration": ["User Management","Settings"]
+  };
+  await expect(page.locator(".nav-group")).toHaveCount(Object.keys(expected).length);
+  for (const [groupName, pages] of Object.entries(expected)) {
+    const group=page.locator(`.nav-group[data-nav-group="${groupName}"]`);
+    await expect(group, groupName + " top-level group should exist").toHaveCount(1);
+    await expect(group.getByRole("button", { name: "Collapse " + groupName })).toBeVisible();
+    for (const pageName of pages) {
+      const item=group.locator(`[data-nav="${pageName}"]`);
+      await expect(item, pageName + " should be directly inside " + groupName).toBeVisible();
+      await expect(item).toHaveAttribute("data-nav-group", groupName);
+      await expect(item).not.toHaveAttribute("data-nav-parent", /.+/);
+      await expect(item.locator("xpath=ancestor::*[contains(concat(' ', normalize-space(@class), ' '), ' nav-module ')]")).toHaveCount(0);
+    }
   }
+  await expect(page.locator(".nav-module-toggle")).toHaveCount(0);
+  await expect(page.locator(".nav-subitem")).toHaveCount(0);
+});
 
-  // These pages are intentionally standalone rather than children of unrelated modules.
-  for (const [pageName, groupName] of [
-    ["Generation Readiness", "Timetable & Scheduling"],
-    ["Availability", "Timetable & Scheduling"],
-    ["Optimization", "Timetable & Scheduling"],
-    ["Attendance", "Students & Operations"],
-    ["Fees", "Students & Operations"],
-    ["My Timetable", "Portals & Communication"],
-    ["Faculty Portal", "Portals & Communication"],
-    ["Section Portal", "Portals & Communication"],
-    ["Notifications", "Portals & Communication"],
-    ["Public Sharing", "Tools & Sharing"]
-  ]) {
-    const item = page.locator(`[data-nav="${pageName}"]`);
-    await expect(item).toHaveAttribute("data-nav-group", groupName);
+test("every Students page is a direct submodule and opens its top-level group", async ({ page }) => {
+  await installRoleApiMocks(page, "ADMIN");
+  await page.evaluate(() => localStorage.setItem("tt_nav_collapsed_groups", JSON.stringify({ "Students & Operations": true })));
+  await page.goto("/students");
+  const group=page.locator('.nav-group[data-nav-group="Students & Operations"]');
+  await expect(group).toBeVisible();
+  await expect(group.getByRole("button", { name: "Collapse Students & Operations" })).toBeVisible();
+  for (const pageName of ["Students","Student Mapping","Student Profile","Student Promotion","Attendance","Fees"]) {
+    const item=group.locator(`[data-nav="${pageName}"]`);
+    await expect(item, pageName + " should be visible as a direct submodule").toBeVisible();
     await expect(item).not.toHaveAttribute("data-nav-parent", /.+/);
   }
+  await group.locator('[data-nav="Student Mapping"]').click();
+  await expect(page).toHaveURL(/\/student-mapping$/);
+  await expect(group.locator('[data-nav="Student Mapping"]')).toHaveClass(/active/);
 });
 
-test("Students submodules are visible when opening Students with a saved collapsed preference", async ({ page }) => {
+test("direct URL navigation expands the correct top-level group and highlights its page", async ({ page }) => {
   await installRoleApiMocks(page, "ADMIN");
-  await page.goto("/students");
-  await expect(page.locator('[data-nav="Students"]')).toBeVisible();
-
-  // Recreate the browser state shown in the bug report: Students was saved closed.
-  await page.evaluate(() => {
-    const saved = JSON.parse(localStorage.getItem("tt_nav_expanded_modules") || "{}");
-    saved.Students = false;
-    localStorage.setItem("tt_nav_expanded_modules", JSON.stringify(saved));
-  });
-  await page.reload();
-
-  await expect(page.locator('[data-nav="Students"]')).toBeVisible();
-  await expect(page.getByRole("button", { name: "Collapse Students submodules" })).toBeVisible();
-  for (const child of ["Student Mapping", "Student Profile", "Student Promotion"]) {
-    await expect(page.locator(`[data-nav="${child}"]`), child + " should appear under Students").toBeVisible();
-    await expect(page.locator(`[data-nav="${child}"]`)).toHaveAttribute("data-nav-parent", "Students");
-    await expect(page.locator(`[data-nav="${child}"]`)).toHaveAttribute("data-nav-group", "Students & Operations");
-  }
-});
-
-test("direct URL navigation expands the correct group and parent module", async ({ page }) => {
-  await page.addInitScript(() => {
-    if (window.location.origin !== "null") {
-      localStorage.setItem("tt_nav_collapsed_groups", JSON.stringify({ "Academic Setup": true }));
-      localStorage.setItem("tt_nav_expanded_modules", JSON.stringify({ "Master Data Settings": false }));
-    }
-  });
-  await installRoleApiMocks(page, "ADMIN");
-
+  await page.evaluate(() => localStorage.setItem("tt_nav_collapsed_groups", JSON.stringify({ "Academic Setup": true })));
   await page.goto("/program-and-section-mapping");
   await expect(page).toHaveURL(/\/program-and-section-mapping$/);
-
-  const group = page.locator('.nav-group[data-nav-group="Academic Setup"]');
-  const module = page.locator('[data-nav-module="Master Data Settings"]');
-  const child = module.locator('[data-nav="Program & Section Mapping"]');
-
+  const group=page.locator('.nav-group[data-nav-group="Academic Setup"]');
+  const item=group.locator('[data-nav="Program & Section Mapping"]');
   await expect(group).toBeVisible();
-  await expect(child).toBeVisible();
-  await expect(child).toHaveAttribute("data-nav-parent", "Master Data Settings");
-  await expect(module.locator(".nav-module-link")).toHaveClass(/active/);
+  await expect(group.getByRole("button", { name: "Collapse Academic Setup" })).toBeVisible();
+  await expect(item).toBeVisible();
+  await expect(item).toHaveClass(/active/);
+  await expect(item).not.toHaveAttribute("data-nav-parent", /.+/);
+  await expect(page.locator(".nav-module-toggle")).toHaveCount(0);
 });
 
 test("mobile navigation drawer opens, dismisses, and navigates with persisted collapsed preference", async ({ page }) => {
@@ -438,24 +391,18 @@ test("mobile navigation drawer opens, dismisses, and navigates with persisted co
   await expect(sidebar).toBeHidden();
 });
 
-test("navigation groups and modules collapse independently and active submodules reopen their parent", async ({ page }) => {
+test("top-level groups collapse independently and active pages stay highlighted", async ({ page }) => {
   await installRoleApiMocks(page, "ADMIN");
-
-  const academicGroup = page.locator(".nav-group").filter({ has: page.getByRole("button", { name: "Academic Setup" }) });
-  const groupToggle = page.getByRole("button", { name: "Collapse Academic Setup" });
-  await expect(groupToggle).toBeVisible();
-  await groupToggle.click();
-  await expect(page.locator('[data-nav="Academic Sessions"]')).toHaveCount(0);
-  await page.getByRole("button", { name: "Expand Academic Setup" }).click();
-  await expect(page.locator('[data-nav="Academic Sessions"]')).toBeVisible();
-
-  await page.getByRole("button", { name: "Collapse Academic Sessions submodules" }).click();
-  await expect(page.locator('[data-nav="Academic Structure"]')).toHaveCount(0);
-  await page.getByRole("button", { name: "Expand Academic Sessions submodules" }).click();
-  await expect(page.locator('[data-nav="Academic Structure"]')).toBeVisible();
-
-  await page.locator('[data-nav="Academic Structure"]').click();
-  await expect(page.locator('[data-nav="Academic Structure"]')).toHaveClass(/active/);
-  await expect(page.locator('[data-nav="Academic Sessions"]')).toHaveClass(/active/);
-  await expect(page.locator('[data-nav="Holiday Management"]')).toBeVisible();
+  const academicGroup=page.locator('.nav-group[data-nav-group="Academic Setup"]');
+  const studentsGroup=page.locator('.nav-group[data-nav-group="Students & Operations"]');
+  await academicGroup.getByRole("button", { name: "Collapse Academic Setup" }).click();
+  await expect(academicGroup.locator('[data-nav="Academic Sessions"]')).toHaveCount(0);
+  await expect(studentsGroup.locator('[data-nav="Students"]')).toBeVisible();
+  await academicGroup.getByRole("button", { name: "Expand Academic Setup" }).click();
+  await expect(academicGroup.locator('[data-nav="Academic Sessions"]')).toBeVisible();
+  await academicGroup.locator('[data-nav="Academic Structure"]').click();
+  await expect(academicGroup.locator('[data-nav="Academic Structure"]')).toHaveClass(/active/);
+  await expect(academicGroup.locator('[data-nav="Academic Sessions"]')).not.toHaveClass(/active/);
+  await expect(academicGroup.locator('[data-nav="Holiday Management"]')).not.toHaveClass(/active/);
 });
+
