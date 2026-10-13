@@ -1323,3 +1323,13 @@ button.danger:hover{background:#fff1f2}
 @media(prefers-reduced-motion:reduce){
   .erp-sidebar,.mobile-nav-trigger{transition:none}
 }
+
+
+/* Mobile drawer must restore the expanded navigation presentation even when
+   the desktop icon-only preference is saved in localStorage. */
+@media(max-width:1000px){
+  .app.sidebar-collapsed.mobile-nav-open .erp-sidebar .brand>span{display:block}
+  .app.sidebar-collapsed.mobile-nav-open .erp-sidebar .nav{justify-content:flex-start;gap:10px;padding:9px 11px}
+  .app.sidebar-collapsed.mobile-nav-open .erp-sidebar .nav svg{width:17px;height:17px}
+  .app.sidebar-collapsed.mobile-nav-open .erp-sidebar .nav-subitem{justify-content:flex-start;padding:8px 9px 8px 10px;gap:8px}
+}
