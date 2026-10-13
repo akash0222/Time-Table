@@ -34,6 +34,7 @@ import studentsRouter from "./routes/students.js";
 import User from "./models/User.js";
 import ShareLink from "./models/ShareLink.js";
 import Student from "./models/Student.js";
+import { filterTimetableEntriesForUser } from "./services/timetableAccess.js";
 
 const app = express();
 globalThis.__APP_STARTED_AT = Date.now();
@@ -389,7 +390,7 @@ app.patch("/api/sessions/:id/holidays", requireAuth, async (req,res)=>{
 // Program -> Semester -> Section is the canonical academic structure.
 // Section.programId is the authoritative Program relationship; section.program/semester/name
 // are retained as human-readable compatibility fields for existing timetable data.
-app.get("/api/academic-structure", requireAuth, async (req, res) => {
+app.get("/api/academic-structure", requireAuth, allowRoles("ADMIN", "SCHEDULER"), async (req, res) => {
   try {
     const sessionId = String(req.query.sessionId || "").trim();
     const sessionFilter = sessionId ? { academicSession: sessionId } : {};
@@ -538,7 +539,7 @@ crud("programs", Program);
 
 
 // ---------------- Phase 3: Subject & Faculty Academic Mapping ----------------
-app.get("/api/subject-mappings", requireAuth, async (req, res) => {
+app.get("/api/subject-mappings", requireAuth, allowRoles("ADMIN", "SCHEDULER"), async (req, res) => {
   try {
     const filter = {};
     if (req.query.sessionId) filter.academicSession = req.query.sessionId;
@@ -623,7 +624,7 @@ app.delete("/api/subject-mappings/:id", requireAuth, async (req, res) => {
   catch (e) { res.status(400).json({ message: e.message }); }
 });
 
-app.get("/api/subject-mappings/summary", requireAuth, async (req, res) => {
+app.get("/api/subject-mappings/summary", requireAuth, allowRoles("ADMIN", "SCHEDULER"), async (req, res) => {
   try {
     const sessionId = String(req.query.sessionId || "");
     if (!sessionId) return res.status(400).json({ message: "sessionId is required." });
@@ -962,7 +963,7 @@ app.post("/api/import/excel", requireAuth, allowRoles("ADMIN", "SCHEDULER"), upl
   }
 });
 
-app.get("/api/timetable/readiness", requireAuth, async (req,res) => {
+app.get("/api/timetable/readiness", requireAuth, allowRoles("ADMIN","SCHEDULER"), async (req,res) => {
   try {
     const sessionId=String(req.query.sessionId||"").trim();
     if(!sessionId) return res.status(400).json({message:"sessionId is required."});
@@ -1845,8 +1846,8 @@ app.get("/api/timetable/status", requireAuth, async (req, res) => {
       versionLabel: timetable?.versionLabel || "",
       status: timetable?.status || "DRAFT",
       statusChangedAt: timetable?.statusChangedAt || null,
-      statusNote: timetable?.statusNote || "",
-      approvalHistory: timetable?.approvalHistory || []
+      statusNote: ["ADMIN", "SCHEDULER"].includes(req.user?.role) ? (timetable?.statusNote || "") : "",
+      approvalHistory: ["ADMIN", "SCHEDULER"].includes(req.user?.role) ? (timetable?.approvalHistory || []) : []
     });
   } catch (e) { res.status(500).json({ message: e.message }); }
 });
@@ -1878,6 +1879,7 @@ app.get("/api/timetable/workflow", requireAuth, async (req, res) => {
 
 
 function filterTimetableExportEntries(timetable, req) {
+  const visibleEntries = filterTimetableEntriesForUser(timetable.entries || [], req.user);
   const view = String(req.query.view || "all").trim().toLowerCase();
   const selectedId = String(req.query.selectedId || "").trim();
   const rawSectionId = String(req.query.sectionId || (view === "section" ? selectedId : "")).trim();
@@ -1898,7 +1900,7 @@ function filterTimetableExportEntries(timetable, req) {
   }
 
   const key = view === "section" ? "section" : view === "faculty" ? "faculty" : view === "room" ? "room" : "";
-  const entries = (timetable.entries || []).filter(entry => {
+  const entries = visibleEntries.filter(entry => {
     if (key) {
       const value = entry[key]?._id || entry[key];
       if (String(value || "") !== selectedId) return false;
@@ -2041,8 +2043,9 @@ app.get("/api/analytics", requireAuth, async (req,res) => {
     const timetable=await Timetable.findOne(filter).sort({createdAt:-1}).populate("entries.section entries.subject entries.faculty entries.room").lean();
     if(!timetable) return res.json({hasTimetable:false,summary:{requiredSessions:0,scheduledSessions:0,coverage:0,unscheduledSessions:0},faculty:[],rooms:[],sections:[],daily:[],conflicts:[],quality:null,warnings:[]});
 
-    const entries=timetable.entries||[];
-    const metrics=timetable.optimizationMetrics||{};
+    const isManager=["ADMIN","SCHEDULER"].includes(req.user?.role);
+    const entries=filterTimetableEntriesForUser(timetable.entries||[],req.user);
+    const metrics=isManager?(timetable.optimizationMetrics||{}):{};
     const facultyMap=new Map(), roomMap=new Map(), sectionMap=new Map(), dayMap=new Map();
     for(const e of entries){
       const duration=Math.max(1,Number(e.duration||1));
@@ -2056,7 +2059,8 @@ app.get("/api/analytics", requireAuth, async (req,res) => {
     const maxRoomPeriods=Math.max(1,...[...roomMap.values()].map(x=>x.periods));
     const faculty=[...facultyMap.values()].map(x=>({...x,days:x.days.size,utilization:Number((x.periods/maxFacultyPeriods*100).toFixed(1))}));
     const rooms=[...roomMap.values()].map(x=>({...x,utilization:Number((x.periods/maxRoomPeriods*100).toFixed(1))}));
-    const required=Number(metrics.requiredSessions||entries.length), scheduled=Number(metrics.scheduledSessions||entries.length);
+    const required=isManager?Number(metrics.requiredSessions||entries.length):null;
+    const scheduled=isManager?Number(metrics.scheduledSessions||entries.length):entries.length;
     const days=["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
     const daily=days.map(day=>({day,periods:dayMap.get(day)||0}));
     const conflicts=[]; const seen=new Map();
@@ -2071,7 +2075,7 @@ app.get("/api/analytics", requireAuth, async (req,res) => {
     const warnings=[];
     if((metrics.unscheduledSessions||0)>0) warnings.push(`${metrics.unscheduledSessions} required session(s) remain unscheduled.`);
     if((metrics.subjectSameDayRepeats||0)>0) warnings.push(`${metrics.subjectSameDayRepeats} subject same-day repeat(s) were detected by the generation quality model.`);
-    res.json({hasTimetable:true,timetableId:timetable._id,version:timetable.version,versionLabel:timetable.versionLabel,status:timetable.status,createdAt:timetable.createdAt,summary:{requiredSessions:required,scheduledSessions:scheduled,coverage:Number((required?scheduled/required*100:100).toFixed(1)),unscheduledSessions:Math.max(0,required-scheduled)},faculty,rooms,sections:[...sectionMap.values()],daily,dailyMax:Math.max(1,...daily.map(x=>x.periods)),conflicts,quality:{...metrics,optimizationScore:timetable.optimizationScore},warnings:[...(timetable.warnings||[]),...warnings]});
+    res.json({hasTimetable:true,timetableId:timetable._id,version:timetable.version,versionLabel:timetable.versionLabel,status:timetable.status,createdAt:timetable.createdAt,summary:{requiredSessions:required,scheduledSessions:scheduled,coverage:isManager?Number((required?scheduled/required*100:100).toFixed(1)):null,unscheduledSessions:isManager?Math.max(0,required-scheduled):null},faculty,rooms,sections:[...sectionMap.values()],daily,dailyMax:Math.max(1,...daily.map(x=>x.periods)),conflicts,quality:isManager?{...metrics,optimizationScore:timetable.optimizationScore}:{},warnings:isManager?[...(timetable.warnings||[]),...warnings]:[]});
   } catch(e){res.status(500).json({message:e.message});}
 });
 
@@ -2086,7 +2090,7 @@ app.get("/api/analytics/conflicts", requireAuth, async (req,res) => {
     const filter={academicSession:selectedSession._id,isCurrent:true};
     const t=await Timetable.findOne(filter).sort({createdAt:-1}).populate("entries.section entries.subject entries.faculty entries.room").lean();
     if(!t) return res.json({hasTimetable:false,conflicts:[]});
-    const entries=t.entries||[], groups=new Map(), conflicts=[];
+    const entries=filterTimetableEntriesForUser(t.entries||[],req.user), groups=new Map(), conflicts=[];
     for(const e of entries){
       const slot=`${e.day}|${e.startTime}|${e.endTime}`;
       for(const [type,id,label] of [["Faculty",String(e.faculty?._id||e.faculty||""),e.faculty?.name],["Section",String(e.section?._id||e.section||""),analyticsLabel(e.section)],["Room",String(e.room?._id||e.room||""),e.room?.name]]){
@@ -2101,7 +2105,7 @@ app.get("/api/analytics/conflicts", requireAuth, async (req,res) => {
 app.get("/api/timetable/latest", requireAuth, async (req,res) => {
   try {
     const t = await currentTimetableFor(req);
-    res.json(t || {entries:[],warnings:[],status:"DRAFT"});
+    res.json(t ? timetableForUser(t, req.user) : {entries:[],warnings:[],status:"DRAFT"});
   } catch (e) {
     res.status(500).json({message:e.message});
   }
@@ -2147,6 +2151,25 @@ function timetableConflicts(entries){
     }
   }
   return conflicts;
+}
+
+function timetableForUser(timetable, user){
+  if(!timetable) return timetable;
+  const role=String(user?.role||"").toUpperCase();
+  if(["ADMIN","SCHEDULER"].includes(role)) return timetable;
+  return {
+    ...timetable,
+    entries:filterTimetableEntriesForUser(timetable.entries||[],user),
+    warnings:[],
+    optimizationMetrics:null,
+    optimizationComparison:[],
+    optimizationScore:null,
+    optimizationRuns:0,
+    score:null,
+    approvalHistory:[],
+    statusNote:"",
+    notes:""
+  };
 }
 
 async function currentTimetableFor(req){
@@ -2471,6 +2494,25 @@ app.get("/api/timetable/validation", requireAuth, async (req,res)=>{
   try{
     const t=await currentTimetableFor(req);
     if(!t) return res.json({hasTimetable:false,summary:{errors:0,warnings:0},issues:[{severity:"warning",category:"Timetable",message:"No timetable has been generated yet."}]});
+
+    if(!["ADMIN","SCHEDULER"].includes(req.user?.role)){
+      const scopedEntries=filterTimetableEntriesForUser(t.entries||[],req.user);
+      const scopedConflicts=timetableConflicts(scopedEntries);
+      const scopedIssues=scopedConflicts.map(conflict=>({
+        severity:"error",
+        category:conflict.type+" conflict",
+        message:conflict.resource+" has overlapping classes on "+conflict.day+" at "+conflict.startTime+"."
+      }));
+      return res.json({
+        hasTimetable:true,
+        timetable:{_id:t._id,status:t.status,version:t.version,versionLabel:t.versionLabel},
+        summary:{errors:scopedIssues.length,warnings:0,entries:scopedEntries.length,total:scopedIssues.length},
+        issues:scopedIssues,
+        conflicts:scopedConflicts,
+        constraintValidation:{errors:[],warnings:[]}
+      });
+    }
+
     const issues=[];
     const conflicts=timetableConflicts(t.entries||[]);
     conflicts.forEach(c=>issues.push({severity:"error",category:`${c.type} conflict`,message:`${c.resource} has overlapping classes on ${c.day} at ${c.startTime}.`}));
@@ -2536,7 +2578,7 @@ app.get("/api/timetable/change-history", requireAuth, allowRoles("ADMIN", "SCHED
 });
 
 // Reports use the same authoritative timetable data as Analytics.
-app.get("/api/reports/summary", requireAuth, async (req,res)=>{
+app.get("/api/reports/summary", requireAuth, allowRoles("ADMIN","SCHEDULER"), async (req,res)=>{
   try{
     const requestedSessionId=String(req.query.sessionId||"").trim();
     const session=requestedSessionId
@@ -2708,7 +2750,7 @@ app.get("/api/reports/summary", requireAuth, async (req,res)=>{
     });
   }catch(e){res.status(500).json({message:e.message});}
 });
-app.get("/api/reports/export/:type", requireAuth, async (req,res)=>{
+app.get("/api/reports/export/:type", requireAuth, allowRoles("ADMIN","SCHEDULER"), async (req,res)=>{
   try{
     const t=await currentTimetableFor(req); if(!t) return res.status(404).json({message:"No timetable available."});
     if(req.params.type==="excel"){
