@@ -1162,3 +1162,24 @@ button.danger:hover{background:#fff1f2}
 .app.sidebar-collapsed .erp-sidebar .nav-module-row>.nav:hover:after,
 .app.sidebar-collapsed .erp-sidebar .nav-module-only:hover:after{content:attr(title);position:absolute;left:calc(100% + 12px);top:50%;transform:translateY(-50%);z-index:80;padding:7px 10px;border-radius:8px;background:#0f172a;color:#fff;font-size:11px;white-space:nowrap;box-shadow:0 8px 24px rgba(15,23,42,.2)}
 @media(prefers-reduced-motion:reduce){.nav-group-chevron,.nav-module-toggle svg,.nav-module-only-chevron{transition:none}.nav-subitems{animation:none}}
+
+
+/* Keep independent group and submodule controls usable on compact viewports. */
+@media(max-width:1000px){
+  .erp-sidebar .nav-group-title{display:flex;min-height:30px;padding:7px 6px;letter-spacing:.35px;font-size:8px}
+  .erp-sidebar .nav-group-title .nav-group-label{display:none}
+  .erp-sidebar .nav-group-title .nav-group-chevron{margin:0 auto}
+  .erp-sidebar .nav-module-toggle{display:grid;flex-basis:22px;min-width:22px}
+  .erp-sidebar .nav-module-row{gap:0}
+  .erp-sidebar .nav-module-row>.nav{padding-left:8px;padding-right:4px}
+  .erp-sidebar .nav-module-only-chevron{display:none}
+  .erp-sidebar .nav-subitems{margin-left:4px;padding-left:4px}
+  .erp-sidebar .nav-subitem{justify-content:center;padding:8px 4px;gap:4px}
+  .erp-sidebar .nav-subitem .nav-subitem-marker{display:none}
+}
+@media(max-width:700px){
+  .erp-sidebar .nav-group-title{padding:6px 2px}
+  .erp-sidebar .nav-module-toggle{flex-basis:18px;min-width:18px}
+  .erp-sidebar .nav-module-row>.nav{padding-left:5px;padding-right:2px}
+  .erp-sidebar .nav-subitem{min-height:32px}
+}
