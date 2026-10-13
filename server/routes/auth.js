@@ -7,10 +7,9 @@ import { createLoginAttemptLimiter } from "../services/loginRateLimit.js";
 const router = express.Router();
 
 const LOGIN_WINDOW_MS = 5 * 60 * 1000;
-const configuredLimit = Number(process.env.LOGIN_MAX_ATTEMPTS);
-const LOGIN_LIMIT = Number.isInteger(configuredLimit) && configuredLimit >= 5 && configuredLimit <= 100
-  ? configuredLimit
-  : 5;
+// The production security policy is fixed: five failed credentials trigger lockout.
+ // Do not let an environment override silently weaken this agreed threshold.
+const LOGIN_LIMIT = 5;
 const LOGIN_MAX_KEYS = 20000;
 const {
   middleware: loginLimiter,
