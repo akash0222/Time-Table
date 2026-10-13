@@ -24,7 +24,7 @@ export default function Validation(){
   const warningCount=validationSummary.warnings
     ?? (Array.isArray(report.issues)?report.issues.filter(x=>x.severity==="warning").length:0);
   return <div>
-    <div className="analytics-toolbar"><div><h2>Validation Center</h2><p>Check conflicts, availability, room rules, workload limits and coverage.</p></div><button className="secondary" onClick={load}><RotateCcw size={15}/> Run Validation</button></div>
+    <div className="analytics-toolbar"><div><h2>Validation Center</h2></div><button className="secondary" onClick={load}><RotateCcw size={15}/> Run Validation</button></div>
     <div className="cards analytics-cards"><Metric label="Errors" value={errorCount}/><Metric label="Warnings" value={warningCount}/><Metric label="Classes" value={classCount}/><Metric label="Issues" value={totalIssues}/></div>
     <div className="view-tabs">{[["ALL","All"],["ERROR","Errors"],["WARNING","Warnings"]].map(([v,l])=><button key={v} className={filter===v?"view-tab active":"view-tab"} onClick={()=>setFilter(v)}>{l}</button>)}</div>
     <section className="panel"><div className="panel-head"><div><h3>{issues.length ? `${issues.length} issue${issues.length===1?"":"s"}` : "No issues found"}</h3><p>{issues.length?"Review the items below before publishing the timetable.":"The generated timetable passed the available validation checks."}</p></div></div>
