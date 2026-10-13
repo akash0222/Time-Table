@@ -111,7 +111,7 @@ export default function TimetableView({timetable, data, onMoved, timetableStatus
 
   function needsApprovalNote(status){
     return (timetableStatus === "SUBMITTED" && ["DRAFT","APPROVED"].includes(status)) ||
-      (timetableStatus === "APPROVED" && status === "SUBMITTED") ||
+      (timetableStatus === "APPROVED" && ["SUBMITTED","PUBLISHED"].includes(status)) ||
       (timetableStatus === "PUBLISHED" && status === "DRAFT") ||
       (timetableStatus === "LOCKED" && status === "PUBLISHED");
   }
@@ -190,7 +190,7 @@ export default function TimetableView({timetable, data, onMoved, timetableStatus
         {timetableStatus==="LOCKED" && role==="ADMIN" && <button className="secondary" disabled={approvalBusy} onClick={()=>changeStatus("PUBLISHED")}><Lock size={15}/> Unlock to Published</button>}
       </div>
       {!["DRAFT"].includes(timetableStatus) && <div className="approval-note-box">
-        <label>Workflow remarks (required when returning, approving, requesting changes, or unlocking)
+        <label>Workflow remarks (required when approving, publishing, returning, requesting changes, or unlocking)
           <textarea value={approvalNote} onChange={e=>setApprovalNote(e.target.value)} placeholder="Add approval, publication, return, or change-request remarks..." rows={2}/>
         </label>
       </div>}
