@@ -2,78 +2,25 @@ import express from "express";
 import bcrypt from "bcryptjs";
 import User from "../models/User.js";
 import { requireAuth, signUser } from "../middleware/auth.js";
+import { createLoginAttemptLimiter } from "../services/loginRateLimit.js";
 
 const router = express.Router();
 
-const loginAttempts = new Map();
 const LOGIN_WINDOW_MS = 15 * 60 * 1000;
 const configuredLimit = Number(process.env.LOGIN_MAX_ATTEMPTS);
 const LOGIN_LIMIT = Number.isInteger(configuredLimit) && configuredLimit >= 5 && configuredLimit <= 100
   ? configuredLimit
   : process.env.NODE_ENV === "production" ? 10 : 100;
 const LOGIN_MAX_KEYS = 20000;
-
-function sendLoginRateLimit(res, retryAfterSeconds) {
-  const waitSeconds = Math.max(1, Math.ceil(Number(retryAfterSeconds) || 60));
-  res.set("Retry-After", String(waitSeconds));
-  return res.status(429).json({
-    code: "LOGIN_RATE_LIMITED",
-    message: "Too many sign-in attempts. Please wait before trying again.",
-    retryAfterSeconds: waitSeconds,
-    lockedUntil: new Date(Date.now() + waitSeconds * 1000).toISOString()
-  });
-}
-let limiterRequests = 0;
-
-function pruneLoginAttempts(now) {
-  limiterRequests += 1;
-  if (loginAttempts.size < LOGIN_MAX_KEYS && limiterRequests % 100 !== 0) return;
-  for (const [key, entry] of loginAttempts) {
-    if (now - entry.startedAt > LOGIN_WINDOW_MS) loginAttempts.delete(key);
-  }
-}
-
-function loginAttemptKeyFor(req) {
-  const ip = String(req.ip || "unknown").slice(0, 100);
-  const username = String(req.body?.username || "").trim().toLowerCase().slice(0, 100);
-  return `${ip}|${username}`;
-}
-
-function loginLimiter(req, res, next) {
-  const key = loginAttemptKeyFor(req);
-  req.loginAttemptKey = key;
-  const now = Date.now();
-  pruneLoginAttempts(now);
-
-  let current = loginAttempts.get(key);
-  if (current && now - current.startedAt > LOGIN_WINDOW_MS) {
-    loginAttempts.delete(key);
-    current = null;
-  }
-  if (!current && loginAttempts.size >= LOGIN_MAX_KEYS) {
-    return sendLoginRateLimit(res, 60);
-  }
-  if (current && current.count >= LOGIN_LIMIT) {
-    const elapsed = Math.max(0, now - current.startedAt);
-    const remainingSeconds = Math.ceil((LOGIN_WINDOW_MS - elapsed) / 1000);
-    return sendLoginRateLimit(res, remainingSeconds);
-  }
-
-  // Only rejected credentials are counted below. A backend or database error
-  // must not consume a user's password-attempt allowance.
-  next();
-}
-
-function recordFailedLogin(req) {
-  const key = req.loginAttemptKey || loginAttemptKeyFor(req);
-  const now = Date.now();
-  const current = loginAttempts.get(key);
-  if (!current || now - current.startedAt > LOGIN_WINDOW_MS) {
-    loginAttempts.set(key, { startedAt: now, count: 1 });
-    return;
-  }
-  current.count += 1;
-}
+const {
+  middleware: loginLimiter,
+  recordFailedLogin,
+  clearFailedLogins
+} = createLoginAttemptLimiter({
+  limit: LOGIN_LIMIT,
+  windowMs: LOGIN_WINDOW_MS,
+  maxKeys: LOGIN_MAX_KEYS
+});
 
 router.post("/login", loginLimiter, async (req, res) => {
   try {
@@ -86,7 +33,7 @@ router.post("/login", loginLimiter, async (req, res) => {
     }
     // A successful authentication clears the failed-attempt bucket for this
     // IP and username so old mistakes do not lock out a legitimate sign-in.
-    if (req.loginAttemptKey) loginAttempts.delete(req.loginAttemptKey);
+    clearFailedLogins(req);
     const token = signUser(user);
     res.json({ token, user: { id: user._id, name: user.name, username: user.username, role: user.role, faculty: user.faculty, section: user.section } });
   } catch (e) { res.status(500).json({ message: e.message }); }
