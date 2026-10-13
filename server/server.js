@@ -2952,7 +2952,6 @@ app.get("/api/reports/export/:type", requireAuth, allowRoles("ADMIN","SCHEDULER"
     }
 
     const daysOfWeek=days;
-    const daysOfWeek=days;
     const faculty=[...facultyMap.values()].map(item=>{
       const capacity=calculateFacultyWorkloadCapacity({
         classes:item.classes,
