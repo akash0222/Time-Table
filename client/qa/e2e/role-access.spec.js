@@ -428,7 +428,6 @@ test("quick navigation searches role-visible pages, supports keyboard shortcut a
   await page.setViewportSize({width:390,height:844});
   await expect(page.locator(".mobile-nav-trigger")).toBeVisible();
   await page.keyboard.press("Escape");
-  await search.blur();
   await page.keyboard.press("Control+k");
   await expect(page.locator(".app")).toHaveClass(/mobile-nav-open/);
   await expect(search).toBeFocused();
