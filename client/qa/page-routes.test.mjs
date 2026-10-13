@@ -6,6 +6,7 @@ assert.equal(getPageForPath("/dashboard"), "Dashboard");
 assert.equal(getPageForPath("/academic-sessions"), "Academic Sessions");
 assert.equal(getPageForPath("/student-mapping"), "Student Mapping");
 assert.equal(getPageForPath("/full-session-timetable"), "Full Session Timetable");
+assert.equal(getPageForPath("/approval-and-versions"), "Approval & Versions");
 assert.equal(getPageForPath("/program-and-section-mapping"), "Program & Section Mapping");
 assert.equal(getPageForPath("/master-data"), "Master Data Settings");
 assert.equal(getPageForPath("/unknown-module"), "Dashboard");
