@@ -383,7 +383,7 @@ router.get("/", async (req, res) => {
     if (req.query.active !== undefined) filter.active = String(req.query.active) !== "false";
     const rows = await Student.find(filter)
       .sort({ section: 1, rollNo: 1, name: 1 })
-      .populate("section", "name program programId semester")
+      .populate("section", "name program programId semester academicSession")
       .lean();
     res.json(rows);
   } catch (e) { res.status(500).json({ message: e.message }); }
