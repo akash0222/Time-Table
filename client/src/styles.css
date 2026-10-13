@@ -1562,3 +1562,51 @@ button.danger:hover{background:#fff1f2}
   .readiness-issue-copy{flex:1 1 calc(100% - 46px)}
   .readiness-fix-button{margin-left:40px}
 }
+
+
+/* Faculty workload capacity analytics and status indicators. */
+.faculty-workload-summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px;margin:0 0 14px}
+.faculty-workload-stat{display:grid;grid-template-columns:20px auto;grid-template-rows:auto auto;align-items:center;column-gap:8px;padding:12px;border:1px solid var(--ui-border);border-radius:11px;background:#fff;min-width:0}
+.faculty-workload-stat>svg{grid-row:1/3}
+.faculty-workload-stat>strong{font-size:19px;line-height:1.1;color:#172033}
+.faculty-workload-stat>span{margin-top:4px;color:#64748b;font-size:10px;line-height:1.3}
+.faculty-workload-stat.over>svg{color:#dc2626}
+.faculty-workload-stat.near>svg{color:#d97706}
+.faculty-workload-stat.low>svg{color:#2563eb}
+.faculty-workload-stat.unknown>svg{color:#64748b}
+.faculty-workload-table{min-width:1080px!important}
+.faculty-load-status{display:inline-flex;align-items:center;justify-content:flex-start;gap:5px;max-width:150px;padding:5px 7px;border:1px solid transparent;border-radius:999px;font-size:10px;font-weight:800;line-height:1.25;white-space:normal}
+.faculty-load-status.over{background:#fee2e2;border-color:#fecaca;color:#991b1b}
+.faculty-load-status.near{background:#fef3c7;border-color:#fde68a;color:#92400e}
+.faculty-load-status.within{background:#dcfce7;border-color:#bbf7d0;color:#166534}
+.faculty-load-status.low{background:#dbeafe;border-color:#bfdbfe;color:#1d4ed8}
+.faculty-load-status.unknown{background:#f1f5f9;border-color:#e2e8f0;color:#475569}
+.faculty-capacity-use{min-width:115px}
+.faculty-capacity-use.over .progress span{background:#dc2626}
+.faculty-capacity-use.near .progress span{background:#d97706}
+.faculty-capacity-detail{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:0 0 12px}
+.faculty-capacity-detail>div{display:flex;flex-direction:column;gap:5px;min-width:0;padding:10px;border:1px solid #e2e8f0;border-radius:9px;background:#f8fafc}
+.faculty-capacity-detail span{font-size:10px;line-height:1.4;color:#64748b}
+.faculty-capacity-detail strong{font-size:16px;color:#172033;overflow-wrap:anywhere}
+.faculty-subject-heading{margin-top:18px!important}
+.faculty-day-card{min-width:0}
+.faculty-day-card small{line-height:1.35;overflow-wrap:anywhere}
+.faculty-day-card.over{border-color:#fecaca;background:#fff1f2}
+.faculty-day-card.over strong{color:#b91c1c}
+.faculty-day-card.near{border-color:#fde68a;background:#fffbeb}
+.faculty-day-card.near strong{color:#b45309}
+.faculty-day-card.within{border-color:#bbf7d0;background:#f0fdf4}
+.faculty-day-card.within strong{color:#15803d}
+.faculty-day-card.unknown{background:#f8fafc}
+@media(max-width:900px){
+  .faculty-workload-summary{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .faculty-capacity-detail{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:480px){
+  .faculty-workload-stat{padding:9px;column-gap:6px}
+  .faculty-workload-stat>strong{font-size:17px}
+  .faculty-workload-stat>span{font-size:9px}
+  .faculty-capacity-detail{grid-template-columns:1fr 1fr}
+  .faculty-capacity-detail>div{padding:8px}
+  .faculty-capacity-detail strong{font-size:14px}
+}
