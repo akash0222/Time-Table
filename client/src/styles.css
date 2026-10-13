@@ -1183,3 +1183,32 @@ button.danger:hover{background:#fff1f2}
   .erp-sidebar .nav-module-row>.nav{padding-left:5px;padding-right:2px}
   .erp-sidebar .nav-subitem{min-height:32px}
 }
+
+
+/* Clean dashboard layout: keep metrics and actions, remove redundant copy. */
+.dashboard-clean .dashboard-toolbar{display:flex;justify-content:flex-end;margin:0 0 2px}
+.dashboard-clean .section-heading{margin-bottom:12px}
+.dashboard-clean .section-heading h3{margin:0}
+.dashboard-clean .metric-card small,.dashboard-clean .quick-card-copy small{display:none}
+.dashboard-clean .quick-card-grid{grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px}
+.dashboard-clean .quick-card{min-height:68px;padding:12px 14px}
+.dashboard-clean .quick-card-copy{min-width:0}
+.dashboard-clean .quick-card-copy strong{font-size:12px;line-height:1.35}
+.dashboard-clean .dashboard-visual-grid{margin-top:0}
+.dashboard-clean .dashboard-card-kicker{display:none}
+.dashboard-clean .dashboard-chart{margin-top:14px}
+.dashboard-clean .dashboard-chart-empty{height:190px}
+.dashboard-clean .dashboard-chart-empty strong{font-size:13px;font-weight:650}
+.dashboard-clean .dashboard-health-hero{margin:12px 0;padding:12px}
+.dashboard-clean .dashboard-health-copy{gap:5px}
+.dashboard-clean .dashboard-health-copy>small{display:none}
+.dashboard-clean .dashboard-health-stats{gap:8px}
+.dashboard-clean .dashboard-health-stats>div{padding:10px}
+.dashboard-clean .dashboard-health-link{margin-top:10px;padding-top:9px}
+@media(max-width:700px){
+  .dashboard-clean .dashboard-toolbar{justify-content:stretch}
+  .dashboard-clean .dashboard-generate{width:100%;justify-content:center}
+  .dashboard-clean .quick-card-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .dashboard-clean .quick-card{gap:8px;padding:10px}
+  .dashboard-clean .quick-card-copy strong{font-size:11px}
+}
