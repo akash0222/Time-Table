@@ -17,6 +17,7 @@ import Timetable from "./models/Timetable.js";
 import SchedulerSetting from "./models/SchedulerSetting.js";
 import { generateTimetable, generateBestTimetable } from "./services/generator.js";
 import { calculateFacultyWorkloadCapacity } from "./services/facultyWorkload.js";
+import { compareTimetableVersions } from "./services/timetableVersionDiff.js";
 import ExcelJS from "exceljs";
 import { parseHolidayImportDate, parseHolidayCsv, holidayImportCell } from "./services/holidayImport.js";
 import multer from "multer";
@@ -1261,40 +1262,159 @@ app.post("/api/timetable/generate", requireAuth, allowRoles("ADMIN", "SCHEDULER"
 
 
 app.get("/api/timetable/versions", requireAuth, async (req,res)=>{
+  if(!["ADMIN","SCHEDULER"].includes(req.user?.role)){
+    return res.status(403).json({message:"Only Admin or Scheduler can review timetable versions."});
+  }
   try{
-    const filter=req.query.sessionId?{academicSession:req.query.sessionId}:{};
-    const rows=await Timetable.find(filter).select("version versionLabel status isCurrent createdAt updatedAt notes academicSession totalEntries entries").sort({version:-1}).lean();
-    res.json(rows.map(x=>({...x,totalEntries:x.totalEntries??x.entries?.length??0,entries:undefined})));
+    const sessionId=String(req.query.sessionId||"").trim();
+    if(!sessionId)return res.status(400).json({message:"An academic session is required to list timetable versions."});
+    if(!mongoose.isValidObjectId(sessionId))return res.status(400).json({message:"Invalid academic session ID."});
+    const rows=await Timetable.find({academicSession:sessionId})
+      .select("version versionLabel status isCurrent createdAt updatedAt notes academicSession totalEntries entries approvalHistory statusChangedAt statusNote")
+      .sort({version:-1}).lean();
+    res.json(rows.map(x=>({
+      ...x,
+      totalEntries:x.totalEntries??x.entries?.length??0,
+      entries:undefined,
+      approvalHistory:undefined,
+      statusNote:undefined
+    })));
+  }catch(e){res.status(500).json({message:e.message});}
+});
+
+app.get("/api/timetable/versions/compare", requireAuth, allowRoles("ADMIN","SCHEDULER"), async (req,res)=>{
+  try{
+    const fromId=String(req.query.fromId||"").trim();
+    const toId=String(req.query.toId||"").trim();
+    const sessionId=String(req.query.sessionId||"").trim();
+    if(!fromId||!toId||!sessionId){
+      return res.status(400).json({message:"Select an academic session and two timetable versions to compare."});
+    }
+    if(!mongoose.isValidObjectId(fromId)||!mongoose.isValidObjectId(toId)||!mongoose.isValidObjectId(sessionId)){
+      return res.status(400).json({message:"One or more selected IDs are invalid."});
+    }
+    if(fromId===toId)return res.status(400).json({message:"Select two different timetable versions."});
+    const [fromVersion,toVersion]=await Promise.all([
+      populatedTimetableQuery(Timetable.findOne({_id:fromId,academicSession:sessionId})).lean(),
+      populatedTimetableQuery(Timetable.findOne({_id:toId,academicSession:sessionId})).lean()
+    ]);
+    if(!fromVersion||!toVersion){
+      return res.status(404).json({message:"Both versions must exist in the selected academic session."});
+    }
+    const diff=compareTimetableVersions(fromVersion.entries||[],toVersion.entries||[]);
+    res.json({
+      sessionId,
+      from:{_id:fromVersion._id,version:fromVersion.version,versionLabel:fromVersion.versionLabel||`Version ${fromVersion.version}`,status:fromVersion.status||"DRAFT",createdAt:fromVersion.createdAt,totalEntries:(fromVersion.entries||[]).length},
+      to:{_id:toVersion._id,version:toVersion.version,versionLabel:toVersion.versionLabel||`Version ${toVersion.version}`,status:toVersion.status||"DRAFT",createdAt:toVersion.createdAt,totalEntries:(toVersion.entries||[]).length},
+      ...diff
+    });
   }catch(e){res.status(500).json({message:e.message});}
 });
 
 app.post("/api/timetable/:id/restore", requireAuth, async (req,res)=>{
-  if(!["ADMIN","SCHEDULER"].includes(req.user?.role))return res.status(403).json({message:"Only Admin or Scheduler can restore timetable versions."});
+  if(!["ADMIN","SCHEDULER"].includes(req.user?.role)){
+    return res.status(403).json({message:"Only Admin or Scheduler can restore timetable versions."});
+  }
+  let sessionId="";
+  let previousCurrentIds=[];
+  let switchedCurrent=false;
   try{
-    const source=await Timetable.findById(req.params.id).lean();
+    const sourceId=String(req.params.id||"").trim();
+    const note=String(req.body?.note||"").trim();
+    const requestedSessionId=String(req.body?.sessionId||req.query?.sessionId||"").trim();
+    if(!mongoose.isValidObjectId(sourceId)){
+      return res.status(400).json({message:"Invalid timetable version ID."});
+    }
+    if(note.length<3){
+      return res.status(400).json({message:"Enter a restoration reason of at least 3 characters."});
+    }
+    const source=await Timetable.findById(sourceId).lean();
     if(!source)return res.status(404).json({message:"Timetable version not found."});
-    if(!source.academicSession) return res.status(409).json({message:"This legacy timetable version has no academic-session mapping and cannot be restored safely. Assign it to a session first."});
+    if(!source.academicSession){
+      return res.status(409).json({message:"This legacy timetable version has no academic-session mapping and cannot be restored safely. Assign it to a session first."});
+    }
+    sessionId=String(source.academicSession);
+    if(requestedSessionId&&requestedSessionId!==sessionId){
+      return res.status(409).json({message:"The selected version does not belong to the active academic session."});
+    }
+    if(source.isCurrent!==false){
+      return res.status(409).json({message:"This is already the current version. Choose an older version to restore."});
+    }
+
     const filter={academicSession:source.academicSession};
-    await Timetable.updateMany(filter,{$set:{isCurrent:false}});
-    const last=await Timetable.findOne(filter).sort({version:-1}).select("version");
+    const currentVersions=await Timetable.find({...filter,isCurrent:true}).select("_id status version").lean();
+    previousCurrentIds=currentVersions.map(row=>row._id);
+    const last=await Timetable.findOne(filter).sort({version:-1}).select("version").lean();
     const next=Number(last?.version||0)+1;
+    const now=new Date();
+    const historyEntry={
+      from:"VERSION_RESTORE",
+      to:"DRAFT",
+      note:`Restored from ${source.versionLabel||`Version ${source.version}`}. Reason: ${note}`,
+      user:req.user?.id||null,
+      username:req.user?.username||"",
+      role:req.user?.role||"",
+      changedAt:now
+    };
+
+    // Mark the prior current version inactive, then compensate if creating the
+    // new Draft fails so the session does not get stranded without a current version.
+    await Timetable.updateMany({...filter,isCurrent:true},{$set:{isCurrent:false}});
+    switchedCurrent=true;
     const restored=await Timetable.create({
-      ...source,
-      _id:undefined,
+      academicSession:source.academicSession,
+      generatedAt:source.generatedAt||now,
+      entries:Array.isArray(source.entries)?source.entries:[],
+      score:source.score,
+      optimizationScore:source.optimizationScore,
+      optimizationMetrics:source.optimizationMetrics,
+      optimizationRuns:source.optimizationRuns||0,
+      optimizationComparison:source.optimizationComparison||[],
+      warnings:source.warnings||[],
       version:next,
-      versionLabel:`Version ${next} · Restored`,
+      versionLabel:`Version ${next} · Restored from ${source.versionLabel||`Version ${source.version}`}`,
       isCurrent:true,
-      status:"DRAFT",
-      statusChangedAt:new Date(),
-      statusNote:`Restored from Version ${source.version}.`,
       createdBy:req.user?.username||"",
-      createdAt:undefined,
-      updatedAt:undefined,
-      approvalHistory:[]
+      notes:note,
+      status:"DRAFT",
+      statusChangedAt:now,
+      statusNote:note,
+      approvalHistory:[historyEntry]
     });
-    const populated=await Timetable.findById(restored._id).populate("entries.section entries.subject entries.faculty entries.room");
+    try{
+      const AuditLog=(await import("./models/AuditLog.js")).default;
+      await AuditLog.create({
+        action:"TIMETABLE_VERSION_RESTORED",
+        category:"TIMETABLE",
+        description:`Restored ${source.versionLabel||`Version ${source.version}`} as Version ${next} Draft.`,
+        user:req.user?.id||null,
+        username:req.user?.username||"",
+        role:req.user?.role||"",
+        targetType:"Timetable",
+        targetId:String(restored._id),
+        metadata:{sessionId,sourceTimetableId:String(source._id),sourceVersion:source.version,restoredVersion:next,reason:note,previousCurrentIds:previousCurrentIds.map(String)},
+        ipAddress:req.ip||""
+      });
+    }catch(auditError){
+      console.error("Timetable version restoration audit failed:",auditError.message);
+    }
+    const populated=await Timetable.findById(restored._id)
+      .populate("entries.section entries.subject entries.faculty entries.room")
+      .populate("approvalHistory.user","name username role");
     res.status(201).json(populated);
-  }catch(e){res.status(400).json({message:e.message});}
+  }catch(e){
+    if(switchedCurrent&&sessionId){
+      try{
+        if(previousCurrentIds.length){
+          await Timetable.updateMany({_id:{$in:previousCurrentIds}},{$set:{isCurrent:true}});
+        }
+      }catch(compensationError){
+        console.error("Failed to restore current timetable after rollback:",compensationError.message);
+      }
+    }
+    if(res.headersSent){res.end();return;}
+    res.status(400).json({message:e.message});
+  }
 });
 
 app.post("/api/timetable/clone", requireAuth, allowRoles("ADMIN", "SCHEDULER"), async (req,res)=>{
