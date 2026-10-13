@@ -204,7 +204,7 @@ export default function Reports({activeSession}={}) {
             {sortedFaculty.map(item=>{
               const dailyMax=Math.max(0,...(item.dailyBreakdown||[]).map(day=>Number(day.periods||0)));
               const isExpanded=expandedFacultyId===item.id;
-              const capacityConfigured=Boolean(item.capacityConfigured)&&Number(item.capacityClasses)>0;
+              const capacityConfigured=Boolean(item.capacityConfigured);
               const capacityUse=Number(item.capacityUtilization||0);
               return <React.Fragment key={item.id}>
                 <tr className={isExpanded?"report-parent-row expanded":""}>
