@@ -1728,3 +1728,8 @@ button.danger:hover{background:#fff1f2}
 .version-restore-reason textarea:focus{outline:none;border-color:#93c5fd;box-shadow:0 0 0 3px rgba(59,130,246,.12)}
 .version-restore-reason p{display:flex;align-items:center;gap:5px;margin:0;color:#64748b;font-size:10px;line-height:1.4}
 .version-restore-reason p svg{flex:0 0 auto;color:#d97706}
+
+
+.login-lockout-countdown{display:block;margin-top:5px;font-weight:800;color:#991b1b;font-variant-numeric:tabular-nums}
+.login-submit:disabled{cursor:not-allowed}
+.login-submit:disabled:hover{transform:none;box-shadow:0 8px 18px rgba(37,99,235,.2)}
