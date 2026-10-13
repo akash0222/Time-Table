@@ -309,7 +309,7 @@ test("dashboard shows visual analytics and the sidebar collapses to icon navigat
 
 
 test("mobile navigation drawer opens, dismisses, and navigates with persisted collapsed preference", async ({ page }) => {
-  await page.addInitScript(() => localStorage.setItem("tt_sidebar_collapsed", "true"));
+  await page.addInitScript(() => { if (window.location.origin !== "null") localStorage.setItem("tt_sidebar_collapsed", "true"); });
   await installRoleApiMocks(page, "ADMIN");
   await page.setViewportSize({ width: 390, height: 844 });
 
@@ -338,7 +338,7 @@ test("mobile navigation drawer opens, dismisses, and navigates with persisted co
   await trigger.click();
   await page.locator('[data-nav="Academic Sessions"]').click();
   await expect(page.getByRole("heading", { name: "Academic Sessions", exact: true })).toBeVisible();
-  await expect(page).toHaveURL(/\\/academic-sessions$/);
+  await expect(page).toHaveURL(/\/academic-sessions$/);
   await expect(sidebar).toBeHidden();
 });
 
