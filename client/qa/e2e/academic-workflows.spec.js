@@ -344,7 +344,7 @@ test("admin can generate and submit a timetable for review", async ({ page }) =>
   const activeSession = makeActiveSession();
   await signIn(page, { sessions: [activeSession], includeSchedulingData: true });
   await page.getByRole("button", { name: /Generate Timetable/ }).first().click();
-  await expect(page.getByRole("heading", { name: "Timetable", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Section-wise Timetable", exact: true })).toBeVisible();
   await expect(page.getByText("Mathematics", { exact: true }).first()).toBeVisible();
   await page.getByRole("button", { name: /Submit for Review/ }).click();
   await expect(page.locator(".status-badge.submitted")).toBeVisible();
