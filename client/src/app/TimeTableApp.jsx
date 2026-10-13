@@ -8,12 +8,13 @@ import {CalendarDays, Users, BookOpen, DoorOpen, Clock3, WandSparkles, Check, Hi
 import Login from "../pages/LoginPage.jsx";
 
 const NAV_MODULE_CHILDREN = {
-  "Academic Sessions": ["Academic Structure", "Holiday Management", "Generation Readiness"],
-  "Full Session Timetable": ["All Program Timetables", "Timetable", "Calendar View", "Availability", "Optimization", "My Timetable"],
-  Students: ["Student Mapping", "Student Profile", "Student Promotion"],
+  "Academic Sessions": ["Academic Structure", "Holiday Management"],
   "Master Data Settings": ["Subject & Faculty Mapping", "Program & Section Mapping"],
+  "Full Session Timetable": ["All Program Timetables", "Timetable", "Calendar View"],
+  Students: ["Student Mapping", "Student Profile", "Student Promotion"],
   "Excel Import": ["Import Center", "Templates & Clone"],
-  Reports: ["Analytics", "Validation", "Change History", "Audit Logs"]
+  Reports: ["Analytics", "Validation"],
+  "Audit Logs": ["Change History"]
 };
 
 const NAV_CHILD_TO_PARENT = new Map(
@@ -379,7 +380,7 @@ export default function App(){
         {navGroupsForRole(auth.role).map(group=>{
           const groupId="nav-group-"+group.label.toLowerCase().replace(/[^a-z0-9]+/g,"-");
           const groupCollapsed=Boolean(collapsedNavGroups[group.label]);
-          return <div className={"nav-group"+(groupCollapsed?" is-collapsed":"")} key={group.label}>
+          return <div className={"nav-group"+(groupCollapsed?" is-collapsed":"")} key={group.label} data-nav-group={group.label}>
             <button
               type="button"
               className="nav-group-title"
@@ -400,6 +401,7 @@ export default function App(){
                 if(!hasChildren){
                   return <button
                     data-nav={item.name}
+                    data-nav-group={group.label}
                     title={sidebarCollapsed?item.name:undefined}
                     className={tab===item.name?"nav active":"nav"}
                     onClick={()=>navigateToNavPage(item.name,group.label)}
@@ -408,11 +410,12 @@ export default function App(){
                   ><item.Icon size={17}/><span className="nav-label">{item.name}</span></button>;
                 }
                 const toggleModule=()=>setExpandedNavModules(previous=>({...previous,[item.name]:!previous[item.name]}));
-                return <div className={"nav-module"+(moduleExpanded?" is-expanded":"")} key={item.name}>
+                return <div className={"nav-module"+(moduleExpanded?" is-expanded":"")} key={item.name} data-nav-module={item.name} data-nav-group={group.label}>
                   <div className="nav-module-row">
                     {item.routeAllowed
                       ? <button
                           data-nav={item.name}
+                          data-nav-group={group.label}
                           title={sidebarCollapsed?item.name:undefined}
                           className={"nav nav-module-link"+(moduleIsCurrent?" active":"")}
                           onClick={()=>navigateToNavPage(item.name,group.label,item.name)}
@@ -439,6 +442,8 @@ export default function App(){
                   {moduleExpanded&&!sidebarCollapsed&&<div className="nav-subitems" id={moduleId}>
                     {item.children.map(child=><button
                       data-nav={child.name}
+                      data-nav-parent={item.name}
+                      data-nav-group={group.label}
                       className={"nav nav-subitem"+(tab===child.name?" active":"")}
                       key={child.name}
                       title={child.name}
