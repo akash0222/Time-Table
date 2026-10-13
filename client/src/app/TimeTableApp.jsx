@@ -258,6 +258,12 @@ export default function App(){
   },[auth?.username,activeSession?._id]);
 
   useEffect(()=>{localStorage.setItem("tt_sidebar_collapsed",String(sidebarCollapsed));},[sidebarCollapsed]);
+  useEffect(()=>{
+    if(!mobileNavOpen)return;
+    const closeOnEscape=event=>{if(event.key==="Escape")setMobileNavOpen(false);};
+    window.addEventListener("keydown",closeOnEscape);
+    return ()=>window.removeEventListener("keydown",closeOnEscape);
+  },[mobileNavOpen]);
   useEffect(()=>{localStorage.setItem("tt_nav_collapsed_groups",JSON.stringify(collapsedNavGroups));},[collapsedNavGroups]);
   useEffect(()=>{localStorage.setItem("tt_nav_expanded_modules",JSON.stringify(expandedNavModules));},[expandedNavModules]);
 
@@ -364,7 +370,7 @@ export default function App(){
       <div className="brand">
         <CalendarDays size={22}/>
         <span>Time Table</span>
-        <button type="button" className="sidebar-toggle" onClick={()=>setSidebarCollapsed(v=>!v)} title={sidebarCollapsed ? "Expand navigation" : "Collapse navigation"} aria-label={sidebarCollapsed ? "Expand navigation" : "Collapse navigation"}>
+        <button type="button" className="sidebar-toggle" onClick={()=>{if(window.matchMedia("(max-width: 1000px)").matches){setMobileNavOpen(false);return;}setSidebarCollapsed(v=>!v);}} title={mobileNavOpen?"Close navigation":sidebarCollapsed ? "Expand navigation" : "Collapse navigation"} aria-label={mobileNavOpen?"Close navigation":sidebarCollapsed ? "Expand navigation" : "Collapse navigation"}>
           {sidebarCollapsed ? <ChevronRight size={17}/> : <ChevronLeft size={17}/>}
         </button>
       </div>
