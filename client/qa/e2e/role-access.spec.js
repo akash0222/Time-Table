@@ -391,6 +391,49 @@ test("mobile navigation drawer opens, dismisses, and navigates with persisted co
   await expect(sidebar).toBeHidden();
 });
 
+test("quick navigation searches role-visible pages, supports keyboard shortcut and works when sidebar is collapsed", async ({ page }) => {
+  await installRoleApiMocks(page, "ADMIN");
+  const search=page.getByRole("searchbox", { name: "Search pages" });
+  await expect(search).toBeVisible();
+
+  await page.keyboard.press("Control+k");
+  await expect(search).toBeFocused();
+  await search.fill("sTuDeNt PrOm");
+  const group=page.locator('.nav-group[data-nav-group="Students & Operations"]');
+  await expect(group).toBeVisible();
+  await expect(group.locator('[data-nav="Student Promotion"]')).toBeVisible();
+  await expect(group.locator('[data-nav="Students"]')).toHaveCount(0);
+  await expect(page.locator('[data-nav-group="Academic Setup"]')).toHaveCount(0);
+
+  await search.fill("page-does-not-exist");
+  await expect(page.getByRole("status").getByText(/No pages match/)).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(search).toHaveValue("");
+  await expect(search).not.toBeFocused();
+
+  await search.fill("Student Promotion");
+  await group.locator('[data-nav="Student Promotion"]').click();
+  await expect(page).toHaveURL(/\\/student-promotion$/);
+  await expect(search).toHaveValue("");
+  await expect(page.locator('[data-nav="Student Promotion"]')).toHaveClass(/active/);
+
+  await page.getByRole("button", { name: "Collapse navigation" }).click();
+  await expect(page.locator(".app")).toHaveClass(/sidebar-collapsed/);
+  const collapsedSearch=page.getByRole("button",{name:"Search pages"});
+  await expect(collapsedSearch).toBeVisible();
+  await collapsedSearch.click();
+  await expect(page.locator(".app")).not.toHaveClass(/sidebar-collapsed/);
+  await expect(search).toBeFocused();
+
+  await page.setViewportSize({width:390,height:844});
+  await expect(page.locator(".mobile-nav-trigger")).toBeVisible();
+  await page.keyboard.press("Escape");
+  await search.blur();
+  await page.keyboard.press("Control+k");
+  await expect(page.locator(".app")).toHaveClass(/mobile-nav-open/);
+  await expect(search).toBeFocused();
+});
+
 test("top-level groups collapse independently and active pages stay highlighted", async ({ page }) => {
   await installRoleApiMocks(page, "ADMIN");
   const academicGroup=page.locator('.nav-group[data-nav-group="Academic Setup"]');
