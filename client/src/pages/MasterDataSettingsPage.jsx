@@ -23,9 +23,9 @@ export default function MasterDataSettings({data,setData,reload,setMessage}){
   return <div className="master-settings-page">
     <section className="master-settings-hero">
       <div>
-        <span className="master-settings-eyebrow">ADMINISTRATION · MASTER DATA</span>
+        
         <h2>Master Data Settings</h2>
-        <p>Manage the academic data used by timetable generation, attendance and fees from one place.</p>
+        
       </div>
       <div className="master-settings-total"><strong>{total}</strong><span>configured records</span></div>
     </section>
