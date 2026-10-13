@@ -22,8 +22,8 @@ export default function StudentPromotion({data,sessions,activeSession,reload,set
   useEffect(()=>{loadStudents();setPreview(null)},[fromSection]);
   useEffect(()=>{loadHistory();},[sessionId]);
 
-  const sourceSections=(data.sections||[]).filter(s=>!sourceSessionId||!s.academicSession||String(s.academicSession)===String(sourceSessionId));
-  const targetSections=(data.sections||[]).filter(s=>!sessionId||!s.academicSession||String(s.academicSession)===String(sessionId)).filter(s=>s._id!==fromSection);
+  const sourceSections=(data.sections||[]).filter(s=>!sourceSessionId||String(s.academicSession?._id||s.academicSession||"")===String(sourceSessionId));
+  const targetSections=(data.sections||[]).filter(s=>!sessionId||String(s.academicSession?._id||s.academicSession||"")===String(sessionId)).filter(s=>s._id!==fromSection);
 
   async function loadStudents(){
     try{
@@ -34,7 +34,7 @@ export default function StudentPromotion({data,sessions,activeSession,reload,set
   async function loadHistory(){
     try{const r=await axios.get(`${API}/student-promotions/history${sessionId?`?sessionId=${sessionId}&limit=100`:"?limit=100"}`);setHistory(r.data||[])}catch(e){setMessage(e.response?.data?.message||e.message)}
   }
-  const filtered=students.filter(s=>!sourceSessionId||!s.section?.academicSession||String(s.section.academicSession)===String(sourceSessionId)).filter(s=>`${s.name} ${s.admissionNo} ${s.rollNo}`.toLowerCase().includes(q.toLowerCase()));
+  const filtered=students.filter(s=>!sourceSessionId||String(s.section?.academicSession?._id||s.section?.academicSession||"")===String(sourceSessionId)).filter(s=>`${s.name} ${s.admissionNo} ${s.rollNo}`.toLowerCase().includes(q.toLowerCase()));
   const toggle=id=>{setSelected(a=>a.includes(id)?a.filter(x=>x!==id):[...a,id]);setPreview(null)};
   const selectAll=()=>{setSelected(selected.length===filtered.length?[]:filtered.map(s=>s._id));setPreview(null)};
 
