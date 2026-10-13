@@ -500,6 +500,9 @@ test("admin can review capacity-based faculty workload, overload alerts and dail
   await expect(facultyPanel.getByText("Over capacity", { exact: true }).first()).toBeVisible();
   await expect(facultyPanel.getByText("Limits not configured", { exact: true }).first()).toBeVisible();
   await expect(facultyPanel.getByText("No available capacity", { exact: true }).first()).toBeVisible();
+  const noPeriodsRow=facultyPanel.locator("tr").filter({hasText:"Ms. No Periods"}).first();
+  await expect(noPeriodsRow).toContainText("No available periods");
+  await expect(noPeriodsRow).not.toContainText("Not configured");
   await expect(facultyPanel.getByRole("columnheader", {name:"Weekly Capacity"})).toBeVisible();
   await expect(facultyPanel.getByRole("columnheader", {name:"Capacity Used"})).toBeVisible();
 
