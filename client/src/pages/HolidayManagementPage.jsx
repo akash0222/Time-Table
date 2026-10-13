@@ -280,9 +280,9 @@ export default function HolidayManagement({sessions = [], activeSession, role, s
         <div className="holiday-page-title">
           <span className="holiday-title-icon" aria-hidden="true"><CalendarDays size={25}/></span>
           <div>
-            <span className="holiday-eyebrow">ACADEMIC CALENDAR</span>
+            
             <h2>Holiday Management</h2>
-            <p>Set non-working dates for an academic session and keep timetable generation accurate.</p>
+            
           </div>
         </div>
         <span className="holiday-sunday-badge"><CalendarOff size={16}/> Sunday is a default holiday</span>
@@ -292,7 +292,7 @@ export default function HolidayManagement({sessions = [], activeSession, role, s
         <div className="holiday-panel-heading">
           <div>
             <h3>Holiday calendar setup</h3>
-            <p>Choose a session, then add any additional non-working dates.</p>
+            
           </div>
           {canEdit ? (
             <span className="holiday-access-note"><ShieldCheck size={15}/> Editing enabled</span>
