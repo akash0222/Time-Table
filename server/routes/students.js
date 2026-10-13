@@ -282,6 +282,15 @@ router.post("/bulk-map", allowRoles("ADMIN", "SCHEDULER"), async (req, res) => {
     if (inactive) {
       return res.status(400).json({ message: `${inactive.name || "A selected student"} is inactive and cannot be mapped.` });
     }
+    const targetSectionSessionId = String(section.academicSession || "");
+    const crossSessionStudent = students.find(student =>
+      String(student.section?.academicSession?._id || student.section?.academicSession || "") !== targetSectionSessionId
+    );
+    if (crossSessionStudent) {
+      return res.status(400).json({
+        message: `${crossSessionStudent.name || "A selected student"} belongs to a different academic session. Use Student Promotion for cross-session movement.`
+      });
+    }
     if (academicSessionId) {
       const wrongSession = students.find(student =>
         !student.section?.academicSession ||
