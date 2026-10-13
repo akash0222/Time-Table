@@ -520,7 +520,7 @@ test("generation is stopped when pre-generation readiness reports blockers", asy
   expect(generationRequests).toBe(0);
 
   await page.getByRole("button", { name: /Fix issue/ }).click();
-  await expect(page).toHaveURL(/\\/subject-and-faculty-mapping$/);
+  await expect(page).toHaveURL(/\/subject-and-faculty-mapping$/);
   expect(generationRequests).toBe(0);
 });
 
