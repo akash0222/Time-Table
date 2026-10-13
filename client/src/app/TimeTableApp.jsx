@@ -283,6 +283,22 @@ export default function App(){
     if(moduleName) setExpandedNavModules(previous=>previous[moduleName]?previous:{...previous,[moduleName]:true});
   }
 
+  function navigateFromDashboard(page){
+    for(const group of navGroupsForRole(auth.role)){
+      for(const item of buildNavigationTree(group)){
+        if(item.name===page){
+          navigateToNavPage(page,group.label,item.children.length?item.name:undefined);
+          return;
+        }
+        if(item.children.some(child=>child.name===page)){
+          navigateToNavPage(page,group.label,item.name);
+          return;
+        }
+      }
+    }
+    setTab(page);
+  }
+
 
   if(!auth) return <Suspense fallback={<PageLoading label="sign in" />}><Login onLogin={u=>setAuth(u)} /></Suspense>;
 
@@ -453,7 +469,7 @@ export default function App(){
       {tab==="Holiday Management" && <HolidayManagement sessions={sessions} activeSession={activeSession} role={auth.role} setMessage={setMessage}/> }
       {tab==="Templates & Clone" && <TimetableTemplates sessions={sessions} activeSession={activeSession} setLatest={setLatest} setMessage={setMessage}/>}
       {tab==="Public Sharing" && <PublicSharing data={data} setMessage={setMessage}/>}
-      {tab==="Dashboard" && <Dashboard cards={cards} generate={generate} loading={loading} latest={latest} role={auth.role}/>}
+      {tab==="Dashboard" && <Dashboard cards={cards} generate={generate} loading={loading} latest={latest} role={auth.role} onNavigate={navigateFromDashboard}/>}
       {tab==="My Timetable" && <PersonalTimetable auth={auth} data={data}/> }
       {tab==="Calendar View" && <CalendarView timetable={latest} data={data} role={auth.role} onMoved={load} setMessage={setMessage}/>}
       {tab==="Faculty Portal" && <FacultyPortal activeSession={activeSession}/>}
