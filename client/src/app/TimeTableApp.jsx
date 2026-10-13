@@ -150,9 +150,17 @@ export default function App(){
     }catch{return defaults;}
   });
   useEffect(()=>{
-    const parent=Object.entries(NAV_MODULE_CHILDREN).find(([,children])=>children.includes(tab))?.[0];
-    if(parent) setExpandedNavModules(previous=>previous[parent]?previous:{...previous,[parent]:true});
-  },[tab]);
+    if(!auth?.role)return;
+    for(const group of navGroupsForRole(auth.role)){
+      const module=buildNavigationTree(group).find(item=>item.name===tab||item.children.some(child=>child.name===tab));
+      if(!module)continue;
+      setCollapsedNavGroups(previous=>previous[group.label]?{...previous,[group.label]:false}:previous);
+      if(module.children.length){
+        setExpandedNavModules(previous=>previous[module.name]?previous:{...previous,[module.name]:true});
+      }
+      break;
+    }
+  },[tab,auth?.role]);
 
   const [data,setData]=useState({faculty:[],subjects:[],sections:[],rooms:[],timeslots:[],programs:[],students:[]});
   const [latest,setLatest]=useState(null);
