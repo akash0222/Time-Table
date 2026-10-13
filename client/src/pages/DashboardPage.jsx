@@ -81,11 +81,13 @@ export default function Dashboard({ cards, generate, loading, latest, role, onNa
       if(!["ADMIN","SCHEDULER"].includes(role)){
         setReadiness(null);
         setReadinessError("");
+        setReadinessLoading(false);
         return;
       }
       if(!activeSession?._id){
         setReadiness(null);
         setReadinessError("");
+        setReadinessLoading(false);
         return;
       }
       setReadinessLoading(true);
@@ -164,8 +166,8 @@ export default function Dashboard({ cards, generate, loading, latest, role, onNa
               : actionItems.length
                 ? <div className="dashboard-action-content">
                     <div className="dashboard-action-summary">
-                      <span className={readinessErrors.length?"dashboard-action-count error":"dashboard-action-count success"}>{readinessErrors.length} errors</span>
-                      <span className="dashboard-action-count warning">{readinessWarnings.length} warnings</span>
+                      <span className={readinessErrors.length?"dashboard-action-count error":"dashboard-action-count success"}>{readinessErrors.length} {readinessErrors.length===1?"error":"errors"}</span>
+                      <span className="dashboard-action-count warning">{readinessWarnings.length} {readinessWarnings.length===1?"warning":"warnings"}</span>
                       <span className="dashboard-action-status">{readinessErrors.length?"Generation blocked":readinessWarnings.length?"Review recommended":"Ready to generate"}</span>
                     </div>
                     <div className="dashboard-action-list">
