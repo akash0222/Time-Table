@@ -486,7 +486,7 @@ export default function App(){
       {tab==="Settings" && <SchedulerSettings settings={settings} setSettings={setSettings} setMessage={setMessage} activeSession={activeSession}/>} 
       {tab==="Master Data Settings" && <MasterDataSettings data={data} setData={setData} reload={load} setMessage={setMessage}/>}
       {(tab==="Subject & Faculty Mapping") && <SubjectFacultyMapping data={data} sessions={sessions} activeSession={activeSession} reload={load} setMessage={setMessage}/>}
-      {(tab==="Program & Section Mapping" || tab==="Academic Structure") && <AcademicStructure sessions={sessions} activeSession={activeSession} programs={data.programs} data={data} reload={load} setMessage={setMessage}/>}
+      {tab==="Program & Section Mapping" && <AcademicStructure sessions={sessions} activeSession={activeSession} programs={data.programs} data={data} reload={load} setMessage={setMessage}/>}
       {tab==="Import Center" && <ExcelImport reload={load} setMessage={setMessage}/>}
       {["Programs","Faculty","Subjects","Sections","Rooms","Time Slots"].includes(tab) &&
         <MasterView type={tab} data={data} setData={setData} reload={load}/>}
