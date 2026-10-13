@@ -102,7 +102,7 @@ export default function UserManagement({data,setMessage}){
     <div className="panel-head">
       <div>
         <h2>User Management</h2>
-        <p>Create users, assign roles, and maintain faculty/section mappings.</p>
+        
       </div>
     </div>
 
