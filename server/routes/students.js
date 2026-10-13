@@ -248,14 +248,97 @@ router.post("/bulk", allowRoles("ADMIN", "SCHEDULER"), upload.single("file"), as
 
 router.post("/bulk-map", allowRoles("ADMIN", "SCHEDULER"), async (req, res) => {
   try {
-    const studentIds = Array.isArray(req.body?.studentIds) ? req.body.studentIds.filter(Boolean) : [];
+    const studentIds = [...new Set(
+      (Array.isArray(req.body?.studentIds) ? req.body.studentIds : [])
+        .map(value => String(value || "").trim())
+        .filter(Boolean)
+    )];
     const sectionId = req.body?.section || req.body?.toSection;
+    const academicSessionId = String(req.body?.academicSessionId || "").trim();
+
     if (!studentIds.length) return res.status(400).json({ message: "Select at least one student." });
     if (!sectionId) return res.status(400).json({ message: "Destination section is required." });
+
     const section = await Section.findById(sectionId).populate("programId", "name code").lean();
-    if (!section) return res.status(400).json({ message: "Destination section does not exist." });
-    const result = await Student.updateMany({ _id: { $in: studentIds } }, { $set: { section: section._id, program: section.program || section.programId?.name || "", semester: section.semester || "" } });
-    res.json({ ok: true, updated: result.modifiedCount ?? result.nModified ?? 0, message: `${result.modifiedCount ?? result.nModified ?? 0} student(s) mapped to ${section.program || section.programId?.name || "the selected program"} · Semester ${section.semester} · ${section.name}.` });
+    if (!section) return res.status(404).json({ message: "Destination section does not exist." });
+
+    if (academicSessionId) {
+      const session = await AcademicSession.findById(academicSessionId).select("_id name").lean();
+      if (!session) return res.status(400).json({ message: "Selected academic session does not exist." });
+      if (!section.academicSession || String(section.academicSession) !== String(session._id)) {
+        return res.status(400).json({ message: "Destination section is not assigned to the selected academic session. Use Student Promotion for cross-session movement." });
+      }
+    }
+
+    const students = await Student.find({ _id: { $in: studentIds } })
+      .select("_id name active section")
+      .populate("section", "academicSession")
+      .lean();
+    if (students.length !== studentIds.length) {
+      return res.status(400).json({ message: "One or more selected student records no longer exist. Refresh the student list and try again." });
+    }
+    const inactive = students.find(student => student.active === false);
+    if (inactive) {
+      return res.status(400).json({ message: `${inactive.name || "A selected student"} is inactive and cannot be mapped.` });
+    }
+    if (academicSessionId) {
+      const wrongSession = students.find(student =>
+        !student.section?.academicSession ||
+        String(student.section.academicSession) !== academicSessionId
+      );
+      if (wrongSession) {
+        return res.status(400).json({ message: `${wrongSession.name || "A selected student"} is not assigned to the selected academic session. Use Student Promotion for cross-session movement.` });
+      }
+    }
+
+    const movingIds = students
+      .filter(student => String(student.section?._id || student.section || "") !== String(section._id))
+      .map(student => student._id);
+    const capacity = Number(section.capacity || section.maxStudents || 0);
+    if (capacity > 0 && movingIds.length) {
+      const currentCount = await Student.countDocuments({
+        section: section._id,
+        active: true,
+        _id: { $nin: movingIds }
+      });
+      if (currentCount + movingIds.length > capacity) {
+        return res.status(400).json({
+          message: `Destination section capacity exceeded. Capacity ${capacity}; current ${currentCount}; requested ${movingIds.length}.`
+        });
+      }
+    }
+
+    const program = section.program || section.programId?.name || "";
+    const semester = section.semester || "";
+    const operations = students
+      .filter(student => String(student.section?._id || student.section || "") !== String(section._id))
+      .map(student => ({
+        updateOne: {
+          filter: { _id: student._id, active: true, section: student.section?._id || student.section },
+          update: { $set: { section: section._id, program, semester } }
+        }
+      }));
+
+    if (operations.length) {
+      const result = await Student.bulkWrite(operations, { ordered: true });
+      const updated = result.modifiedCount ?? result.nModified ?? 0;
+      if (updated !== operations.length) {
+        return res.status(409).json({ message: "Some student records changed during mapping. Refresh the list and verify the current section assignments before retrying.", updated });
+      }
+      return res.json({
+        ok: true,
+        updated,
+        skipped: students.length - operations.length,
+        message: `${updated} student(s) mapped to ${program} · Semester ${semester} · ${section.name}.`
+      });
+    }
+
+    return res.json({
+      ok: true,
+      updated: 0,
+      skipped: students.length,
+      message: "All selected students are already mapped to the destination section."
+    });
   } catch (e) {
     res.status(400).json({ message: e.message });
   }
