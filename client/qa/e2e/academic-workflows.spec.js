@@ -111,6 +111,8 @@ async function installApiMocks(page, options = {}) {
   let activeSession = sessions.find(session => session.active) || null;
   let timetable = options.timetable || { _id: "timetable-empty", status: "DRAFT", entries: [], warnings: [], approvalHistory: [] };
   let timetableStatus = timetable.status || "DRAFT";
+  let workflow = options.workflow || null;
+  let versions = options.versions || [];
   const programs = options.programs || [sampleProgram];
   const faculty = options.faculty || (options.includeSchedulingData ? [sampleFaculty] : []);
   const sections = options.sections || (options.includeSchedulingData ? [sampleSection] : []);
@@ -303,12 +305,44 @@ async function installApiMocks(page, options = {}) {
     if (path === "/timetable/status" && method === "GET") {
       return json({ status: timetableStatus, approvalHistory: timetable.approvalHistory || [] });
     }
+    if (path === "/timetable/workflow" && method === "GET") {
+      const actionsByStatus = {
+        DRAFT: [{status:"SUBMITTED",roles:["ADMIN","SCHEDULER"],allowed:true}],
+        SUBMITTED: [{status:"DRAFT",roles:["ADMIN","SCHEDULER"],requiresNote:true,allowed:true},{status:"APPROVED",roles:["ADMIN"],allowed:true}],
+        APPROVED: [{status:"SUBMITTED",roles:["ADMIN"],requiresNote:true,allowed:true},{status:"PUBLISHED",roles:["ADMIN"],requiresNote:true,allowed:true}],
+        PUBLISHED: [{status:"LOCKED",roles:["ADMIN"],allowed:true},{status:"DRAFT",roles:["ADMIN"],requiresNote:true,allowed:true}],
+        LOCKED: [{status:"PUBLISHED",roles:["ADMIN"],requiresNote:true,allowed:true}]
+      };
+      return json({...workflow,status:timetableStatus,role:admin.role,timetableId:timetable?._id||null,version:timetable?.version||1,versionLabel:timetable?.versionLabel||"Version 1",actions:workflow?.actions||actionsByStatus[timetableStatus]||[],history:workflow?.history||timetable.approvalHistory||[]});
+    }
     if (path === "/timetable/status" && method === "PATCH") {
       timetableStatus = body.status || timetableStatus;
       timetable = { ...timetable, status: timetableStatus };
+      const historyEntry={from:workflow?.status||"DRAFT",to:timetableStatus,note:body.note||"",username:admin.username,role:admin.role,changedAt:"2026-10-13T09:00:00.000Z"};
+      workflow={...(workflow||{}),status:timetableStatus,history:[...(workflow?.history||[]),historyEntry]};
       return json({ message: `Status changed to ${timetableStatus}.`, timetable: { status: timetableStatus } });
     }
-    if (path === "/timetable/versions" && method === "GET") return json([]);
+    if (path === "/timetable/versions" && method === "GET") return json(versions);
+    if (path === "/timetable/versions/compare" && method === "GET") return json(options.comparison || {
+      sessionId:activeSession?._id||"session-1",
+      from:{_id:"version-1",version:1,versionLabel:"Version 1",status:"PUBLISHED",totalEntries:3},
+      to:{_id:"version-2",version:2,versionLabel:"Version 2",status:"DRAFT",totalEntries:4},
+      summary:{added:1,removed:0,changed:1,unchanged:2},
+      changes:[
+        {type:"CHANGED",key:"section-1|subject-1",subject:"Mathematics",section:"MBA · I · A",before:{day:"Monday",startTime:"09:00",endTime:"10:00",faculty:"Ms. Faculty",room:"Room 101"},after:{day:"Tuesday",startTime:"10:00",endTime:"11:00",faculty:"Mr. Faculty",room:"Room 202"},fields:[{field:"Day",before:"Monday",after:"Tuesday"},{field:"Faculty",before:"Ms. Faculty",after:"Mr. Faculty"},{field:"Room",before:"Room 101",after:"Room 202"}]},
+        {type:"ADDED",key:"section-1|subject-2",subject:"Business Analytics",section:"MBA · I · A",before:null,after:{day:"Wednesday",startTime:"11:00",endTime:"12:00",faculty:"Ms. Faculty",room:"Room 101"},fields:[]}
+      ]
+    });
+    const restoreVersionMatch=path.match(/^\/timetable\/([^/]+)\/restore$/);
+    if (restoreVersionMatch && method === "POST") {
+      versions = versions.map(version => ({...version,isCurrent:false}));
+      const restored={_id:"version-restored",version:Math.max(0,...versions.map(v=>Number(v.version||0)))+1,versionLabel:"Version 3 · Restored",status:"DRAFT",isCurrent:true,totalEntries:timetable.entries?.length||1,createdAt:"2026-10-13T09:00:00.000Z",notes:body.note};
+      versions=[restored,...versions];
+      timetable={...timetable,_id:restored._id,version:restored.version,versionLabel:restored.versionLabel,status:"DRAFT"};
+      timetableStatus="DRAFT";
+      workflow={...(workflow||{}),status:"DRAFT",timetableId:restored._id,version:restored.version,versionLabel:restored.versionLabel,history:[...(workflow?.history||[]),{from:"VERSION_RESTORE",to:"DRAFT",note:body.note,username:admin.username,role:admin.role,changedAt:restored.createdAt}]};
+      return json(timetable,201);
+    }
     if (path === "/timetable/generate" && method === "POST") {
       timetable = makeTimetable();
       timetableStatus = "DRAFT";
