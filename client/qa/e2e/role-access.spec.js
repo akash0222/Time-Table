@@ -330,7 +330,7 @@ test("navigation submodules are mapped to the correct parent and module group", 
   ];
 
   for (const [childName, parentName, groupName] of mappings) {
-    const group = page.locator(".nav-group").filter({ has: page.locator(`[data-nav-group="${groupName}"]`).first() });
+    const group = page.locator(`.nav-group[data-nav-group="${groupName}"]`);
     await expect(group).toHaveCount(1);
     const child = page.locator(`[data-nav="${childName}"]`);
     const expand = page.getByRole("button", { name: `Expand ${parentName} submodules` });
