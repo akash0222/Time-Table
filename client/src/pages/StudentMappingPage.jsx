@@ -14,9 +14,10 @@ export default function StudentMapping({data,sessions=[],activeSession,reload,se
   const [selected,setSelected]=useState([]);
   const [q,setQ]=useState("");
   const sections=data.sections||[];
-  const sourceSections=sections.filter(s=>(!sourceProgram||String(s.programId?._id||s.programId||'')===sourceProgram||s.program===sourceProgram)&&(!sourceSemester||String(s.semester)===sourceSemester));
-  const students=(data.students||[]).filter(s=>!sourceSection||refId(s.section)===sourceSection).filter(s=>!q||`${s.name} ${s.admissionNo} ${s.rollNo}`.toLowerCase().includes(q.toLowerCase()));
-  const targetOptions=sections.filter(s=>refId(s)!==sourceSection);
+  const sessionMatches=section=>!sessionId||String(section?.academicSession?._id||section?.academicSession||"")===String(sessionId);
+  const sourceSections=sections.filter(s=>sessionMatches(s)&&(!sourceProgram||String(s.programId?._id||s.programId||'')===sourceProgram||s.program===sourceProgram)&&(!sourceSemester||String(s.semester)===sourceSemester));
+  const students=(data.students||[]).filter(s=>sessionMatches(s.section)).filter(s=>!sourceSection||refId(s.section)===sourceSection).filter(s=>!q||`${s.name} ${s.admissionNo} ${s.rollNo}`.toLowerCase().includes(q.toLowerCase()));
+  const targetOptions=sections.filter(s=>sessionMatches(s)&&refId(s)!==sourceSection);
   useEffect(()=>{setSelected([])},[sourceProgram,sourceSemester,sourceSection]);
   const programs=data.programs||[];
   const semesters=[...new Set(sections.filter(s=>!sourceProgram||String(s.programId?._id||s.programId||'')===sourceProgram||s.program===sourceProgram).map(s=>s.semester))];
