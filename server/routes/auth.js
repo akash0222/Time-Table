@@ -44,7 +44,7 @@ router.post("/login", loginLimiter, async (req, res) => {
     const username = String(req.body?.username || "").trim().toLowerCase();
     const password = String(req.body?.password || "");
     const user = await User.findOne({ username }).populate("faculty").populate("section");
-    if (!user || !user.active || !(await bcrypt.compare(password, user.passwordHash))) {
+    if (!user || user.active === false || !(await bcrypt.compare(password, user.passwordHash))) {
       return res.status(401).json({ message: "Invalid username or password." });
     }
     const token = signUser(user);
@@ -54,7 +54,7 @@ router.post("/login", loginLimiter, async (req, res) => {
 
 router.get("/me", requireAuth, async (req, res) => {
   const user = await User.findById(req.user.id).populate("faculty").populate("section").select("-passwordHash");
-  if (!user || !user.active) return res.status(401).json({ message: "User account is inactive." });
+  if (!user || user.active === false) return res.status(401).json({ message: "User account is inactive." });
   res.json({ user });
 });
 
