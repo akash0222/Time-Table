@@ -2063,15 +2063,10 @@ app.get("/api/analytics", requireAuth, async (req,res) => {
     const scheduled=isManager?Number(metrics.scheduledSessions||entries.length):entries.length;
     const days=["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
     const daily=days.map(day=>({day,periods:dayMap.get(day)||0}));
-    const conflicts=[]; const seen=new Map();
-    for(const e of entries){
-      const key=`${e.day}|${e.startTime}|${e.endTime}`;
-      for(const [type,id,label] of [["Faculty",String(e.faculty?._id||e.faculty||""),e.faculty?.name],["Section",String(e.section?._id||e.section||""),analyticsLabel(e.section)],["Room",String(e.room?._id||e.room||""),e.room?.name]]){
-        if(!id) continue; const k=`${type}|${id}|${key}`;
-        if(seen.has(k)) conflicts.push({type,label,day:e.day,startTime:e.startTime,endTime:e.endTime,entries:[seen.get(k),e.subject?.name||"Unknown"]});
-        else seen.set(k,e.subject?.name||"Unknown");
-      }
-    }
+    const conflicts=timetableConflicts(entries).map(conflict=>({
+      ...conflict,
+      entries:(conflict.subjects||[]).map(subject=>({subject}))
+    }));
     const warnings=[];
     if((metrics.unscheduledSessions||0)>0) warnings.push(`${metrics.unscheduledSessions} required session(s) remain unscheduled.`);
     if((metrics.subjectSameDayRepeats||0)>0) warnings.push(`${metrics.subjectSameDayRepeats} subject same-day repeat(s) were detected by the generation quality model.`);
@@ -2090,14 +2085,11 @@ app.get("/api/analytics/conflicts", requireAuth, async (req,res) => {
     const filter={academicSession:selectedSession._id,isCurrent:true};
     const t=await Timetable.findOne(filter).sort({createdAt:-1}).populate("entries.section entries.subject entries.faculty entries.room").lean();
     if(!t) return res.json({hasTimetable:false,conflicts:[]});
-    const entries=filterTimetableEntriesForUser(t.entries||[],req.user), groups=new Map(), conflicts=[];
-    for(const e of entries){
-      const slot=`${e.day}|${e.startTime}|${e.endTime}`;
-      for(const [type,id,label] of [["Faculty",String(e.faculty?._id||e.faculty||""),e.faculty?.name],["Section",String(e.section?._id||e.section||""),analyticsLabel(e.section)],["Room",String(e.room?._id||e.room||""),e.room?.name]]){
-        if(!id) continue; const k=`${type}|${id}|${slot}`; const arr=groups.get(k)||[]; arr.push({subject:e.subject?.name||"Unknown",day:e.day,startTime:e.startTime,endTime:e.endTime,section:analyticsLabel(e.section),faculty:e.faculty?.name||"",room:e.room?.name||""}); groups.set(k,arr);
-      }
-    }
-    for(const [k,arr] of groups) if(arr.length>1){const [type,,slot]=k.split("|"); conflicts.push({type,day:arr[0].day,startTime:arr[0].startTime,endTime:arr[0].endTime,resource:type==="Faculty"?arr[0].faculty:type==="Room"?arr[0].room:arr[0].section,entries:arr});}
+    const entries=filterTimetableEntriesForUser(t.entries||[],req.user);
+    const conflicts=timetableConflicts(entries).map(conflict=>({
+      ...conflict,
+      entries:(conflict.subjects||[]).map(subject=>({subject}))
+    }));
     res.json({hasTimetable:true,timetableId:t._id,version:t.version,conflicts});
   }catch(e){res.status(500).json({message:e.message});}
 });
