@@ -20,7 +20,8 @@
     "test:regression:section-portal": "node qa/regression-section-portal.mjs",
     "test:regression:faculty-portal": "node qa/regression-faculty-portal.mjs",
     "test:holiday-import": "node qa/holiday-import.test.mjs",
-    "test:attendance-access": "node qa/attendance-access.test.mjs"
+    "test:attendance-access": "node qa/attendance-access.test.mjs",
+    "test:notification-access": "node qa/notification-access.test.mjs"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
