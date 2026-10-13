@@ -459,7 +459,7 @@ export default function App(){
       {tab==="Reports" && <Reports activeSession={activeSession}/>}
       {tab==="Audit Logs" && <AuditLogs/>}
       {tab==="Optimization" && <Optimization/>}
-      {tab==="Generation Readiness" && <GenerationReadiness activeSession={activeSession}/>}
+      {tab==="Generation Readiness" && <GenerationReadiness activeSession={activeSession} onNavigate={navigateFromDashboard}/>}
       {tab==="Validation" && <Validation/>}
       {tab==="Timetable" && <TimetableView timetable={latest} data={data} onMoved={load} timetableStatus={timetableStatus} setTimetableStatus={setTimetableStatus} setMessage={setMessage} approvalHistory={approvalHistory} activeSession={activeSession} role={auth.role}/>}
       {tab==="Timetable" && <TimetableVersions activeSession={activeSession} versionList={versionList} setVersionList={setVersionList} setLatest={setLatest} setMessage={setMessage}/>}
