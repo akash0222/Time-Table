@@ -69,13 +69,13 @@ test.describe("Login page", () => {
     await page.route("**/api/auth/login", async route => {
       await route.fulfill({
         status: 429,
-        headers: { "Retry-After": "3" },
+        headers: { "Retry-After": "5" },
         contentType: "application/json",
         body: JSON.stringify({
           code: "LOGIN_RATE_LIMITED",
           message: "Too many sign-in attempts. Please wait before trying again.",
-          retryAfterSeconds: 3,
-          lockedUntil: new Date(Date.now() + 3000).toISOString()
+          retryAfterSeconds: 5,
+          lockedUntil: new Date(Date.now() + 5000).toISOString()
         })
       });
     });
@@ -91,7 +91,12 @@ test.describe("Login page", () => {
     await expect(page.locator("#login-password")).toBeDisabled();
     await expect(page.getByRole("button", { name: /Sign-in locked/ })).toBeDisabled();
 
-    await expect(page.getByRole("button", { name: "Sign In" })).toBeEnabled({ timeout: 6000 });
+    // The lockout timer survives a browser refresh.
+    await page.reload();
+    await expect(page.getByRole("alert")).toContainText("temporarily locked");
+    await expect(page.locator(".login-submit")).toBeDisabled();
+
+    await expect(page.getByRole("button", { name: "Sign In" })).toBeEnabled({ timeout: 7000 });
     await expect(page.getByRole("alert")).toHaveCount(0);
     await expect(page.locator("#login-username")).toBeEnabled();
   });
