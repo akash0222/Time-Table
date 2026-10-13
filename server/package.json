@@ -23,7 +23,8 @@
     "test:attendance-access": "node qa/attendance-access.test.mjs",
     "test:notification-access": "node qa/notification-access.test.mjs",
     "test:timetable-access": "node qa/timetable-access.test.mjs",
-    "test:regression:faculty-workload": "node qa/regression-faculty-workload.mjs"
+    "test:regression:faculty-workload": "node qa/regression-faculty-workload.mjs",
+    "test:regression:timetable-version-diff": "node qa/regression-timetable-version-diff.mjs"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
