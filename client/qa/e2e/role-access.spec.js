@@ -370,7 +370,7 @@ test("direct URL navigation expands the correct group and parent module", async 
   await installRoleApiMocks(page, "ADMIN");
 
   await page.goto("/program-and-section-mapping");
-  await expect(page).toHaveURL(/\\/program-and-section-mapping$/);
+  await expect(page).toHaveURL(/\/program-and-section-mapping$/);
 
   const group = page.locator('.nav-group[data-nav-group="Academic Setup"]');
   const module = page.locator('[data-nav-module="Master Data Settings"]');
