@@ -159,9 +159,7 @@ export default function AllProgramTimetables({timetable,data,activeSession}){
   return <div className="all-program-page">
     <section className="all-program-hero">
       <div>
-        <span className="eyebrow">ACADEMIC OPERATIONS</span>
         <h2>All Program Timetables</h2>
-        <p>View every program, semester and section timetable together in one 7-day academic grid.</p>
         {activeSession?.name&&<small>Academic Session: <strong>{activeSession.name}</strong></small>}
       </div>
       <div className="all-program-stats">
