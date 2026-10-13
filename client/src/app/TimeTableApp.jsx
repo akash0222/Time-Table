@@ -4,7 +4,7 @@ import {API, API_CONFIGURATION_ERROR} from "../core/api";
 import {getPageForPath, getPathForPage} from "../core/pageRoutes";
 import {refId} from "../core/utils";
 import {navGroupsForRole} from "../core/navigation.jsx";
-import {CalendarDays, Users, BookOpen, DoorOpen, Clock3, WandSparkles, Check, History, ChevronLeft, ChevronRight, ChevronDown} from "lucide-react";
+import {CalendarDays, Users, BookOpen, DoorOpen, Clock3, WandSparkles, Check, History, ChevronLeft, ChevronRight, ChevronDown, Menu, X} from "lucide-react";
 import Login from "../pages/LoginPage.jsx";
 
 const NAV_MODULE_CHILDREN = {
@@ -137,6 +137,7 @@ export default function App(){
     document.title=tab==="Dashboard" ? "Time Table" : `${tab} | Time Table`;
   },[tab,auth?.role]);
   const [sidebarCollapsed,setSidebarCollapsed]=useState(()=>localStorage.getItem("tt_sidebar_collapsed")==="true");
+  const [mobileNavOpen,setMobileNavOpen]=useState(false);
   const [collapsedNavGroups,setCollapsedNavGroups]=useState(()=>{
     try{return JSON.parse(localStorage.getItem("tt_nav_collapsed_groups")||"{}")}catch{return {}}
   });
@@ -279,6 +280,7 @@ export default function App(){
 
   function navigateToNavPage(page,groupLabel,moduleName){
     setTab(page);
+    setMobileNavOpen(false);
     setCollapsedNavGroups(previous=>previous[groupLabel]?{...previous,[groupLabel]:false}:previous);
     if(moduleName) setExpandedNavModules(previous=>previous[moduleName]?previous:{...previous,[moduleName]:true});
   }
@@ -297,6 +299,7 @@ export default function App(){
       }
     }
     setTab(page);
+    setMobileNavOpen(false);
   }
 
 
@@ -356,7 +359,7 @@ export default function App(){
 
 
 
-  return <div className={`app ${sidebarCollapsed ? "sidebar-collapsed" : ""}`}>
+  return <div className={`app ${sidebarCollapsed ? "sidebar-collapsed" : ""} ${mobileNavOpen ? "mobile-nav-open" : ""}`}>
     <aside className="erp-sidebar">
       <div className="brand">
         <CalendarDays size={22}/>
@@ -448,7 +451,15 @@ export default function App(){
         <button className="secondary full" onClick={()=>{localStorage.removeItem("tt_token");localStorage.removeItem("tt_user");window.location.reload()}}>Logout</button>
       </div>
     </aside>
+    {mobileNavOpen&&<button type="button" className="sidebar-backdrop" aria-label="Close navigation" onClick={()=>setMobileNavOpen(false)}/>}
     <main className="erp-main">
+      <button
+        type="button"
+        className="mobile-nav-trigger"
+        aria-label={mobileNavOpen?"Close navigation":"Open navigation"}
+        aria-expanded={mobileNavOpen}
+        onClick={()=>setMobileNavOpen(value=>!value)}
+      >{mobileNavOpen?<X size={18}/>:<Menu size={18}/>}<span>Menu</span></button>
       {tab==="Dashboard"&&<header><div><h1>{tab}</h1></div></header>}
       {message && <div className={`message ${/error|network|failed|unable|cannot|start the backend|could not be loaded|not configured/i.test(message)?"error":"success"}`}>{message}{/some data could not be loaded|backend api is not configured/i.test(message) && <button className="secondary" type="button" onClick={()=>load()} style={{marginLeft:10}}>Retry</button>}</div>}
 
