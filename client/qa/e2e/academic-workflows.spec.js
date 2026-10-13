@@ -586,7 +586,7 @@ test("admin can review approval status, compare timetable versions and require w
   await expect(page.getByText("Please review before approval.")).toBeVisible();
 
   await page.getByRole("button",{name:"Compare versions"}).click();
-  await expect(page.getByText("1 changes · 2 unchanged")).toBeVisible();
+  await expect(page.getByText("2 changes · 2 unchanged")).toBeVisible();
   await expect(page.getByText("Mathematics",{exact:true})).toBeVisible();
   await expect(page.getByText("Business Analytics",{exact:true})).toBeVisible();
   await expect(page.getByText("Mr. Faculty",{exact:true})).toBeVisible();
