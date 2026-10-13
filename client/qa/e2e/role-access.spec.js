@@ -413,7 +413,7 @@ test("quick navigation searches role-visible pages, supports keyboard shortcut a
 
   await search.fill("Student Promotion");
   await group.locator('[data-nav="Student Promotion"]').click();
-  await expect(page).toHaveURL(/\\/student-promotion$/);
+  await expect(page).toHaveURL(/\/student-promotion$/);
   await expect(search).toHaveValue("");
   await expect(page.locator('[data-nav="Student Promotion"]')).toHaveClass(/active/);
 
