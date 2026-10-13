@@ -560,6 +560,69 @@ test("admin can review capacity-based faculty workload, overload alerts and dail
   await expect(page.getByText("Business Analytics", { exact: true })).toHaveCount(0);
 });
 
+test("admin can review approval status, compare timetable versions and require workflow remarks", async ({ page }) => {
+  const activeSession=makeActiveSession();
+  await signIn(page,{
+    sessions:[activeSession],
+    timetable:{_id:"version-2",version:2,versionLabel:"Version 2",status:"SUBMITTED",entries:[{}],warnings:[],approvalHistory:[]},
+    workflow:{
+      timetableId:"version-2",version:2,versionLabel:"Version 2",status:"SUBMITTED",
+      actions:[
+        {status:"DRAFT",roles:["ADMIN","SCHEDULER"],requiresNote:true,allowed:true},
+        {status:"APPROVED",roles:["ADMIN"],allowed:true}
+      ],
+      history:[{_id:"approval-1",from:"DRAFT",to:"SUBMITTED",note:"Please review before approval.",username:"scheduler-one",role:"SCHEDULER",changedAt:"2026-10-13T09:00:00.000Z"}]
+    },
+    versions:[
+      {_id:"version-2",version:2,versionLabel:"Version 2",status:"SUBMITTED",isCurrent:true,totalEntries:4,createdAt:"2026-10-13T09:00:00.000Z"},
+      {_id:"version-1",version:1,versionLabel:"Version 1",status:"PUBLISHED",isCurrent:false,totalEntries:3,createdAt:"2026-10-12T09:00:00.000Z"}
+    ]
+  });
+
+  await page.locator('[data-nav="Approval & Versions"]').click();
+  await expect(page.getByRole("heading",{name:"Timetable Approval & Versions",exact:true})).toBeVisible();
+  await expect(page.locator(".approval-status-pill.submitted").first()).toContainText("Submitted for review");
+  await expect(page.getByText("scheduler-one",{exact:true})).toBeVisible();
+  await expect(page.getByText("Please review before approval.")).toBeVisible();
+
+  await page.getByRole("button",{name:"Compare versions"}).click();
+  await expect(page.getByText("1 changes · 2 unchanged")).toBeVisible();
+  await expect(page.getByText("Mathematics",{exact:true})).toBeVisible();
+  await expect(page.getByText("Business Analytics",{exact:true})).toBeVisible();
+  await expect(page.getByText("Mr. Faculty",{exact:true})).toBeVisible();
+  await expect(page.getByText("Room 202",{exact:true})).toBeVisible();
+
+  await page.getByRole("button",{name:/Return to draft/}).click();
+  await expect(page.getByRole("alert")).toContainText("Enter remarks of at least 3 characters");
+  await page.getByLabel("Workflow remarks").fill("Return to scheduler for timetable corrections.");
+  await page.getByRole("button",{name:/Return to draft/}).click();
+  await expect(page.locator(".approval-status-pill.draft").first()).toContainText("Draft");
+});
+
+test("admin can safely restore an old timetable version as a new draft with a recorded reason", async ({ page }) => {
+  const activeSession=makeActiveSession();
+  await signIn(page,{
+    sessions:[activeSession],
+    timetable:{_id:"version-2",version:2,versionLabel:"Version 2",status:"DRAFT",entries:[{}],warnings:[],approvalHistory:[]},
+    workflow:{timetableId:"version-2",version:2,versionLabel:"Version 2",status:"DRAFT",actions:[{status:"SUBMITTED",roles:["ADMIN","SCHEDULER"],allowed:true}],history:[]},
+    versions:[
+      {_id:"version-2",version:2,versionLabel:"Version 2",status:"DRAFT",isCurrent:true,totalEntries:4,createdAt:"2026-10-13T09:00:00.000Z"},
+      {_id:"version-1",version:1,versionLabel:"Version 1",status:"PUBLISHED",isCurrent:false,totalEntries:3,createdAt:"2026-10-12T09:00:00.000Z"}
+    ]
+  });
+  await page.locator('[data-nav="Approval & Versions"]').click();
+  await expect(page.getByRole("heading",{name:"Version History & Safe Restore",exact:true})).toBeVisible();
+
+  const oldVersionRow=page.locator("tr").filter({hasText:"Version 1"}).first();
+  await expect(oldVersionRow).toBeVisible();
+  await page.getByLabel("Workflow remarks").fill("Restore earlier room allocation after faculty change.");
+  page.once("dialog",dialog=>dialog.accept());
+  await oldVersionRow.getByRole("button",{name:"Restore as Draft"}).click();
+  await expect(page.getByText("Version 3 · Restored",{exact:true})).toBeVisible();
+  await expect(page.getByText(/A new Draft was created/)).toBeVisible();
+  await expect(page.locator("tr").filter({hasText:"Version 1"}).getByRole("button",{name:"Restore as Draft"})).toBeVisible();
+});
+
 test("dashboard action center shows real readiness blockers and links to the fix", async ({ page }) => {
   const activeSession = makeActiveSession();
   await signIn(page, { sessions: [activeSession] });
