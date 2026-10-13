@@ -58,7 +58,7 @@ jobs:
         run: npm ci
       - name: Check server JavaScript syntax
         working-directory: server
-        run: node --check server.js && node --check middleware/auth.js && node --check routes/auth.js && node --check routes/attendance.js && node --check routes/students.js && node --check routes/studentProfile.js && node --check routes/fees.js && node --check routes/sessionPlan.js
+        run: node --check server.js && node --check middleware/auth.js && node --check routes/auth.js && node --check routes/attendance.js && node --check routes/students.js && node --check routes/studentProfile.js && node --check routes/fees.js && node --check routes/sessionPlan.js && node --check routes/notifications.js && node --check services/notificationAccess.js
       - name: Run generator and validator regression tests
         working-directory: server
         run: npm run test:regression:generator-validator
@@ -68,3 +68,6 @@ jobs:
       - name: Test attendance access isolation
         working-directory: server
         run: npm run test:attendance-access
+      - name: Test notification audience access
+        working-directory: server
+        run: npm run test:notification-access
