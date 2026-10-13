@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { createLoginAttemptLimiter } from "../services/loginRateLimit.js";
 
-const WINDOW = 15 * 60 * 1000;
+const WINDOW = 5 * 60 * 1000;
 let now = 1_800_000_000_000;
 let passed = 0;
 
@@ -61,20 +61,27 @@ check("lockout starts only after configured failed credential count", () => {
   assert.equal(blocked.nextCalled, false);
   assert.equal(blocked.status, 429);
   assert.equal(blocked.body.code, "LOGIN_RATE_LIMITED");
-  assert.equal(blocked.headers["Retry-After"], "900");
-  assert.equal(blocked.body.retryAfterSeconds, 900);
+  assert.equal(blocked.headers["Retry-After"], "300");
+  assert.equal(blocked.body.retryAfterSeconds, 300);
   assert.equal(Date.parse(blocked.body.lockedUntil), now + WINDOW);
 });
 
-check("wait duration decreases as the failure window ages", () => {
-  const limiter = setup({limit: 1});
-  const attempt = request(limiter);
-  limiter.recordFailedLogin(attempt.req);
+check("five-minute lockout countdown starts when the threshold is reached", () => {
+  const limiter = setup({limit: 5});
+  for (let i = 0; i < 4; i++) {
+    const attempt = request(limiter);
+    limiter.recordFailedLogin(attempt.req);
+  }
+  assert.equal(request(limiter).nextCalled, true);
+  const fifth = request(limiter);
+  const result = limiter.recordFailedLogin(fifth.req);
+  assert.equal(result.locked, true);
+  assert.equal(result.retryAfterSeconds, 300);
   now += 60_500;
   const blocked = request(limiter);
   assert.equal(blocked.status, 429);
-  assert.equal(blocked.body.retryAfterSeconds, 840);
-  assert.equal(blocked.headers["Retry-After"], "840");
+  assert.equal(blocked.body.retryAfterSeconds, 240);
+  assert.equal(blocked.headers["Retry-After"], "240");
 });
 
 check("successful authentication clears the failed-attempt count", () => {
