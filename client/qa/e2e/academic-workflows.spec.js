@@ -340,6 +340,73 @@ test("admin can preview and import a holiday list from a CSV file", async ({ pag
   await expect(page.getByText("2 holiday date(s) imported into Academic Year 2026-27. Duplicates and Sunday dates were skipped.")).toBeVisible();
 });
 
+
+test("admin can download saved full-session timetable as Excel and PDF", async ({ page }) => {
+  const activeSession = makeActiveSession();
+  const plan = {
+    _id: "session-plan-1",
+    version: 1,
+    status: "DRAFT",
+    weeks: [{ weekNumber: 1 }],
+    totalEntries: 1
+  };
+  const exportCalls = [];
+
+  await signIn(page, { sessions: [activeSession] });
+  await page.route("**/api/session-plans**", async route => {
+    const request = route.request();
+    const url = new URL(request.url());
+    const path = url.pathname.replace(/^\/api/, "");
+
+    if (request.method() === "GET" && path === "/session-plans") {
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify([plan])
+      });
+    }
+
+    const exportMatch = path.match(/^\/session-plans\/session-plan-1\/export\/(excel|pdf)$/);
+    if (request.method() === "GET" && exportMatch) {
+      const format = exportMatch[1];
+      exportCalls.push({ format, query: url.searchParams.toString() });
+      return route.fulfill({
+        status: 200,
+        headers: {
+          "content-disposition": `attachment; filename="full-session-timetable-test-v1.${format === "excel" ? "xlsx" : "pdf"}"`,
+          "access-control-expose-headers": "content-disposition"
+        },
+        contentType: format === "excel"
+          ? "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+          : "application/pdf",
+        body: format === "excel" ? Buffer.from("PK\\u0003\\u0004test-xlsx") : Buffer.from("%PDF-1.4 test-pdf")
+      });
+    }
+
+    return route.fulfill({
+      status: 404,
+      contentType: "application/json",
+      body: JSON.stringify({ message: "Unexpected session plan request: " + request.method() + " " + path })
+    });
+  });
+
+  await page.locator('[data-nav="Full Session Timetable"]').click();
+  await expect(page.getByRole("heading", { name: "Full Academic Session Timetable", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: /Version 1 · DRAFT · 1 weeks/ })).toBeVisible();
+
+  const excelDownloadPromise = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Excel", exact: true }).click();
+  const excelDownload = await excelDownloadPromise;
+  expect(excelDownload.suggestedFilename()).toBe("full-session-timetable-test-v1.xlsx");
+
+  const pdfDownloadPromise = page.waitForEvent("download");
+  await page.getByRole("button", { name: "PDF", exact: true }).click();
+  const pdfDownload = await pdfDownloadPromise;
+  expect(pdfDownload.suggestedFilename()).toBe("full-session-timetable-test-v1.pdf");
+
+  expect(exportCalls.map(call => call.format)).toEqual(["excel", "pdf"]);
+});
+
 test("admin can generate and submit a timetable for review", async ({ page }) => {
   const activeSession = makeActiveSession();
   await signIn(page, { sessions: [activeSession], includeSchedulingData: true });
