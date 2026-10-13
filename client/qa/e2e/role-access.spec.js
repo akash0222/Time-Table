@@ -360,5 +360,6 @@ test("navigation groups and modules collapse independently and active submodules
 
   await page.locator('[data-nav="Academic Structure"]').click();
   await expect(page.locator('[data-nav="Academic Structure"]')).toHaveClass(/active/);
+  await expect(page.locator('[data-nav="Academic Sessions"]')).toHaveClass(/active/);
   await expect(page.locator('[data-nav="Holiday Management"]')).toBeVisible();
 });
