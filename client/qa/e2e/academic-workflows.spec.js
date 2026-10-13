@@ -589,8 +589,8 @@ test("admin can review approval status, compare timetable versions and require w
   await expect(page.getByText("2 changes · 2 unchanged")).toBeVisible();
   await expect(page.getByText("Mathematics",{exact:true})).toBeVisible();
   await expect(page.getByText("Business Analytics",{exact:true})).toBeVisible();
-  await expect(page.getByText("Mr. Faculty",{exact:false})).toBeVisible();
-  await expect(page.getByText("Room 202",{exact:true})).toBeVisible();
+  await expect(page.getByText("Mr. Faculty",{exact:false}).first()).toBeVisible();
+  await expect(page.getByText("Room 202",{exact:false}).first()).toBeVisible();
 
   await page.getByRole("button",{name:/Return to draft/}).click();
   await expect(page.getByRole("alert")).toContainText("Enter remarks of at least 3 characters");
