@@ -1315,6 +1315,7 @@ app.post("/api/timetable/:id/restore", requireAuth, async (req,res)=>{
   let sessionId="";
   let previousCurrentIds=[];
   let switchedCurrent=false;
+  let restoredVersionId="";
   try{
     const sourceId=String(req.params.id||"").trim();
     const note=String(req.body?.note||"").trim();
@@ -1360,7 +1361,7 @@ app.post("/api/timetable/:id/restore", requireAuth, async (req,res)=>{
     switchedCurrent=true;
     const restored=await Timetable.create({
       academicSession:source.academicSession,
-      generatedAt:source.generatedAt||now,
+      generatedAt:now,
       entries:Array.isArray(source.entries)?source.entries:[],
       score:source.score,
       optimizationScore:source.optimizationScore,
@@ -1378,6 +1379,7 @@ app.post("/api/timetable/:id/restore", requireAuth, async (req,res)=>{
       statusNote:note,
       approvalHistory:[historyEntry]
     });
+    restoredVersionId=String(restored._id);
     try{
       const AuditLog=(await import("./models/AuditLog.js")).default;
       await AuditLog.create({
@@ -1402,6 +1404,9 @@ app.post("/api/timetable/:id/restore", requireAuth, async (req,res)=>{
   }catch(e){
     if(switchedCurrent&&sessionId){
       try{
+        if(restoredVersionId){
+          await Timetable.updateOne({_id:restoredVersionId},{$set:{isCurrent:false}});
+        }
         if(previousCurrentIds.length){
           await Timetable.updateMany({_id:{$in:previousCurrentIds}},{$set:{isCurrent:true}});
         }
