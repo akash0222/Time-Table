@@ -42,6 +42,7 @@ const GenerationReadiness = lazy(() => import("../pages/GenerationReadinessPage.
 const Validation = lazy(() => import("../pages/ValidationPage.jsx"));
 const TimetableView = lazy(() => import("../pages/TimetableViewPage.jsx"));
 const TimetableVersions = lazy(() => import("../pages/TimetableVersionsPage.jsx"));
+const ApprovalVersions = lazy(() => import("../pages/ApprovalVersionsPage.jsx"));
 const SchedulerSettings = lazy(() => import("../pages/SchedulerSettingsPage.jsx"));
 const MasterDataSettings = lazy(() => import("../pages/MasterDataSettingsPage.jsx"));
 const SubjectFacultyMapping = lazy(() => import("../pages/SubjectFacultyMappingPage.jsx"));
@@ -462,6 +463,7 @@ export default function App(){
       {tab==="Generation Readiness" && <GenerationReadiness activeSession={activeSession} onNavigate={navigateFromDashboard}/>}
       {tab==="Validation" && <Validation/>}
       {tab==="Timetable" && <TimetableView timetable={latest} data={data} onMoved={load} timetableStatus={timetableStatus} setTimetableStatus={setTimetableStatus} setMessage={setMessage} approvalHistory={approvalHistory} activeSession={activeSession} role={auth.role}/>}
+      {tab==="Approval & Versions" && <ApprovalVersions activeSession={activeSession} role={auth.role} onRefresh={load} setMessage={setMessage}/>}
       {tab==="Timetable" && <TimetableVersions activeSession={activeSession} versionList={versionList} setVersionList={setVersionList} setLatest={setLatest} setMessage={setMessage}/>}
       {tab==="Settings" && <SchedulerSettings settings={settings} setSettings={setSettings} setMessage={setMessage} activeSession={activeSession}/>} 
       {tab==="Master Data Settings" && <MasterDataSettings data={data} setData={setData} reload={load} setMessage={setMessage}/>}
