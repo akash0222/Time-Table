@@ -40,6 +40,7 @@ router.post("/preview", allowRoles("ADMIN","SCHEDULER"), async (req,res)=>{
     const sourceAcademicSessionId=req.body?.sourceAcademicSessionId||"";
     const action=req.body?.action||"PROMOTED";
     if(!studentIds.length) return res.status(400).json({message:"Select at least one student."});
+    if(studentIds.length>1000) return res.status(400).json({message:"Select no more than 1000 students per operation."});
     if(!toSectionId||!academicSessionId) return res.status(400).json({message:"Target section and academic session are required."});
     if(!["PROMOTED","TRANSFERRED"].includes(action)) return res.status(400).json({message:"Invalid promotion action."});
 
@@ -94,6 +95,7 @@ router.post("/bulk", allowRoles("ADMIN","SCHEDULER"), async (req,res)=>{
     const remarks=String(req.body?.remarks||"").trim().slice(0,1000);
 
     if(!studentIds.length) return res.status(400).json({message:"Select at least one student."});
+    if(studentIds.length>1000) return res.status(400).json({message:"Select no more than 1000 students per operation."});
     if(!toSection||!academicSessionId) return res.status(400).json({message:"Target section and academic session are required."});
     if(!["PROMOTED","TRANSFERRED"].includes(action)) return res.status(400).json({message:"Invalid promotion action."});
 
