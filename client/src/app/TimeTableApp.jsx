@@ -205,17 +205,21 @@ export default function App(){
 
   useEffect(()=>{localStorage.setItem("tt_sidebar_collapsed",String(sidebarCollapsed));},[sidebarCollapsed]);
   useEffect(()=>{
-    if(!sidebarCollapsed&&focusNavSearchOnExpand){
+    const mobileViewport=window.matchMedia("(max-width: 1000px)").matches;
+    if(!sidebarCollapsed&&focusNavSearchOnExpand&&(!mobileViewport||mobileNavOpen)){
       navSearchRef.current?.focus();
       setFocusNavSearchOnExpand(false);
     }
-  },[sidebarCollapsed,focusNavSearchOnExpand]);
+  },[sidebarCollapsed,focusNavSearchOnExpand,mobileNavOpen]);
   useEffect(()=>{
     const onKeyboardShortcut=event=>{
       if((event.ctrlKey||event.metaKey)&&event.key.toLowerCase()==="k"){
         event.preventDefault();
-        setMobileNavOpen(false);
-        if(sidebarCollapsed){
+        if(window.matchMedia("(max-width: 1000px)").matches){
+          setFocusNavSearchOnExpand(true);
+          setSidebarCollapsed(false);
+          setMobileNavOpen(true);
+        }else if(sidebarCollapsed){
           setFocusNavSearchOnExpand(true);
           setSidebarCollapsed(false);
         }else{
