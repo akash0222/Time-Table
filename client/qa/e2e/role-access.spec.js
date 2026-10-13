@@ -360,6 +360,28 @@ test("navigation submodules are mapped to the correct parent and module group", 
   }
 });
 
+test("direct URL navigation expands the correct group and parent module", async ({ page }) => {
+  await page.addInitScript(() => {
+    if (window.location.origin !== "null") {
+      localStorage.setItem("tt_nav_collapsed_groups", JSON.stringify({ "Academic Setup": true }));
+      localStorage.setItem("tt_nav_expanded_modules", JSON.stringify({ "Master Data Settings": false }));
+    }
+  });
+  await installRoleApiMocks(page, "ADMIN");
+
+  await page.goto("/program-and-section-mapping");
+  await expect(page).toHaveURL(/\\/program-and-section-mapping$/);
+
+  const group = page.locator('.nav-group[data-nav-group="Academic Setup"]');
+  const module = page.locator('[data-nav-module="Master Data Settings"]');
+  const child = module.locator('[data-nav="Program & Section Mapping"]');
+
+  await expect(group).toBeVisible();
+  await expect(child).toBeVisible();
+  await expect(child).toHaveAttribute("data-nav-parent", "Master Data Settings");
+  await expect(module.locator(".nav-module-link")).toHaveClass(/active/);
+});
+
 test("mobile navigation drawer opens, dismisses, and navigates with persisted collapsed preference", async ({ page }) => {
   await page.addInitScript(() => { if (window.location.origin !== "null") localStorage.setItem("tt_sidebar_collapsed", "true"); });
   await installRoleApiMocks(page, "ADMIN");
