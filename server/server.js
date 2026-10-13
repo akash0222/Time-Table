@@ -2615,8 +2615,20 @@ app.get("/api/reports/summary", requireAuth, allowRoles("ADMIN","SCHEDULER"), as
       const d=Math.max(1,Number(e.duration||1));
       const f=String(e.faculty?._id||e.faculty||"");
       if(f){
-        const x=facultyMap.get(f)||{id:f,name:e.faculty?.name||"Unknown",classes:0,periods:0,workingDays:new Set()};
-        x.classes++;x.periods+=d;x.workingDays.add(String(e.day));facultyMap.set(f,x);
+        const x=facultyMap.get(f)||{
+          id:f,name:e.faculty?.name||"Unknown",classes:0,periods:0,
+          workingDays:new Set(),dailyMap:new Map(),
+          maxWorkingDays:Number(e.faculty?.maxWorkingDays||0),
+          maxClassesPerDay:Number(e.faculty?.maxClassesPerDay||0)
+        };
+        x.classes++;
+        x.periods+=d;
+        x.workingDays.add(String(e.day));
+        const dayStats=x.dailyMap.get(String(e.day))||{day:String(e.day),classes:0,periods:0};
+        dayStats.classes++;
+        dayStats.periods+=d;
+        x.dailyMap.set(String(e.day),dayStats);
+        facultyMap.set(f,x);
       }
       const r=String(e.room?._id||e.room||"");
       if(r){
@@ -2670,6 +2682,7 @@ app.get("/api/reports/summary", requireAuth, allowRoles("ADMIN","SCHEDULER"), as
         name:subject.name||"Unnamed subject",
         code:subject.code||"",
         faculty:subject.faculty?.name||"",
+        facultyId:String(subject.faculty?._id||subject.faculty||""),
         section:[subject.section?.programId?.name||subject.section?.program,subject.section?.semester,subject.section?.name].filter(Boolean).join(" · "),
         sectionId:String(subject.section?._id||subject.section||""),
         required,
@@ -2677,6 +2690,16 @@ app.get("/api/reports/summary", requireAuth, allowRoles("ADMIN","SCHEDULER"), as
         unscheduled:Math.max(0,required-scheduled)
       };
     });
+    // Include faculty assigned to subjects in this session even when no
+    // class was scheduled, so the workload report exposes zero-load assignments.
+    for(const subject of subjects){
+      if(subject.facultyId&&!facultyMap.has(subject.facultyId)){
+        facultyMap.set(subject.facultyId,{
+          id:subject.facultyId,name:subject.faculty||"Unknown",classes:0,periods:0,
+          workingDays:new Set(),dailyMap:new Map(),maxWorkingDays:0,maxClassesPerDay:0
+        });
+      }
+    }
     for(const subject of subjects){
       const section=sectionMap.get(subject.sectionId);
       if(section) section.required+=subject.required;
@@ -2713,11 +2736,32 @@ app.get("/api/reports/summary", requireAuth, allowRoles("ADMIN","SCHEDULER"), as
       issues
     };
     const maxFacultyPeriods=Math.max(1,...[...facultyMap.values()].map(x=>x.periods));
-    const faculty=[...facultyMap.values()].map(x=>({
-      ...x,
-      workingDays:x.workingDays.size,
-      utilization:Number((x.periods/maxFacultyPeriods*100).toFixed(1))
-    }));
+    const dayOrder=new Map(["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"].map((day,index)=>[day,index]));
+    const faculty=[...facultyMap.values()].map(x=>{
+      const assignedSubjects=subjects.filter(subject=>subject.facultyId===x.id);
+      const capacityKnown=Number(x.maxWorkingDays)>0&&Number(x.maxClassesPerDay)>0;
+      const estimatedCapacity=capacityKnown?Number(x.maxWorkingDays)*Number(x.maxClassesPerDay):null;
+      return {
+        id:x.id,
+        name:x.name,
+        classes:x.classes,
+        periods:x.periods,
+        workingDays:x.workingDays.size,
+        utilization:Number((x.periods/maxFacultyPeriods*100).toFixed(1)),
+        capacityPeriods:estimatedCapacity,
+        capacityUtilization:estimatedCapacity?Number((x.periods/estimatedCapacity*100).toFixed(1)):null,
+        dailyBreakdown:[...x.dailyMap.values()].sort((a,b)=>(dayOrder.get(a.day)??99)-(dayOrder.get(b.day)??99)),
+        subjectBreakdown:assignedSubjects.map(subject=>({
+          id:subject.id,
+          name:subject.name,
+          code:subject.code,
+          section:subject.section,
+          required:subject.required,
+          scheduled:subject.scheduled,
+          unscheduled:subject.unscheduled
+        }))
+      };
+    }).sort((a,b)=>b.periods-a.periods||a.name.localeCompare(b.name));
     const maxRoomPeriods=Math.max(1,...[...roomMap.values()].map(x=>x.periods));
     const rooms=[...roomMap.values()].map(x=>({
       ...x,
