@@ -80,51 +80,85 @@ router.post("/preview", allowRoles("ADMIN","SCHEDULER"), async (req,res)=>{
 });
 
 router.post("/bulk", allowRoles("ADMIN","SCHEDULER"), async (req,res)=>{
+  let dbSession;
   try{
     const studentIds=normalizeIds(req.body?.studentIds);
     const toSection=req.body?.toSection;
-    const academicSessionId=req.body?.academicSessionId;
-    const sourceAcademicSessionId=req.body?.sourceAcademicSessionId||"";
+    const academicSessionId=String(req.body?.academicSessionId||"");
+    const sourceAcademicSessionId=String(req.body?.sourceAcademicSessionId||"");
     const action=req.body?.action||"PROMOTED";
-    const remarks=String(req.body?.remarks||"").trim();
+    const remarks=String(req.body?.remarks||"").trim().slice(0,1000);
+
     if(!studentIds.length) return res.status(400).json({message:"Select at least one student."});
     if(!toSection||!academicSessionId) return res.status(400).json({message:"Target section and academic session are required."});
     if(!["PROMOTED","TRANSFERRED"].includes(action)) return res.status(400).json({message:"Invalid promotion action."});
 
-    const [target,session,sourceSession,students]=await Promise.all([
+    const [target,session,sourceSession,allStudents]=await Promise.all([
       Section.findById(toSection).populate("programId","name code").lean(),
       AcademicSession.findById(academicSessionId).lean(),
       sourceAcademicSessionId ? AcademicSession.findById(sourceAcademicSessionId).lean() : Promise.resolve(null),
-      Student.find({_id:{$in:studentIds},active:true}).populate("section").lean()
+      Student.find({_id:{$in:studentIds}}).populate("section").lean()
     ]);
     if(!target) return res.status(404).json({message:"Target section not found."});
     if(!session) return res.status(404).json({message:"Target academic session not found."});
-    if(sourceAcademicSessionId && !sourceSession) return res.status(404).json({message:"Source academic session not found."});
-    if(!students.length) return res.status(400).json({message:"No active students found for promotion."});
+    if(sourceAcademicSessionId&&!sourceSession) return res.status(404).json({message:"Source academic session not found."});
+    if(allStudents.length!==studentIds.length) return res.status(400).json({message:"One or more selected student records no longer exist. Refresh the list and try again."});
+    const inactive=allStudents.find(s=>s.active===false);
+    if(inactive) return res.status(400).json({message:`${inactive.name} is inactive and cannot be moved.`});
+    if(!target.academicSession || String(target.academicSession)!==String(session._id)) {
+      return res.status(400).json({message:"Target section must belong to the selected target academic session."});
+    }
     if(sourceAcademicSessionId){
-      const invalidSource=students.find(s=>sessionIdOfSection(s.section)!==String(sourceAcademicSessionId));
+      const invalidSource=allStudents.find(s=>sessionIdOfSection(s.section)!==String(sourceAcademicSessionId));
       if(invalidSource) return res.status(400).json({message:`${invalidSource.name} is not enrolled in the selected source academic session.`});
     }
-    if(target.academicSession && String(target.academicSession)!==String(session._id)) return res.status(400).json({message:"Target section does not belong to the selected academic session."});
+    const noSource=allStudents.find(s=>!s.section?._id);
+    if(noSource) return res.status(400).json({message:`${noSource.name} has no valid current section assignment.`});
 
-    const movingIds=students.filter(s=>String(s.section?._id||"")!==String(target._id)).map(s=>s._id);
+    const moving=allStudents.filter(s=>String(s.section?._id||"")!==String(target._id));
     const capacity=Number(target.capacity||target.maxStudents||0);
-    if(capacity>0){
-      const currentCount=await Student.countDocuments({section:target._id,active:true,_id:{$nin:movingIds}});
-      if(currentCount+movingIds.length>capacity) return res.status(400).json({message:`Target section capacity exceeded. Capacity ${capacity}; current ${currentCount}; requested ${movingIds.length}.`});
+    if(capacity>0 && moving.length){
+      const currentCount=await Student.countDocuments({section:target._id,active:true,_id:{$nin:moving.map(s=>s._id)}});
+      if(currentCount+moving.length>capacity) return res.status(400).json({message:`Target section capacity exceeded. Capacity ${capacity}; current ${currentCount}; requested ${moving.length}.`});
     }
+    if(!moving.length) return res.json({ok:true,updated:0,skipped:allStudents.length,message:"All selected students are already assigned to the target section.",historyCount:0});
 
-    const operations=[]; const history=[];
-    for(const s of students){
-      const from = s.section?._id ?? null;
-      if(String(from||"")===String(target._id)) continue;
-      operations.push({updateOne:{filter:{_id:s._id,active:true},update:{$set:{section:target._id,program:target.program||target.programId?.name||"",semester:target.semester||""}}}});
-      history.push({academicSession:session._id,sourceAcademicSession:sourceSession?._id||null,student:s._id,fromSection:from,toSection:target._id,action,remarks,changedBy:req.user.id,changedByName:req.user.name||req.user.username||"",status:"COMPLETED"});
-    }
-    if(operations.length) await Student.bulkWrite(operations);
-    if(history.length) await StudentPromotion.insertMany(history);
-    res.json({ok:true,updated:operations.length,skipped:students.length-operations.length,message:`${operations.length} student(s) ${action==="PROMOTED"?"promoted":"transferred"} successfully.`,historyCount:history.length});
-  }catch(e){res.status(400).json({message:e.message});}
+    // Update student assignments and their audit history as one transaction:
+    // neither side should be committed if the other side fails.
+    const mongoose = (await import("mongoose")).default;
+    dbSession=await mongoose.startSession();
+    const program=target.program||target.programId?.name||"";
+    const semester=target.semester||"";
+    const history=moving.map(s=>({
+      academicSession:session._id,
+      sourceAcademicSession:sourceSession?._id||null,
+      student:s._id,
+      fromSection:s.section._id,
+      toSection:target._id,
+      action,
+      remarks,
+      changedBy:req.user.id,
+      changedByName:req.user.name||req.user.username||"",
+      status:"COMPLETED"
+    }));
+    await dbSession.withTransaction(async()=>{
+      const operations=moving.map(s=>({
+        updateOne:{
+          filter:{_id:s._id,active:true,section:s.section._id},
+          update:{$set:{section:target._id,program,semester}}
+        }
+      }));
+      const result=await Student.bulkWrite(operations,{ordered:true,session:dbSession});
+      const updated=result.modifiedCount??result.nModified??0;
+      if(updated!==moving.length) throw new Error("Student assignments changed during promotion. No changes were committed; refresh and try again.");
+      await StudentPromotion.insertMany(history,{session:dbSession,ordered:true});
+    });
+    return res.json({ok:true,updated:moving.length,skipped:allStudents.length-moving.length,message:`${moving.length} student(s) ${action==="PROMOTED"?"promoted":"transferred"} successfully.`,historyCount:history.length});
+  }catch(e){
+    return res.status(400).json({message:e.message});
+  }finally{
+    if(dbSession) await dbSession.endSession().catch(()=>{});
+  }
 });
 
 router.post("/rollback/:id", allowRoles("ADMIN"), async (req,res)=>{
