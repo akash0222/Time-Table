@@ -2800,13 +2800,15 @@ app.get("/api/reports/summary", requireAuth, allowRoles("ADMIN","SCHEDULER"), as
       const capacityUtilization=capacityClasses>0?Number((x.classes/capacityClasses*100).toFixed(1)):null;
       const loadStatus=!capacityConfigured
         ?"LIMITS_NOT_CONFIGURED"
-        : x.classes>capacityClasses
-          ?"OVER_CAPACITY"
-          : capacityUtilization>=85
-            ?"NEAR_CAPACITY"
-            : capacityUtilization<40
-              ?"LOW_UTILIZATION"
-              :"WITHIN_CAPACITY";
+        : !(capacityClasses>0)
+          ?"NO_AVAILABLE_CAPACITY"
+          : x.classes>capacityClasses
+            ?"OVER_CAPACITY"
+            : capacityUtilization>=85
+              ?"NEAR_CAPACITY"
+              : capacityUtilization<40
+                ?"LOW_UTILIZATION"
+                :"WITHIN_CAPACITY";
       const dailyBreakdown=["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"].map(day=>{
         const current=x.dailyMap.get(day)||{day,classes:0,periods:0};
         const availablePeriods=availablePeriodsByDay.get(day)||0;
@@ -3033,13 +3035,15 @@ app.get("/api/reports/export/:type", requireAuth, allowRoles("ADMIN","SCHEDULER"
       const capacityUtilization=capacityClasses>0?Number((item.classes/capacityClasses*100).toFixed(1)):null;
       const loadStatus=!capacityConfigured
         ?"LIMITS_NOT_CONFIGURED"
-        :item.classes>capacityClasses
-          ?"OVER_CAPACITY"
-          :capacityUtilization>=85
-            ?"NEAR_CAPACITY"
-            :capacityUtilization<40
-              ?"LOW_UTILIZATION"
-              :"WITHIN_CAPACITY";
+        :!(capacityClasses>0)
+          ?"NO_AVAILABLE_CAPACITY"
+          :item.classes>capacityClasses
+            ?"OVER_CAPACITY"
+            :capacityUtilization>=85
+              ?"NEAR_CAPACITY"
+              :capacityUtilization<40
+                ?"LOW_UTILIZATION"
+                :"WITHIN_CAPACITY";
       const daysOfLoad=Object.fromEntries(days.map(day=>[day,item.daily.get(day)?.periods||0]));
       const dayClassLoad=Object.fromEntries(days.map(day=>[day,item.daily.get(day)?.classes||0]));
       const freePeriods=Math.max(0,availablePeriods-item.periods);
