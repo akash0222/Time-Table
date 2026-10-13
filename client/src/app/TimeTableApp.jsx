@@ -295,8 +295,14 @@ export default function App(){
         setMessage(`Generation was not started because pre-generation checks could not be completed. ${checkError.response?.data?.message||checkError.message||"Retry the readiness check."}`);
         return;
       }
-      const preflightErrors=Number(preflight?.summary?.errors||0);
-      if(preflight?.status==="NOT_READY"||preflightErrors>0){
+      const knownReadinessStatuses=["READY","READY_WITH_WARNINGS","NOT_READY"];
+      if(!preflight||!preflight.summary||!Array.isArray(preflight.issues)||!knownReadinessStatuses.includes(preflight.status)){
+        setTab("Generation Readiness");
+        setMessage("Generation was blocked because the readiness service returned an incomplete result. Re-check the setup before trying again.");
+        return;
+      }
+      const preflightErrors=Number(preflight.summary.errors||0);
+      if(preflight.status==="NOT_READY"||preflightErrors>0){
         setTab("Generation Readiness");
         setMessage(`Generation blocked: ${preflightErrors||1} setup error(s) must be resolved first. Review the findings in Generation Readiness.`);
         return;
