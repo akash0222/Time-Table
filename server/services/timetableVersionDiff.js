@@ -12,6 +12,15 @@ function labelOf(value, fallback = "Unassigned") {
   return String(value||fallback);
 }
 
+function sectionLabel(value) {
+  if(!value)return "Unassigned";
+  if(typeof value!=="object")return labelOf(value);
+  const program=labelOf(value.programId||value.program,"");
+  const semester=String(value.semester||value.year||"");
+  const name=String(value.name||"");
+  return [program,semester,name].filter(Boolean).join(" · ")||labelOf(value);
+}
+
 function entryKey(entry) {
   const section=idOf(entry.section);
   const subject=idOf(entry.subject);
@@ -37,7 +46,7 @@ function describe(entry) {
     startTime:String(entry.startTime||"—"),
     endTime:String(entry.endTime||"—"),
     duration:Math.max(1,Number(entry.duration||1)),
-    section:labelOf(entry.section),
+    section:sectionLabel(entry.section),
     subject:labelOf(entry.subject),
     faculty:labelOf(entry.faculty),
     room:labelOf(entry.room),
