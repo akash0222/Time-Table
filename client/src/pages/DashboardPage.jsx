@@ -1,4 +1,6 @@
-import React from "react";
+import React, {useEffect, useMemo, useState} from "react";
+import axios from "axios";
+import {API} from "../core/api";
 import {
   CalendarDays,
   CalendarOff,
@@ -12,6 +14,11 @@ import {
   ArrowUpRight,
   ClipboardCheck,
   Users,
+  AlertTriangle,
+  CheckCircle2,
+  ArrowRight,
+  ShieldCheck,
+  RefreshCw,
 } from "lucide-react";
 
 const ADMIN_QUICK_ACCESS = [
@@ -43,7 +50,7 @@ const VIEWER_QUICK_ACCESS = [
   { label: "Analytics", icon: BarChart3, tab: "Analytics" },
 ];
 
-export default function Dashboard({ cards, generate, loading, latest, role, onNavigate }) {
+export default function Dashboard({ cards, generate, loading, latest, role, onNavigate, activeSession }) {
   const quickAccess = ["ADMIN", "SCHEDULER"].includes(role)
     ? ADMIN_QUICK_ACCESS
     : role === "FACULTY"
@@ -63,6 +70,63 @@ export default function Dashboard({ cards, generate, loading, latest, role, onNa
   const quality = latest?.optimizationScore ?? latest?.optimizationMetrics?.optimizationScore;
   const runs = latest?.optimizationRuns ?? latest?.optimization?.runsCompleted;
 
+  const [readiness,setReadiness] = useState(null);
+  const [readinessLoading,setReadinessLoading] = useState(false);
+  const [readinessError,setReadinessError] = useState("");
+  const [readinessRefreshKey,setReadinessRefreshKey] = useState(0);
+
+  useEffect(()=>{
+    let cancelled=false;
+    async function loadReadiness(){
+      if(!["ADMIN","SCHEDULER"].includes(role)){
+        setReadiness(null);
+        setReadinessError("");
+        return;
+      }
+      if(!activeSession?._id){
+        setReadiness(null);
+        setReadinessError("");
+        return;
+      }
+      setReadinessLoading(true);
+      setReadinessError("");
+      try{
+        const response=await axios.get(`${API}/timetable/readiness`,{params:{sessionId:activeSession._id}});
+        if(!cancelled)setReadiness(response.data);
+      }catch(e){
+        if(!cancelled){
+          setReadiness(null);
+          setReadinessError(e.response?.data?.message||"Readiness checks are temporarily unavailable.");
+        }
+      }finally{
+        if(!cancelled)setReadinessLoading(false);
+      }
+    }
+    loadReadiness();
+    return ()=>{cancelled=true;};
+  },[activeSession?._id,role,readinessRefreshKey]);
+
+  const actionItems = useMemo(()=>{
+    if(!readiness)return [];
+    const destinationFor = category => {
+      const value=String(category||"").toLowerCase();
+      if(/section coverage|subject mapping|weekly load|duration/.test(value))return "Subject & Faculty Mapping";
+      if(/section/.test(value))return "Program & Section Mapping";
+      if(/faculty availability|faculty workload/.test(value))return "Availability";
+      if(/faculty|room|time slot|room capacity/.test(value))return "Master Data Settings";
+      return "Generation Readiness";
+    };
+    return (readiness.issues||[]).map((issue,index)=>({
+      ...issue,
+      key:issue.id||`${issue.category||"Readiness"}-${index}`,
+      destination:destinationFor(issue.category),
+      severity:String(issue.severity||"WARNING").toUpperCase()
+    }));
+  },[readiness]);
+  const readinessErrors=actionItems.filter(item=>item.severity==="ERROR");
+  const readinessWarnings=actionItems.filter(item=>item.severity!=="ERROR");
+  const showActionCenter=["ADMIN","SCHEDULER"].includes(role);
+
   function navigate(tab) {
     if (onNavigate) {
       onNavigate(tab);
@@ -81,6 +145,36 @@ export default function Dashboard({ cards, generate, loading, latest, role, onNa
           </button>
         </div>
       )}
+
+      {showActionCenter&&<section className="dashboard-section dashboard-action-center">
+        <div className="section-heading">
+          <div><h3>Action Center</h3><p>Resolve setup issues before timetable generation.</p></div>
+          <button type="button" className="dashboard-action-refresh" onClick={()=>setReadinessRefreshKey(value=>value+1)} aria-label="Refresh action center" title="Refresh action center"><RefreshCw size={15}/></button>
+        </div>
+        {!activeSession?._id
+          ? <div className="dashboard-action-state warning"><AlertTriangle size={18}/><div><strong>No active academic session</strong><span>Choose or create an academic session to run pre-generation checks.</span></div><button type="button" onClick={()=>navigate("Academic Sessions")}>Open sessions <ArrowRight size={14}/></button></div>
+          : readinessLoading
+            ? <div className="dashboard-action-loading" role="status">Checking academic setup and scheduling resources…</div>
+            : readinessError
+              ? <div className="dashboard-action-state warning"><AlertTriangle size={18}/><div><strong>Readiness check unavailable</strong><span>{readinessError}</span></div><button type="button" onClick={()=>navigate("Generation Readiness")}>Review <ArrowRight size={14}/></button></div>
+              : actionItems.length
+                ? <div className="dashboard-action-content">
+                    <div className="dashboard-action-summary">
+                      <span className={readinessErrors.length?"dashboard-action-count error":"dashboard-action-count success"}>{readinessErrors.length} errors</span>
+                      <span className="dashboard-action-count warning">{readinessWarnings.length} warnings</span>
+                      <span className="dashboard-action-status">{readinessErrors.length?"Generation blocked":readinessWarnings.length?"Review recommended":"Ready to generate"}</span>
+                    </div>
+                    <div className="dashboard-action-list">
+                      {actionItems.slice(0,5).map(item=><div className={`dashboard-action-item ${item.severity.toLowerCase()}`} key={item.key}>
+                        <span className="dashboard-action-item-icon">{item.severity==="ERROR"?<AlertTriangle size={16}/>:<ShieldCheck size={16}/>}</span>
+                        <div className="dashboard-action-item-copy"><strong>{item.category||"Readiness check"}</strong><p>{item.message}</p></div>
+                        <button type="button" onClick={()=>navigate(item.destination)} aria-label={`Review ${item.category||"readiness"}`}>Review <ArrowRight size={14}/></button>
+                      </div>)}
+                    </div>
+                    {actionItems.length>5&&<button className="dashboard-action-more" type="button" onClick={()=>navigate("Generation Readiness")}>View all {actionItems.length} findings <ArrowRight size={14}/></button>}
+                  </div>
+                : <div className="dashboard-action-state success"><CheckCircle2 size={19}/><div><strong>Ready for timetable generation</strong><span>No blocking setup issues found for {readiness?.session?.name||activeSession.name}.</span></div><button type="button" onClick={()=>navigate("Generation Readiness")}>View checks <ArrowRight size={14}/></button></div>}
+      </section>}
 
       <section className="dashboard-section">
         <div className="section-heading"><div><h3>Overview</h3></div></div>
