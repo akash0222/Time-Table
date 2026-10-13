@@ -13,7 +13,7 @@ import {
   UserRound,
 } from "lucide-react";
 
-const LOGIN_LOCKOUT_STORAGE_KEY = "tt_login_locked_until";
+const LOGIN_LOCKOUT_STORAGE_KEY = "tt_login_locked_until_v2";
 
 function readLoginLockoutUntil() {
   try {
