@@ -69,7 +69,8 @@ router.post("/preview", allowRoles("ADMIN","SCHEDULER"), async (req,res)=>{
       const targetSessionId=sessionIdOfSection(target);
       if(same) warnings.push(`${s.name} is already in ${sectionLabel(target)}.`);
       if(fromSessionId && targetSessionId && fromSessionId===targetSessionId && action==="PROMOTED") warnings.push(`${s.name}: promotion is within the same academic session; use Transfer if this is intentional.`);
-      if(targetSessionId && targetSessionId!==String(session._id)) issues.push(`${s.name}: target section belongs to a different academic session than the selected session.`);
+      if(!targetSessionId || targetSessionId!==String(session._id)) issues.push(`${s.name}: target section must belong to the selected academic session.`);
+      if(!from?._id) issues.push(`${s.name}: student has no valid current section assignment.`);
       if(sourceAcademicSessionId && fromSessionId && fromSessionId!==String(sourceSession?._id||"")) issues.push(`${s.name}: source section does not belong to the selected source academic session.`);
       return {studentId:s._id,name:s.name,admissionNo:s.admissionNo,rollNo:s.rollNo,fromSection:from?{_id:from._id,label:sectionLabel(from)}:null,targetSection:{_id:target._id,label:sectionLabel(target)}};
     });
