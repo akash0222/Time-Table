@@ -58,7 +58,10 @@ jobs:
         run: npm ci
       - name: Check server JavaScript syntax
         working-directory: server
-        run: node --check server.js && node --check middleware/auth.js && node --check routes/auth.js && node --check routes/attendance.js && node --check routes/students.js && node --check routes/studentProfile.js && node --check routes/fees.js && node --check routes/sessionPlan.js && node --check routes/notifications.js && node --check services/notificationAccess.js && node --check services/dateValidation.js && node --check services/timetableAccess.js
+        run: node --check server.js && node --check services/facultyWorkload.js && node --check middleware/auth.js && node --check routes/auth.js && node --check routes/attendance.js && node --check routes/students.js && node --check routes/studentProfile.js && node --check routes/fees.js && node --check routes/sessionPlan.js && node --check routes/notifications.js && node --check services/notificationAccess.js && node --check services/dateValidation.js && node --check services/timetableAccess.js
+      - name: Test faculty workload capacity calculations
+        working-directory: server
+        run: npm run test:regression:faculty-workload
       - name: Run generator and validator regression tests
         working-directory: server
         run: npm run test:regression:generator-validator
