@@ -1982,7 +1982,7 @@ app.get("/api/timetable/workflow", requireAuth, async (req, res) => {
     const role = req.user?.role || "";
     const actions = {
       DRAFT: [{status:"SUBMITTED",roles:["ADMIN","SCHEDULER"]}],
-      SUBMITTED: [{status:"DRAFT",roles:["ADMIN","SCHEDULER"],requiresNote:true},{status:"APPROVED",roles:["ADMIN"]}],
+      SUBMITTED: [{status:"DRAFT",roles:["ADMIN","SCHEDULER"],requiresNote:true},{status:"APPROVED",roles:["ADMIN"],requiresNote:true}],
       APPROVED: [{status:"SUBMITTED",roles:["ADMIN"],requiresNote:true},{status:"PUBLISHED",roles:["ADMIN"],requiresNote:true}],
       PUBLISHED: [{status:"LOCKED",roles:["ADMIN"]},{status:"DRAFT",roles:["ADMIN"],requiresNote:true}],
       LOCKED: [{status:"PUBLISHED",roles:["ADMIN"],requiresNote:true}]
