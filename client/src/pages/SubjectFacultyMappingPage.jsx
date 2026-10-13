@@ -53,7 +53,7 @@ export default function SubjectFacultyMapping({data,sessions,activeSession,reloa
 
   return <div className="subject-mapping-page">
     <section className="mapping-hero">
-      <div><span className="eyebrow">PHASE 3 · ACADEMIC MAPPING</span><h2>Subject & Faculty Mapping</h2><p>Assign each subject to the correct Academic Session, Program, Semester, Section and Faculty before timetable generation.</p></div>
+      <div><h2>Subject & Faculty Mapping</h2><p>Assign subjects to the correct faculty and section.</p></div>
       <div className="mapping-hero-badge"><strong>{summary?.totalSubjects||0}</strong><span>mapped subjects</span></div>
     </section>
 
