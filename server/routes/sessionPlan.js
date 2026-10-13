@@ -284,33 +284,24 @@ router.get('/:id/export/:format',async(req,res)=>{
     if(!['excel','pdf'].includes(format)){
       return res.status(400).json({message:'Export format must be excel or pdf.'});
     }
-
     const doc=await SessionPlan.findById(req.params.id)
       .populate(populated)
-      .populate('academicSession','name');
+      .populate('academicSession','name startDate endDate programDates');
     if(!doc)return res.status(404).json({message:'Session plan not found.'});
 
-    // Keep exports subject to the same assignment scope as plan viewing.
+    // Match the role-scoped view permissions used by the session-plan viewer.
     if(req.user?.role==='FACULTY'){
       const account=await User.findById(req.user?.id).select('faculty active').lean();
-      if(!account||account.active===false){
-        return res.status(401).json({message:'User account is inactive or no longer available. Please sign in again.'});
-      }
+      if(!account||account.active===false)return res.status(401).json({message:'User account is inactive or no longer available. Please sign in again.'});
       const assignedFacultyId=String(account.faculty||'');
-      if(!assignedFacultyId){
-        return res.status(400).json({message:'No Faculty is mapped to this account. Ask an administrator to assign a faculty member.'});
-      }
-      for(const week of doc.weeks) week.entries=week.entries.filter(entry=>idOf(entry.faculty)===assignedFacultyId);
+      if(!assignedFacultyId)return res.status(400).json({message:'No Faculty is mapped to this account. Ask an administrator to assign a faculty member.'});
+      for(const week of doc.weeks)week.entries=week.entries.filter(entry=>idOf(entry.faculty)===assignedFacultyId);
     }else if(req.user?.role==='VIEWER'){
       const account=await User.findById(req.user?.id).select('section active').lean();
-      if(!account||account.active===false){
-        return res.status(401).json({message:'User account is inactive or no longer available. Please sign in again.'});
-      }
+      if(!account||account.active===false)return res.status(401).json({message:'User account is inactive or no longer available. Please sign in again.'});
       const assignedSectionId=String(account.section||'');
-      if(!assignedSectionId){
-        return res.status(400).json({message:'No Section is mapped to this Viewer account. Ask an administrator to assign a section.'});
-      }
-      for(const week of doc.weeks) week.entries=week.entries.filter(entry=>idOf(entry.section)===assignedSectionId);
+      if(!assignedSectionId)return res.status(400).json({message:'No Section is mapped to this Viewer account. Ask an administrator to assign a section.'});
+      for(const week of doc.weeks)week.entries=week.entries.filter(entry=>idOf(entry.section)===assignedSectionId);
     }
 
     const requestedSectionId=String(req.query.sectionId||'');
@@ -318,16 +309,15 @@ router.get('/:id/export/:format',async(req,res)=>{
     const allEntries=[];
     for(const week of doc.weeks||[]){
       for(const entry of week.entries||[]){
-        allEntries.push({...entry.toObject?.()||entry,weekNumber:Number(week.weekNumber||0)});
+        const plainEntry=typeof entry.toObject==='function'?entry.toObject():entry;
+        allEntries.push({...plainEntry,weekNumber:Number(week.weekNumber||0)});
       }
     }
-
     const selectedEntries=allEntries.filter(entry=>
       (!requestedSectionId||idOf(entry.section)===requestedSectionId)&&
       (!requestedFacultyId||idOf(entry.faculty)===requestedFacultyId)
     ).sort((a,b)=>String(a.date||'').localeCompare(String(b.date||''))||
       String(a.startTime||'').localeCompare(String(b.startTime||'')));
-
     if(!selectedEntries.length){
       return res.status(404).json({message:'No scheduled classes found for this session or selected filters.'});
     }
@@ -338,44 +328,98 @@ router.get('/:id/export/:format',async(req,res)=>{
     const sectionLabel=selectedEntries.find(entry=>requestedSectionId&&idOf(entry.section)===requestedSectionId)?.section?.name||'All sections';
     const facultyLabel=selectedEntries.find(entry=>requestedFacultyId&&idOf(entry.faculty)===requestedFacultyId)?.faculty?.name||'All faculty';
     const programOf=entry=>entry.section?.program||entry.section?.programId?.name||'';
+
     const scheduleRows=selectedEntries.map(entry=>({
-      Date:entry.date||'',
-      Day:entry.day||'',
-      Week:entry.weekNumber||'',
-      Start:entry.startTime||'',
-      End:entry.endTime||'',
-      Program:programOf(entry),
-      Semester:entry.section?.semester||'',
-      Section:entry.section?.name||'',
-      Subject:entry.subject?.name||'',
-      SubjectCode:entry.subject?.code||'',
-      Faculty:entry.faculty?.name||'',
-      Room:entry.room?.name||'',
+      Date:entry.date||'',Day:entry.day||'',Week:entry.weekNumber||'',
+      Start:entry.startTime||'',End:entry.endTime||'',Program:programOf(entry),
+      Semester:entry.section?.semester||'',Section:entry.section?.name||'',
+      Subject:entry.subject?.name||'',SubjectCode:entry.subject?.code||'',
+      Faculty:entry.faculty?.name||'',Room:entry.room?.name||'',
       Duration:Number(entry.duration||1)
     }));
 
     const holidaySet=new Set((doc.holidays||[]).map(String));
+    const dayName=date=>new Date(String(date)+'T00:00:00.000Z').toLocaleDateString('en-US',{weekday:'long',timeZone:'UTC'});
     const calendarItems=(doc.weeks||[]).flatMap(week=>{
+      const weekNumber=Number(week.weekNumber||0);
       if(Array.isArray(week.calendarDates)&&week.calendarDates.length){
-        return week.calendarDates.map(item=>({...item,weekNumber:Number(week.weekNumber||0)}));
+        return week.calendarDates.map(item=>{
+          const plain=typeof item.toObject==='function'?item.toObject():item;
+          const date=String(plain.date||'');
+          const day=String(plain.day||(date?dayName(date):''));
+          const holiday=String(plain.status||'').toUpperCase()==='HOLIDAY'||holidaySet.has(date)||day==='Sunday';
+          return {...plain,date,day,status:holiday?'HOLIDAY':'WORKING',weekNumber};
+        });
       }
-      return (week.workingDates||[]).map(date=>({
-        date,
-        day:new Date(String(date)+'T00:00:00.000Z').toLocaleDateString('en-US',{weekday:'long',timeZone:'UTC'}),
-        status:holidaySet.has(String(date))?'HOLIDAY':'WORKING',
-        title:holidaySet.has(String(date))?'Holiday':'',
-        weekNumber:Number(week.weekNumber||0)
-      }));
-    }).sort((a,b)=>String(a.date).localeCompare(String(b.date)));
-    const countsByDate=new Map();
-    for(const entry of selectedEntries) countsByDate.set(String(entry.date||''),(countsByDate.get(String(entry.date||''))||0)+1);
-    const calendarRows=calendarItems.map(item=>({
-      Week:item.weekNumber||'',
-      Date:item.date||'',
-      Day:item.day||'',
-      Status:String(item.status||((holidaySet.has(String(item.date))||item.day==='Sunday')?'HOLIDAY':'WORKING')).toUpperCase(),
-      Note:item.title||(String(item.status).toUpperCase()==='HOLIDAY'?'Holiday':''),
-      ScheduledClasses:countsByDate.get(String(item.date||''))||0
+      // Fallback for older versions without calendarDates.
+      const dates=new Set([
+        ...(week.workingDates||[]).map(String),
+        ...(week.entries||[]).map(entry=>String(entry.date||'')).filter(Boolean)
+      ]);
+      return [...dates].sort().map(date=>{
+        const day=dayName(date);
+        const holiday=holidaySet.has(date)||day==='Sunday';
+        return {date,day,status:holiday?'HOLIDAY':'WORKING',title:holiday?'Holiday':'',weekNumber};
+      });
+    }).filter(item=>item.date).sort((a,b)=>String(a.date).localeCompare(String(b.date)));
+
+    const calendarByDate=new Map(calendarItems.map(item=>[String(item.date),item]));
+    for(const entry of selectedEntries){
+      const date=String(entry.date||'');
+      if(date&&!calendarByDate.has(date)){
+        const day=String(entry.day||dayName(date));
+        const holiday=holidaySet.has(date)||day==='Sunday';
+        calendarByDate.set(date,{date,day,status:holiday?'HOLIDAY':'WORKING',weekNumber:Number(entry.weekNumber||0)});
+      }
+    }
+    const orderedCalendar=[...calendarByDate.values()].sort((a,b)=>String(a.date).localeCompare(String(b.date)));
+
+    const timeSlots=[...new Map(selectedEntries.map(entry=>{
+      const startTime=String(entry.startTime||'');
+      const endTime=String(entry.endTime||'');
+      const order=Number(entry.order||0);
+      return [startTime+'|'+endTime+'|'+order,{key:startTime+'|'+endTime+'|'+order,startTime,endTime,order}];
+    })).values()].sort((a,b)=>a.order-b.order||a.startTime.localeCompare(b.startTime)||a.endTime.localeCompare(b.endTime));
+
+    const entriesByCell=new Map();
+    for(const entry of selectedEntries){
+      const date=String(entry.date||'');
+      if(!date)continue;
+      const key=date+'|'+String(entry.startTime||'')+'|'+String(entry.endTime||'')+'|'+Number(entry.order||0);
+      if(!entriesByCell.has(key))entriesByCell.set(key,[]);
+      entriesByCell.get(key).push(entry);
+    }
+    const cellText=items=>{
+      if(!items||!items.length)return '—';
+      return items.map(entry=>{
+        const code=String(entry.subject?.code||entry.subject?.name||'Subject');
+        const name=String(entry.subject?.name||'');
+        const faculty=String(entry.faculty?.name||'Faculty');
+        const section=String(entry.section?.name||'Section');
+        const room=String(entry.room?.name||'Room');
+        const lines=[code];
+        if(name&&name!==code)lines.push(name);
+        lines.push(faculty,section+' · '+room);
+        if(Number(entry.duration||1)>1)lines.push(String(entry.duration)+' periods');
+        return lines.join('\n');
+      }).join('\n\n');
+    };
+    const gridRows=orderedCalendar.map(item=>{
+      const date=String(item.date||'');
+      const holiday=String(item.status||'').toUpperCase()==='HOLIDAY'||holidaySet.has(date)||item.day==='Sunday';
+      const cells=timeSlots.map(slot=>{
+        if(holiday)return 'Holiday';
+        const key=date+'|'+slot.startTime+'|'+slot.endTime+'|'+slot.order;
+        return cellText(entriesByCell.get(key));
+      });
+      return {weekNumber:Number(item.weekNumber||0),date,day:String(item.day||dayName(date)),holiday,cells,
+        classes:selectedEntries.filter(entry=>String(entry.date||'')===date).length};
+    });
+
+    const calendarRows=gridRows.map(row=>({
+      Week:row.weekNumber||'',Date:row.date,Day:row.day,
+      Status:row.holiday?'HOLIDAY':'WORKING',Note:row.holiday?'Holiday':'',
+      ScheduledClasses:row.classes
     }));
 
     if(format==='excel'){
@@ -386,7 +430,49 @@ router.get('/:id/export/:format',async(req,res)=>{
       workbook.title=sessionName+' - Full Session Timetable';
       workbook.created=new Date();
 
-      const scheduleSheet=workbook.addWorksheet('Schedule');
+      // This is the primary sheet and mirrors the date-by-time grid on screen.
+      const gridSheet=workbook.addWorksheet('Session Grid');
+      gridSheet.columns=[
+        {header:'Week',key:'Week',width:8},
+        {header:'Week / Date',key:'Date',width:15},
+        {header:'Day',key:'Day',width:14},
+        ...timeSlots.map((slot,index)=>({header:slot.startTime+'–'+slot.endTime,key:'slot'+index,width:29}))
+      ];
+      for(const gridRow of gridRows){
+        const dataRow={Week:gridRow.weekNumber,Date:gridRow.date,Day:gridRow.day};
+        gridRow.cells.forEach((value,index)=>{dataRow['slot'+index]=value;});
+        const excelRow=gridSheet.addRow(dataRow);
+        const lineCount=Math.max(1,...gridRow.cells.map(value=>String(value||'').split('\n').length));
+        excelRow.height=Math.min(240,Math.max(30,lineCount*13+6));
+        excelRow.eachCell(cell=>{
+          cell.alignment={vertical:'middle',wrapText:true};
+          cell.border={
+            top:{style:'thin',color:{argb:'FFE2E8F0'}},
+            bottom:{style:'thin',color:{argb:'FFE2E8F0'}},
+            left:{style:'thin',color:{argb:'FFE2E8F0'}},
+            right:{style:'thin',color:{argb:'FFE2E8F0'}}
+          };
+        });
+        if(gridRow.holiday){
+          excelRow.eachCell(cell=>{cell.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFFFEDD5'}};});
+        }else{
+          gridRow.cells.forEach((value,index)=>{
+            if(value!=='—'){
+              excelRow.getCell(4+index).fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFEFF6FF'}};
+            }
+          });
+        }
+      }
+      gridSheet.views=[{state:'frozen',ySplit:1,xSplit:3}];
+      gridSheet.getRow(1).height=25;
+      gridSheet.getRow(1).font={bold:true,color:{argb:'FFFFFFFF'}};
+      gridSheet.getRow(1).fill={type:'pattern',pattern:'solid',fgColor:{argb:'FF1D4ED8'}};
+      gridSheet.autoFilter={from:{row:1,column:1},to:{row:1,column:gridSheet.columnCount}};
+      gridSheet.pageSetup={orientation:'landscape',fitToPage:true,fitToWidth:1,fitToHeight:0,printTitlesRow:'1:1'};
+      gridSheet.headerFooter.oddHeader='&B'+sessionName+' - Full Academic Session Timetable';
+      gridSheet.headerFooter.oddFooter='Page &P of &N';
+
+      const scheduleSheet=workbook.addWorksheet('Schedule Details');
       scheduleSheet.columns=[
         {header:'Date',key:'Date',width:13},{header:'Day',key:'Day',width:14},
         {header:'Week',key:'Week',width:9},{header:'Start',key:'Start',width:10},
@@ -412,8 +498,8 @@ router.get('/:id/export/:format',async(req,res)=>{
         {Item:'Academic Session',Value:sessionName},
         {Item:'Version',Value:doc.version||1},
         {Item:'Status',Value:doc.status||'DRAFT'},
-        {Item:'First Date',Value:doc.weeks?.[0]?.startDate||''},
-        {Item:'Last Date',Value:doc.weeks?.[doc.weeks.length-1]?.endDate||''},
+        {Item:'First Date',Value:orderedCalendar[0]?.date||doc.weeks?.[0]?.startDate||''},
+        {Item:'Last Date',Value:orderedCalendar[orderedCalendar.length-1]?.date||doc.weeks?.[doc.weeks.length-1]?.endDate||''},
         {Item:'Academic Weeks',Value:doc.weeks?.length||0},
         {Item:'Scheduled Classes',Value:selectedEntries.length},
         {Item:'Section Filter',Value:requestedSectionId?sectionLabel:'All sections'},
@@ -426,94 +512,105 @@ router.get('/:id/export/:format',async(req,res)=>{
         sheet.getRow(1).font={bold:true,color:{argb:'FFFFFFFF'}};
         sheet.getRow(1).fill={type:'pattern',pattern:'solid',fgColor:{argb:'FF1D4ED8'}};
         sheet.autoFilter={from:{row:1,column:1},to:{row:1,column:sheet.columnCount}};
-        sheet.pageSetup={orientation:'landscape',fitToPage:true,fitToWidth:1,fitToHeight:0};
+        sheet.pageSetup={orientation:'landscape',fitToPage:true,fitToWidth:1,fitToHeight:0,printTitlesRow:'1:1'};
       }
       for(let rowIndex=2;rowIndex<=calendarSheet.rowCount;rowIndex++){
-        const row=calendarSheet.getRow(rowIndex);
-        if(row.getCell(4).value==='HOLIDAY'){
-          row.eachCell(cell=>{cell.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFFFF1E6'}};});
+        const excelRow=calendarSheet.getRow(rowIndex);
+        if(excelRow.getCell(4).value==='HOLIDAY'){
+          excelRow.eachCell(cell=>{cell.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFFFEDD5'}};});
         }
       }
-
       const buffer=Buffer.from(await workbook.xlsx.writeBuffer());
       res.setHeader('Content-Disposition','attachment; filename="'+fileBase+'.xlsx"');
       res.type('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet').send(buffer);
       return;
     }
 
+    // A3 landscape matches the wide period grid displayed by the timetable page.
     const PDFDocument=(await import('pdfkit')).default;
     res.setHeader('Content-Disposition','attachment; filename="'+fileBase+'.pdf"');
     res.setHeader('Content-Type','application/pdf');
-    const pdf=new PDFDocument({margin:28,size:'A4',layout:'landscape'});
+    const pdf=new PDFDocument({margin:24,size:'A3',layout:'landscape'});
     pdf.pipe(res);
-    pdf.font('Helvetica-Bold').fontSize(16).fillColor('#172033').text('Full Academic Session Timetable',{align:'center'});
-    pdf.moveDown(0.35);
-    pdf.font('Helvetica').fontSize(9).fillColor('#475569')
-      .text(sessionName+' · Version '+String(doc.version||1)+' · '+String(doc.status||'DRAFT')+' · '+selectedEntries.length+' classes',{align:'center'});
-    pdf.text('Section: '+(requestedSectionId?sectionLabel:'All sections')+' · Faculty: '+(requestedFacultyId?facultyLabel:'All faculty'),{align:'center'});
-    pdf.moveDown(0.8);
-
+    const pageWidth=pdf.page.width;
+    const pageHeight=pdf.page.height;
+    const left=24;
+    const right=24;
+    const usableWidth=pageWidth-left-right;
+    const fixedWidths=[34,70,56];
     const columns=[
-      {label:'Date',width:58},{label:'Day',width:48},{label:'Week',width:40},
-      {label:'Start',width:48},{label:'End',width:48},{label:'Program',width:86},
-      {label:'Semester',width:48},{label:'Section',width:70},{label:'Subject',width:160},
-      {label:'Faculty',width:112},{label:'Room',width:65}
+      {label:'Week',width:fixedWidths[0]},
+      {label:'Week / Date',width:fixedWidths[1]},
+      {label:'Day',width:fixedWidths[2]},
+      ...timeSlots.map(slot=>({label:slot.startTime+'–'+slot.endTime,width:(usableWidth-fixedWidths.reduce((sum,n)=>sum+n,0))/Math.max(1,timeSlots.length)}))
     ];
     const tableWidth=columns.reduce((sum,column)=>sum+column.width,0);
-    const left=28;
-    let y=pdf.y;
-    function drawHeader(){
-      pdf.save().fillColor('#EAF1FF').rect(left,y,tableWidth,22).fill().restore();
-      let x=left;
-      pdf.font('Helvetica-Bold').fontSize(7.5).fillColor('#172033');
-      for(const column of columns){
-        pdf.text(column.label,x+3,y+6,{width:column.width-6,height:12,lineBreak:false});
-        x+=column.width;
+    const titleText='Full Academic Session Timetable';
+    const metaText=sessionName+' · Version '+String(doc.version||1)+' · '+String(doc.status||'DRAFT')+' · '+selectedEntries.length+' classes';
+    const filterText='Section: '+(requestedSectionId?sectionLabel:'All sections')+' · Faculty: '+(requestedFacultyId?facultyLabel:'All faculty');
+    let y=24;
+    function drawPageTitle(firstPage=false){
+      pdf.font('Helvetica-Bold').fontSize(firstPage?17:10).fillColor('#172033')
+        .text(titleText,left,y,{width:usableWidth,align:'center',lineBreak:false});
+      y+=firstPage?24:16;
+      if(firstPage){
+        pdf.font('Helvetica').fontSize(9).fillColor('#475569')
+          .text(metaText,left,y,{width:usableWidth,align:'center',lineBreak:false});
+        y+=14;
+        pdf.text(filterText,left,y,{width:usableWidth,align:'center',lineBreak:false});
+        y+=19;
+      }else{
+        pdf.font('Helvetica').fontSize(7).fillColor('#475569')
+          .text(metaText,left,y,{width:usableWidth,align:'center',lineBreak:false});
+        y+=13;
       }
-      y+=22;
     }
-    function drawRow(values,isHoliday=false){
-      const rowHeight=22;
-      if(y+rowHeight>pdf.page.height-28){
-        pdf.addPage();
-        y=28;
+    function drawHeader(){
+      const headerHeight=24;
+      pdf.save().fillColor('#EAF1FF').rect(left,y,tableWidth,headerHeight).fill().restore();
+      pdf.strokeColor('#CBD5E1').lineWidth(0.45).rect(left,y,tableWidth,headerHeight).stroke();
+      let x=left;
+      pdf.font('Helvetica-Bold').fontSize(7).fillColor('#172033');
+      for(const column of columns){
+        pdf.text(column.label,x+3,y+6,{width:column.width-6,height:13,lineBreak:false});
+        x+=column.width;
+        pdf.strokeColor('#CBD5E1').lineWidth(0.35).moveTo(x,y).lineTo(x,y+headerHeight).stroke();
+      }
+      y+=headerHeight;
+    }
+    drawPageTitle(true);
+    drawHeader();
+    const fontSize=timeSlots.length>10?5.2:6.1;
+    function drawGridRow(row){
+      const cellValues=['W'+String(row.weekNumber||''),row.date,row.day,...row.cells];
+      const heights=cellValues.map((value,index)=>{
+        const width=columns[index].width-7;
+        pdf.font('Helvetica').fontSize(fontSize);
+        return pdf.heightOfString(String(value??'—'),{width:Math.max(10,width),fontSize,lineGap:0.5});
+      });
+      const rowHeight=Math.max(36,Math.ceil(Math.max(...heights))+8);
+      if(y+rowHeight>pageHeight-24){
+        pdf.addPage({size:'A3',layout:'landscape',margin:24});
+        y=24;
+        drawPageTitle(false);
         drawHeader();
       }
-      if(isHoliday) pdf.save().fillColor('#FFF1E6').rect(left,y,tableWidth,rowHeight).fill().restore();
-      pdf.strokeColor('#E2E8F0').lineWidth(0.45).rect(left,y,tableWidth,rowHeight).stroke();
       let x=left;
-      pdf.font('Helvetica').fontSize(7).fillColor('#172033');
-      values.forEach((value,index)=>{
+      for(let index=0;index<columns.length;index++){
         const column=columns[index];
-        const raw=String(value??'—');
-        const maxChars=Math.max(5,Math.floor((column.width-8)/3.5));
-        const visible=raw.length>maxChars?raw.slice(0,maxChars-1)+'…':raw;
-        pdf.text(visible,x+4,y+6,{width:column.width-8,height:11,lineBreak:false});
+        const value=String(cellValues[index]??'—');
+        const isHoliday=row.holiday;
+        const hasClass=index>=3&&value!=='—'&&value!=='Holiday';
+        const fill=isHoliday?'#FFF1E6':hasClass?'#EFF6FF':'#FFFFFF';
+        pdf.save().fillColor(fill).rect(x,y,column.width,rowHeight).fill().restore();
+        pdf.strokeColor('#D8E0EA').lineWidth(0.4).rect(x,y,column.width,rowHeight).stroke();
+        pdf.font('Helvetica').fontSize(index<3?6.2:fontSize).fillColor(isHoliday&&index>=3?'#9A3412':'#172033');
+        pdf.text(value,x+3,y+4,{width:Math.max(8,column.width-6),height:rowHeight-8,lineGap:0.5});
         x+=column.width;
-        pdf.strokeColor('#E2E8F0').lineWidth(0.35).moveTo(x,y).lineTo(x,y+rowHeight).stroke();
-      });
+      }
       y+=rowHeight;
     }
-
-    drawHeader();
-    const entriesByDate=new Map();
-    for(const entry of selectedEntries){
-      const date=String(entry.date||'');
-      if(!entriesByDate.has(date))entriesByDate.set(date,[]);
-      entriesByDate.get(date).push(entry);
-    }
-    for(const dayItem of calendarItems){
-      const date=String(dayItem.date||'');
-      const entriesForDate=entriesByDate.get(date)||[];
-      const isHoliday=String(dayItem.status||'').toUpperCase()==='HOLIDAY'||holidaySet.has(date)||dayItem.day==='Sunday';
-      if(entriesForDate.length){
-        for(const entry of entriesForDate){
-          drawRow([date,dayItem.day,'W'+String(dayItem.weekNumber||''),entry.startTime,entry.endTime,programOf(entry),entry.section?.semester,entry.section?.name,entry.subject?.name||entry.subject?.code,entry.faculty?.name,entry.room?.name],false);
-        }
-      }else{
-        drawRow([date,dayItem.day,'W'+String(dayItem.weekNumber||''),'—','—','—','—','—','—',isHoliday?(dayItem.title||'Holiday'):'No classes scheduled','—'],isHoliday);
-      }
-    }
+    for(const gridRow of gridRows)drawGridRow(gridRow);
     pdf.end();
   }catch(e){
     if(res.headersSent){res.end();return;}
