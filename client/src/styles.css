@@ -1402,3 +1402,95 @@ button.danger:hover{background:#fff1f2}
 @media(max-width:1200px){.reports-metrics{grid-template-columns:repeat(3,minmax(0,1fr))}.faculty-detail-grid{grid-template-columns:1fr}}
 @media(max-width:760px){.reports-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.report-daily-chart{grid-template-columns:1fr}.reports-toolbar{align-items:flex-start}.reports-toolbar .form-actions{width:100%}.reports-toolbar .form-actions button{flex:1}.report-toolbar-row{align-items:stretch;flex-direction:column}.report-search{width:100%;box-sizing:border-box}.report-sort{justify-content:space-between}.report-sort select{flex:1;max-width:65%}.report-section-heading{gap:8px}.report-section-title p{max-width:100%}.faculty-day-grid{grid-template-columns:repeat(4,minmax(0,1fr))}}
 @media(max-width:480px){.reports-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.report-daily-row{grid-template-columns:35px minmax(30px,1fr) 25px 52px;gap:6px}.report-count{font-size:10px}.report-section-icon{width:30px;height:30px;flex-basis:30px}.faculty-day-card{padding:8px 5px}}
+
+
+/* Quick navigation search: filters the visible role-specific page links. */
+.nav-search{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  margin:0 6px 14px;
+  padding:8px 9px;
+  min-height:22px;
+  border:1px solid #25334a;
+  border-radius:9px;
+  background:#111c2e;
+  color:#8092ad;
+}
+.nav-search:focus-within{
+  border-color:#4c83f5;
+  box-shadow:0 0 0 2px rgba(59,130,246,.18);
+}
+.nav-search-input{
+  display:block;
+  width:100%;
+  min-width:0;
+  padding:1px 0;
+  border:0;
+  outline:0;
+  background:transparent;
+  color:#e5edf8;
+  font:inherit;
+  font-size:12px;
+}
+.nav-search-input::placeholder{color:#8092ad;opacity:1}
+.nav-search-input::-webkit-search-cancel-button{cursor:pointer}
+.nav-search-shortcut{
+  flex:0 0 auto;
+  padding:2px 4px;
+  border:1px solid #334155;
+  border-radius:4px;
+  color:#8da0ba;
+  font-size:9px;
+  white-space:nowrap;
+}
+.nav-search-collapsed-trigger{
+  display:none;
+  align-items:center;
+  justify-content:center;
+  width:36px;
+  height:34px;
+  border:1px solid transparent;
+  border-radius:8px;
+  background:transparent;
+  color:#b7c5d9;
+  cursor:pointer;
+}
+.nav-search-collapsed-trigger:hover{background:rgba(255,255,255,.07);color:#fff}
+.nav-search-empty{
+  margin:4px 7px;
+  padding:12px 9px;
+  border:1px dashed #334155;
+  border-radius:8px;
+  color:#9aaac0;
+  font-size:11px;
+  line-height:1.5;
+  overflow-wrap:anywhere;
+}
+.app.sidebar-collapsed .erp-sidebar .nav-search{
+  justify-content:center;
+  margin:0 4px 12px;
+  padding:3px;
+  border-color:transparent;
+  background:transparent;
+  box-shadow:none;
+}
+.app.sidebar-collapsed .erp-sidebar .nav-search>svg,
+.app.sidebar-collapsed .erp-sidebar .nav-search-input,
+.app.sidebar-collapsed .erp-sidebar .nav-search-shortcut{display:none}
+.app.sidebar-collapsed .erp-sidebar .nav-search-collapsed-trigger{display:inline-flex}
+.app.sidebar-collapsed .erp-sidebar .nav-search:focus-within{border-color:transparent}
+.app.sidebar-collapsed .erp-sidebar .nav-search-empty{display:none}
+@media(max-width:1000px){
+  .app.sidebar-collapsed.mobile-nav-open .erp-sidebar .nav-search{
+    justify-content:flex-start;
+    margin:0 6px 14px;
+    padding:8px 9px;
+    border:1px solid #25334a;
+    background:#111c2e;
+  }
+  .app.sidebar-collapsed.mobile-nav-open .erp-sidebar .nav-search>svg{display:block}
+  .app.sidebar-collapsed.mobile-nav-open .erp-sidebar .nav-search-input{display:block}
+  .app.sidebar-collapsed.mobile-nav-open .erp-sidebar .nav-search-shortcut{display:inline-flex}
+  .app.sidebar-collapsed.mobile-nav-open .erp-sidebar .nav-search-collapsed-trigger{display:none}
+}
