@@ -20,14 +20,14 @@ export default function FullSessionTimetable({sessions,activeSession,role}){
   async function openPlan(id){setBusy(true);setError("");try{const r=await axios.get(`${API}/session-plans/${id}`);setPlan(r.data);setWeekIndex(0)}catch(e){setError(e.response?.data?.message||e.message)}finally{setBusy(false)}}
   async function generateFull(){if(!window.confirm('Generate and save a new full academic session plan? Existing plans will be preserved.'))return;setBusy(true);setError("");try{const dates=holidays.split(/[\s,;]+/).map(x=>x.trim()).filter(Boolean);const r=await axios.post(`${API}/session-plans/generate`,{sessionId,holidays:dates});const p=await axios.get(`${API}/session-plans?sessionId=${sessionId}`);setPlans(p.data||[]);await openPlan(r.data.id)}catch(e){setError(e.response?.data?.message||e.message)}finally{setBusy(false)}}
   async function publish(){if(!plan||!window.confirm('Publish this full-session timetable version?'))return;setBusy(true);try{await axios.patch(`${API}/session-plans/${plan._id}/publish`);const r=await axios.get(`${API}/session-plans?sessionId=${sessionId}`);setPlans(r.data||[]);await openPlan(plan._id)}catch(e){setError(e.response?.data?.message||e.message)}finally{setBusy(false)}}
-  async function exportPlan(format){
-    if(!plan||exportBusy)return;
+  async function exportPlan(format,targetPlan=plan,applyFilters=true){
+    if(!targetPlan||exportBusy)return;
     setExportBusy(true);
     setError("");
     try{
-      const response=await axios.get(`${API}/session-plans/${plan._id}/export/${format}`,{
+      const response=await axios.get(`${API}/session-plans/${targetPlan._id}/export/${format}`,{
         responseType:"blob",
-        params:{sectionId,facultyId}
+        params:applyFilters?{sectionId,facultyId}:{}
       });
       const blobUrl=URL.createObjectURL(new Blob([response.data],{
         type:format==="excel"
@@ -38,7 +38,7 @@ export default function FullSessionTimetable({sessions,activeSession,role}){
       anchor.href=blobUrl;
       const disposition=response.headers?.["content-disposition"]||"";
       const filename=disposition.match(/filename="?([^";]+)"?/i)?.[1];
-      anchor.download=filename||`full-session-timetable-v${plan.version}.${format==="excel"?"xlsx":"pdf"}`;
+      anchor.download=filename||`full-session-timetable-v${targetPlan.version}.${format==="excel"?"xlsx":"pdf"}`;
       document.body.appendChild(anchor);
       anchor.click();
       anchor.remove();
@@ -76,7 +76,17 @@ export default function FullSessionTimetable({sessions,activeSession,role}){
       {error&&<p style={{color:'#b91c1c',whiteSpace:'pre-wrap'}}>{error}</p>}
       <p style={{fontSize:12,color:'#64748b'}}>The generator does not repeat one fixed weekly timetable. It distributes each subject’s Total Sessions across the academic weeks, respects Max Classes / Week, handles holidays, and saves every dated class in the session plan. No partial plan is saved.</p>
     </section>
-    <section className="panel" style={{padding:22,marginBottom:18}}><h3>Saved Full-Session Versions</h3><div style={{display:'flex',gap:10,flexWrap:'wrap'}}>{plans.map(p=><button key={p._id} className={plan?._id===p._id?'primary':'secondary'} onClick={()=>openPlan(p._id)}>Version {p.version} · {p.status} · {p.weeks?.length||0} weeks</button>)}{!plans.length&&<p>No session-wide plans generated yet.</p>}</div></section>
+    <section className="panel" style={{padding:22,marginBottom:18}}>
+      <h3>Saved Full-Session Versions</h3>
+      <div style={{display:'grid',gap:10}}>
+        {plans.map(p=><div key={p._id} style={{display:'flex',gap:8,alignItems:'center',flexWrap:'wrap',padding:'8px 0',borderBottom:'1px solid #edf0f4'}}>
+          <button className={plan?._id===p._id?'primary':'secondary'} onClick={()=>openPlan(p._id)}>Version {p.version} · {p.status} · {p.weeks?.length||0} weeks</button>
+          <button className="secondary" type="button" disabled={exportBusy||busy} onClick={()=>exportPlan("excel",p,false)}><FileSpreadsheet size={15}/> Excel</button>
+          <button className="secondary" type="button" disabled={exportBusy||busy} onClick={()=>exportPlan("pdf",p,false)}><FileDown size={15}/> PDF</button>
+        </div>)}
+        {!plans.length&&<p>No session-wide plans generated yet.</p>}
+      </div>
+    </section>
     {plan&&<section className="panel" style={{padding:22}}>
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:10,flexWrap:'wrap'}}>
         <h3>Version {plan.version} · {plan.status} · {plan.weeks.length} academic weeks · {plan.totalEntries} classes</h3>
