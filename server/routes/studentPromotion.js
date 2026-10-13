@@ -226,7 +226,7 @@ router.post("/rollback/:id", allowRoles("ADMIN"), async (req,res)=>{
     if((marked.modifiedCount??marked.nModified??0)!==1){
       await Student.updateOne(
         {_id:student._id,section:from._id,active:true},
-        {$set:{section:history.toSection}}
+        {$set:{section:history.toSection,program:student.program||"",semester:student.semester||""}}
       );
       return res.status(409).json({message:"Movement history changed during rollback. The student assignment was restored; refresh and try again."});
     }
