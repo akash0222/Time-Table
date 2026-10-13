@@ -36,7 +36,7 @@ export default function AcademicStructure({sessions=[],activeSession,programs=[]
   const sections=structure.sections||[];
   return <div>
     <section className="panel">
-      <div className="panel-head"><div><h3>Academic Structure</h3><p>Single source of truth: Academic Session → Program → Semester → Section → Students.</p></div><span className="status-badge approved">{sections.length} Sections</span></div>
+      <div className="panel-head"><div><h3>Academic Structure</h3></div><span className="status-badge approved">{sections.length} Sections</span></div>
       <div className="form-grid">
         <Select label="Academic Session" value={sessionId} options={[['','All / Unassigned'],...sessions.map(s=>[s._id,`${s.name}${s.active?' · Active':''}`])]} onChange={v=>setSessionId(v)}/>
         <Select label="Program" value={form.programId} options={[['','Select Program'],...activePrograms.map(p=>[p._id,`${p.name}${p.code?` · ${p.code}`:''}`])]} onChange={v=>setForm(f=>({...f,programId:v}))}/>
