@@ -227,7 +227,7 @@ export default function App(){
         }
       }else if(event.key==="Escape"&&document.activeElement===navSearchRef.current){
         if(navQuery.trim())setNavQuery("");
-        else navSearchRef.current?.blur();
+        navSearchRef.current?.blur();
       }
     };
     window.addEventListener("keydown",onKeyboardShortcut);
