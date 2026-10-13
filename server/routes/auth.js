@@ -10,7 +10,7 @@ const LOGIN_WINDOW_MS = 15 * 60 * 1000;
 const configuredLimit = Number(process.env.LOGIN_MAX_ATTEMPTS);
 const LOGIN_LIMIT = Number.isInteger(configuredLimit) && configuredLimit >= 5 && configuredLimit <= 100
   ? configuredLimit
-  : process.env.NODE_ENV === "production" ? 10 : 100;
+  : process.env.NODE_ENV === "production" ? 5 : 100;
 const LOGIN_MAX_KEYS = 20000;
 const {
   middleware: loginLimiter,
