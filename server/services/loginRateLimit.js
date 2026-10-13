@@ -1,5 +1,5 @@
 export function createLoginAttemptLimiter({
-  limit = 10,
+  limit = 5,
   windowMs = 5 * 60 * 1000,
   maxKeys = 20000,
   now = () => Date.now()
@@ -17,7 +17,9 @@ export function createLoginAttemptLimiter({
     requests += 1;
     if (attempts.size < maxKeys && requests % 100 !== 0) return;
     for (const [key, entry] of attempts) {
-      if (currentTime - entry.startedAt > windowMs) attempts.delete(key);
+      const expiredLock = !entry.lockedUntil || entry.lockedUntil <= currentTime;
+      const expiredWindow = currentTime - entry.startedAt >= windowMs;
+      if (expiredLock && expiredWindow) attempts.delete(key);
     }
   }
 
@@ -26,7 +28,9 @@ export function createLoginAttemptLimiter({
     res.set("Retry-After", String(waitSeconds));
     return res.status(429).json({
       code: "LOGIN_RATE_LIMITED",
-      message: "Too many failed sign-in attempts. Please try again when the timer reaches 00:00.",
+      message: "Too many failed sign-in attempts. Sign-in is locked for 5 minutes.",
+      attemptsUsed: limit,
+      attemptsRemaining: 0,
       retryAfterSeconds: waitSeconds,
       lockedUntil: new Date(currentTime + waitSeconds * 1000).toISOString()
     });
@@ -39,38 +43,48 @@ export function createLoginAttemptLimiter({
     prune(currentTime);
 
     let current = attempts.get(key);
-    if (current && currentTime - current.startedAt > windowMs) {
+    if (current?.lockedUntil && current.lockedUntil > currentTime) {
+      return rateLimit(res, Math.ceil((current.lockedUntil - currentTime) / 1000), currentTime);
+    }
+    if (current && current.lockedUntil && current.lockedUntil <= currentTime) {
+      attempts.delete(key);
+      current = null;
+    }
+    if (current && currentTime - current.startedAt >= windowMs) {
       attempts.delete(key);
       current = null;
     }
     if (!current && attempts.size >= maxKeys) {
       return rateLimit(res, 60, currentTime);
     }
-    if (current && current.count >= limit) {
-      const elapsed = Math.max(0, currentTime - current.startedAt);
-      const remainingSeconds = Math.ceil((windowMs - elapsed) / 1000);
-      return rateLimit(res, remainingSeconds, currentTime);
-    }
 
-    // This check is intentionally read-only. Count a failure only after
-    // credential verification rejects the username/password.
     return next();
   }
 
   function recordFailedLogin(req) {
     const key = req.loginAttemptKey || keyFor(req);
     const currentTime = now();
-    const current = attempts.get(key);
-    if (!current || currentTime - current.startedAt > windowMs) {
-      if (!current && attempts.size >= maxKeys) return;
-      attempts.set(key, { startedAt: currentTime, count: 1 });
-      return { count: 1, remaining: Math.max(0, limit - 1), locked: limit <= 1, retryAfterSeconds: Math.ceil(windowMs / 1000) };
+    let current = attempts.get(key);
+
+    if (!current || currentTime - current.startedAt >= windowMs || (current.lockedUntil && current.lockedUntil <= currentTime)) {
+      if (!current && attempts.size >= maxKeys) {
+        return { count: limit, remaining: 0, locked: true, retryAfterSeconds: 60 };
+      }
+      current = { startedAt: currentTime, count: 0, lockedUntil: null };
+      attempts.set(key, current);
     }
+
     current.count += 1;
     const remaining = Math.max(0, limit - current.count);
     const locked = current.count >= limit;
-    const windowRemainingSeconds = Math.max(1, Math.ceil((windowMs - (currentTime - current.startedAt)) / 1000));
-    return { count: current.count, remaining, locked, retryAfterSeconds: locked ? windowRemainingSeconds : 0 };
+    if (locked) current.lockedUntil = currentTime + windowMs;
+
+    return {
+      count: current.count,
+      remaining,
+      locked,
+      retryAfterSeconds: locked ? Math.ceil((current.lockedUntil - currentTime) / 1000) : 0
+    };
   }
 
   function clearFailedLogins(req) {
