@@ -2704,9 +2704,7 @@ app.get("/api/reports/summary", requireAuth, allowRoles("ADMIN","SCHEDULER"), as
     const workloadSettings={...(defaultSchedulerSettings||{}),...(sessionOverride||{})};
     const holidayDays=new Set(["Sunday",...(Array.isArray(workloadSettings.holidayDays)?workloadSettings.holidayDays:[])]);
     const usableWorkloadSlots=workloadSlots.filter(slot=>slot&&!slot.isBreak&&!holidayDays.has(String(slot.day||"")));
-    const workloadDayOrder=new Map(["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"].map((day,index)=>[day,index]));
-    const scheduleDays=[...new Set(usableWorkloadSlots.map(slot=>String(slot.day||"")))]
-      .sort((a,b)=>(workloadDayOrder.get(a)??99)-(workloadDayOrder.get(b)??99));
+
 
     for(const row of facultyRows){
       const id=String(row._id);
@@ -2855,9 +2853,7 @@ app.get("/api/reports/export/:type", requireAuth, allowRoles("ADMIN","SCHEDULER"
     const workloadSettings={...(defaultSchedulerSettings||{}),...(sessionOverride||{})};
     const holidayDays=new Set(["Sunday",...(Array.isArray(workloadSettings.holidayDays)?workloadSettings.holidayDays:[])]);
     const usableWorkloadSlots=workloadSlots.filter(slot=>slot&&!slot.isBreak&&!holidayDays.has(String(slot.day||"")));
-    const workloadDayOrder=new Map(["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"].map((day,index)=>[day,index]));
-    const scheduleDays=[...new Set(usableWorkloadSlots.map(slot=>String(slot.day||"")))]
-      .sort((a,b)=>(workloadDayOrder.get(a)??99)-(workloadDayOrder.get(b)??99));
+
     const sectionLabel=section=>[section?.programId?.name||section?.program||"",section?.semester||"",section?.name||""].filter(Boolean).join(" · ")||"Unassigned";
     const sectionMap=new Map(sectionRows.map(section=>[String(section._id),{
       id:String(section._id),label:sectionLabel(section),classes:0,periods:0,required:0
