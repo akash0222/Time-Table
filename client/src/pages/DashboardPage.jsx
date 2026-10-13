@@ -92,7 +92,11 @@ export default function Dashboard({ cards, generate, loading, latest, role, onNa
       setReadinessError("");
       try{
         const response=await axios.get(`${API}/timetable/readiness`,{params:{sessionId:activeSession._id}});
-        if(!cancelled)setReadiness(response.data);
+        const payload=response.data;
+        if(!payload||!payload.summary||!Array.isArray(payload.issues)||!["READY","READY_WITH_WARNINGS","NOT_READY"].includes(payload.status)){
+          throw new Error("The readiness service returned an incomplete result. Re-check readiness before generating.");
+        }
+        if(!cancelled)setReadiness(payload);
       }catch(e){
         if(!cancelled){
           setReadiness(null);
