@@ -7,58 +7,10 @@ import {navGroupsForRole} from "../core/navigation.jsx";
 import {CalendarDays, Users, BookOpen, DoorOpen, Clock3, WandSparkles, Check, History, ChevronLeft, ChevronRight, ChevronDown, Menu, X} from "lucide-react";
 import Login from "../pages/LoginPage.jsx";
 
-const NAV_MODULE_CHILDREN = {
-  "Academic Sessions": ["Academic Structure", "Holiday Management"],
-  "Master Data Settings": ["Subject & Faculty Mapping", "Program & Section Mapping"],
-  "Full Session Timetable": ["All Program Timetables", "Timetable", "Calendar View"],
-  Students: ["Student Mapping", "Student Profile", "Student Promotion"],
-  "Excel Import": ["Import Center", "Templates & Clone"],
-  Reports: ["Analytics", "Validation"],
-  "Audit Logs": ["Change History"]
-};
-
-const NAV_CHILD_TO_PARENT = new Map(
-  Object.entries(NAV_MODULE_CHILDREN).flatMap(([parent, children]) => children.map(child => [child, parent]))
-);
-
+// The eight navigation group headings are the only main modules.
+// Every page within a group is a direct submodule/link (no nested page parents).
 function buildNavigationTree(group) {
-  const byName = new Map(group.items.map(item => [item.name, item]));
-  const consumed = new Set();
-  const result = [];
-
-  for (const item of group.items) {
-    if (consumed.has(item.name)) continue;
-    const childNames = NAV_MODULE_CHILDREN[item.name];
-
-    if (childNames) {
-      const children = childNames.filter(name => byName.has(name)).map(name => byName.get(name));
-      children.forEach(child => consumed.add(child.name));
-      result.push({ ...item, routeAllowed: true, children });
-      continue;
-    }
-
-    const parentName = NAV_CHILD_TO_PARENT.get(item.name);
-    if (parentName && !byName.has(parentName)) {
-      const visibleChildren = NAV_MODULE_CHILDREN[parentName]
-        .filter(name => byName.has(name))
-        .map(name => byName.get(name));
-      visibleChildren.forEach(child => consumed.add(child.name));
-      if (visibleChildren.length) {
-        result.push({
-          name: parentName,
-          Icon: visibleChildren[0].Icon,
-          routeAllowed: false,
-          children: visibleChildren
-        });
-      }
-      continue;
-    }
-
-    if (parentName) continue;
-    result.push({ ...item, routeAllowed: true, children: [] });
-  }
-
-  return result;
+  return group.items.map(item => ({ ...item, routeAllowed: true, children: [] }));
 }
 
 const Attendance = lazy(() => import("../pages/AttendancePage.jsx"));
@@ -142,32 +94,7 @@ export default function App(){
   const [collapsedNavGroups,setCollapsedNavGroups]=useState(()=>{
     try{return JSON.parse(localStorage.getItem("tt_nav_collapsed_groups")||"{}")}catch{return {}}
   });
-  const [expandedNavModules,setExpandedNavModules]=useState(()=>{
-    const currentPage=getPageForPath(window.location.pathname);
-    const activeParent=Object.entries(NAV_MODULE_CHILDREN)
-      .find(([parent,children])=>parent===currentPage||children.includes(currentPage))?.[0];
-    const defaults={"Academic Sessions":true,"Full Session Timetable":true};
-    if(activeParent)defaults[activeParent]=true;
-    try{
-      const saved=localStorage.getItem("tt_nav_expanded_modules");
-      const restored=saved?JSON.parse(saved):{};
-      // A stored collapsed value must not hide the parent of the page opened
-      // directly. After initialization, users can still collapse it manually.
-      return {...defaults,...restored,...(activeParent?{[activeParent]:true}:{})};
-    }catch{return defaults;}
-  });
-  useEffect(()=>{
-    if(!auth?.role)return;
-    for(const group of navGroupsForRole(auth.role)){
-      const module=buildNavigationTree(group).find(item=>item.name===tab||item.children.some(child=>child.name===tab));
-      if(!module)continue;
-      setCollapsedNavGroups(previous=>previous[group.label]?{...previous,[group.label]:false}:previous);
-      if(module.children.length){
-        setExpandedNavModules(previous=>previous[module.name]?previous:{...previous,[module.name]:true});
-      }
-      break;
-    }
-  },[tab,auth?.role]);
+
 
   const [data,setData]=useState({faculty:[],subjects:[],sections:[],rooms:[],timeslots:[],programs:[],students:[]});
   const [latest,setLatest]=useState(null);
@@ -281,43 +208,25 @@ export default function App(){
     return ()=>window.removeEventListener("keydown",closeOnEscape);
   },[mobileNavOpen]);
   useEffect(()=>{localStorage.setItem("tt_nav_collapsed_groups",JSON.stringify(collapsedNavGroups));},[collapsedNavGroups]);
-  useEffect(()=>{localStorage.setItem("tt_nav_expanded_modules",JSON.stringify(expandedNavModules));},[expandedNavModules]);
 
-  // If a deep-linked page is open, reveal its navigation group and parent module.
+  // Deep links always reveal the one top-level group containing the current page.
   useEffect(()=>{
     if(!auth) return;
-    for(const group of navGroupsForRole(auth.role)){
-      const tree=buildNavigationTree(group);
-      for(const item of tree){
-        if(item.name===tab || item.children.some(child=>child.name===tab)){
-          setCollapsedNavGroups(previous=>previous[group.label]?{...previous,[group.label]:false}:previous);
-          if(item.children.some(child=>child.name===tab)){
-            setExpandedNavModules(previous=>previous[item.name]?previous:{...previous,[item.name]:true});
-          }
-          return;
-        }
-      }
-    }
+    const group=navGroupsForRole(auth.role).find(candidate=>candidate.items.some(item=>item.name===tab));
+    if(group)setCollapsedNavGroups(previous=>previous[group.label]?{...previous,[group.label]:false}:previous);
   },[tab,auth?.role]);
 
-  function navigateToNavPage(page,groupLabel,moduleName){
+  function navigateToNavPage(page,groupLabel){
     setTab(page);
     setMobileNavOpen(false);
     setCollapsedNavGroups(previous=>previous[groupLabel]?{...previous,[groupLabel]:false}:previous);
-    if(moduleName) setExpandedNavModules(previous=>previous[moduleName]?previous:{...previous,[moduleName]:true});
   }
 
   function navigateFromDashboard(page){
     for(const group of navGroupsForRole(auth.role)){
-      for(const item of buildNavigationTree(group)){
-        if(item.name===page){
-          navigateToNavPage(page,group.label,item.children.length?item.name:undefined);
-          return;
-        }
-        if(item.children.some(child=>child.name===page)){
-          navigateToNavPage(page,group.label,item.name);
-          return;
-        }
+      if(group.items.some(item=>item.name===page)){
+        navigateToNavPage(page,group.label);
+        return;
       }
     }
     setTab(page);
@@ -408,67 +317,15 @@ export default function App(){
               <ChevronDown className={"nav-group-chevron"+(groupCollapsed?" is-collapsed":"")} size={13}/>
             </button>
             {!groupCollapsed&&<div className="nav-group-items" id={groupId}>
-              {buildNavigationTree(group).map(item=>{
-                const hasChildren=item.children.length>0;
-                const moduleExpanded=Boolean(expandedNavModules[item.name]);
-                const moduleIsCurrent=item.name===tab||item.children.some(child=>child.name===tab);
-                const moduleId="nav-module-"+item.name.toLowerCase().replace(/[^a-z0-9]+/g,"-");
-                if(!hasChildren){
-                  return <button
-                    data-nav={item.name}
-                    data-nav-group={group.label}
-                    title={sidebarCollapsed?item.name:undefined}
-                    className={tab===item.name?"nav active":"nav"}
-                    onClick={()=>navigateToNavPage(item.name,group.label)}
-                    key={item.name}
-                    aria-current={tab===item.name?"page":undefined}
-                  ><item.Icon size={17}/><span className="nav-label">{item.name}</span></button>;
-                }
-                const toggleModule=()=>setExpandedNavModules(previous=>({...previous,[item.name]:!previous[item.name]}));
-                return <div className={"nav-module"+(moduleExpanded?" is-expanded":"")} key={item.name} data-nav-module={item.name} data-nav-group={group.label}>
-                  <div className="nav-module-row">
-                    {item.routeAllowed
-                      ? <button
-                          data-nav={item.name}
-                          data-nav-group={group.label}
-                          title={sidebarCollapsed?item.name:undefined}
-                          className={"nav nav-module-link"+(moduleIsCurrent?" active":"")}
-                          onClick={()=>navigateToNavPage(item.name,group.label,item.name)}
-                          aria-current={tab===item.name?"page":undefined}
-                        ><item.Icon size={17}/><span className="nav-label">{item.name}</span></button>
-                      : <button
-                          type="button"
-                          title={sidebarCollapsed?item.name:undefined}
-                          className={"nav nav-module-link nav-module-only"+(moduleIsCurrent?" active":"")}
-                          onClick={toggleModule}
-                          aria-expanded={moduleExpanded}
-                          aria-controls={moduleId}
-                          aria-current={moduleIsCurrent?"location":undefined}
-                        ><item.Icon size={17}/><span className="nav-label">{item.name}</span><ChevronDown className="nav-module-only-chevron" size={13}/></button>}
-                    {item.routeAllowed&&<button
-                      type="button"
-                      className="nav-module-toggle"
-                      onClick={toggleModule}
-                      aria-label={(moduleExpanded?"Collapse ":"Expand ")+item.name+" submodules"}
-                      aria-expanded={moduleExpanded}
-                      aria-controls={moduleId}
-                      title={(moduleExpanded?"Collapse ":"Expand ")+item.name+" submodules"}
-                    ><ChevronDown size={14}/></button>}
-                  </div>
-                  {moduleExpanded&&!sidebarCollapsed&&<div className="nav-subitems" id={moduleId}>
-                    {item.children.map(child=><button
-                      data-nav={child.name}
-                      data-nav-parent={item.name}
-                      data-nav-group={group.label}
-                      className={"nav nav-subitem"+(tab===child.name?" active":"")}
-                      key={child.name}
-                      title={child.name}
-                      onClick={()=>navigateToNavPage(child.name,group.label,item.name)}
-                      aria-current={tab===child.name?"page":undefined}
-                    ><span className="nav-subitem-marker" aria-hidden="true"/><child.Icon size={15}/><span className="nav-label">{child.name}</span></button>)}
-                  </div>}
-                </div>;
-              })}
+              {group.items.map(item=><button
+                key={item.name}
+                data-nav={item.name}
+                data-nav-group={group.label}
+                className={tab===item.name?"nav active":"nav"}
+                title={sidebarCollapsed?item.name:undefined}
+                onClick={()=>navigateToNavPage(item.name,group.label)}
+                aria-current={tab===item.name?"page":undefined}
+              ><item.Icon size={17}/><span className="nav-label">{item.name}</span></button>)}
             </div>}
           </div>;
         })}
