@@ -395,6 +395,7 @@ export default function App(){
               {buildNavigationTree(group).map(item=>{
                 const hasChildren=item.children.length>0;
                 const moduleExpanded=Boolean(expandedNavModules[item.name]);
+                const moduleIsCurrent=item.name===tab||item.children.some(child=>child.name===tab);
                 const moduleId="nav-module-"+item.name.toLowerCase().replace(/[^a-z0-9]+/g,"-");
                 if(!hasChildren){
                   return <button
@@ -413,7 +414,7 @@ export default function App(){
                       ? <button
                           data-nav={item.name}
                           title={sidebarCollapsed?item.name:undefined}
-                          className={"nav nav-module-link"+(tab===item.name?" active":"")}
+                          className={"nav nav-module-link"+(moduleIsCurrent?" active":"")}
                           onClick={()=>navigateToNavPage(item.name,group.label,item.name)}
                           aria-current={tab===item.name?"page":undefined}
                         ><item.Icon size={17}/><span className="nav-label">{item.name}</span></button>
