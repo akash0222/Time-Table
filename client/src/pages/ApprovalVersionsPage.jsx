@@ -214,8 +214,8 @@ export default function ApprovalVersionsPage({activeSession,role,onRefresh,setMe
               </button>)}
             </div>
             :<div className="approval-info-line"><CheckCircle2 size={16}/> No workflow action is currently available.</div>}
-          {actions.some(action=>action.requiresNote)&&<p className="approval-help-text">* Remarks are required for actions marked with an asterisk.</p>}
-          {actions.length>0&&<label className="approval-note-field">Workflow remarks
+          {actions.some(action=>action.requiresNote)&&<p className="approval-help-text">* Remarks are required for actions marked with an asterisk. A reason is also required to restore an older version.</p>}
+          {(actions.length>0||versions.some(version=>!version.isCurrent))&&<label className="approval-note-field">Workflow remarks
             <textarea value={note} onChange={event=>setNote(event.target.value)} rows={3} placeholder="Enter approval, publication, return, or change-request remarks…"/>
           </label>}
         </section>
