@@ -2788,21 +2788,343 @@ app.get("/api/reports/summary", requireAuth, allowRoles("ADMIN","SCHEDULER"), as
 });
 app.get("/api/reports/export/:type", requireAuth, allowRoles("ADMIN","SCHEDULER"), async (req,res)=>{
   try{
-    const t=await currentTimetableFor(req); if(!t) return res.status(404).json({message:"No timetable available."});
-    if(req.params.type==="excel"){
-      const wb=new ExcelJS.Workbook(), ws=wb.addWorksheet("Timetable");
-      ws.addRow(["Day","Start","End","Program","Semester","Section","Subject","Faculty","Room"]);
-      (t.entries||[]).forEach(e=>ws.addRow([e.day,e.startTime,e.endTime,e.section?.program,e.section?.semester,e.section?.name,e.subject?.name,e.faculty?.name,e.room?.name]));
-      res.setHeader("Content-Type","application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
-      res.setHeader("Content-Disposition",'attachment; filename="timetable-report.xlsx"'); await wb.xlsx.write(res); return res.end();
+    const format=String(req.params.type||"").toLowerCase();
+    if(!["excel","pdf"].includes(format))return res.status(400).json({message:"Supported report types: excel, pdf."});
+    const t=await currentTimetableFor(req);
+    if(!t)return res.status(404).json({message:"No timetable available for this academic session."});
+
+    const sessionId=String(t.academicSession?._id||t.academicSession||"");
+    const session=typeof t.academicSession==="object"?t.academicSession:await AcademicSession.findById(sessionId).select("name").lean();
+    const sessionName=String(session?.name||"Academic Session");
+    const entries=t.entries||[];
+    const subjectIdOf=entry=>String(entry.subject?._id||entry.subject||"");
+    const facultyIdOf=entry=>String(entry.faculty?._id||entry.faculty||"");
+    const roomIdOf=entry=>String(entry.room?._id||entry.room||"");
+    const sectionIdOf=entry=>String(entry.section?._id||entry.section||"");
+    const days=["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
+    const dailyMap=new Map(days.map(day=>[day,{day,classes:0,periods:0}]));
+
+    const [sectionRows,roomRows]=await Promise.all([
+      Section.find({academicSession:sessionId}).populate("programId","name code").lean(),
+      Room.find().lean()
+    ]);
+    const sectionLabel=section=>[section?.programId?.name||section?.program||"",section?.semester||"",section?.name||""].filter(Boolean).join(" · ")||"Unassigned";
+    const sectionMap=new Map(sectionRows.map(section=>[String(section._id),{
+      id:String(section._id),label:sectionLabel(section),classes:0,periods:0,required:0
+    }]));
+    const roomMap=new Map(roomRows.map(room=>[String(room._id),{
+      id:String(room._id),name:room.name||"Unknown",type:room.type||"—",classes:0,periods:0
+    }]));
+    const facultyMap=new Map();
+    const scheduledBySubject=new Map();
+
+    for(const entry of entries){
+      const duration=Math.max(1,Number(entry.duration||1));
+      const facultyId=facultyIdOf(entry);
+      if(facultyId){
+        const faculty=facultyMap.get(facultyId)||{
+          id:facultyId,name:entry.faculty?.name||"Unknown",classes:0,periods:0,workingDays:new Set(),daily:new Map()
+        };
+        faculty.classes++;
+        faculty.periods+=duration;
+        faculty.workingDays.add(String(entry.day||""));
+        const current=faculty.daily.get(String(entry.day||""))||{classes:0,periods:0};
+        current.classes++;
+        current.periods+=duration;
+        faculty.daily.set(String(entry.day||""),current);
+        facultyMap.set(facultyId,faculty);
+      }
+      const roomId=roomIdOf(entry);
+      if(roomId){
+        const room=roomMap.get(roomId)||{id:roomId,name:entry.room?.name||"Unknown",type:entry.room?.type||"—",classes:0,periods:0};
+        room.classes++;
+        room.periods+=duration;
+        roomMap.set(roomId,room);
+      }
+      const sectionId=sectionIdOf(entry);
+      if(sectionId){
+        const section=sectionMap.get(sectionId)||{id:sectionId,label:sectionLabel(entry.section),classes:0,periods:0,required:0};
+        section.classes++;
+        section.periods+=duration;
+        sectionMap.set(sectionId,section);
+      }
+      const day=String(entry.day||"");
+      if(dailyMap.has(day)){
+        dailyMap.get(day).classes++;
+        dailyMap.get(day).periods+=duration;
+      }
+      const subjectId=subjectIdOf(entry);
+      if(subjectId)scheduledBySubject.set(subjectId,(scheduledBySubject.get(subjectId)||0)+1);
     }
-    if(req.params.type==="pdf"){
-      const PDFDocument=(await import("pdfkit")).default; res.setHeader("Content-Type","application/pdf"); res.setHeader("Content-Disposition",'attachment; filename="timetable-report.pdf"');
-      const doc=new PDFDocument({size:"A4",layout:"landscape",margin:30}); doc.pipe(res); doc.fontSize(16).text("Timetable Report",{align:"center"});doc.moveDown();
-      (t.entries||[]).forEach(e=>doc.fontSize(8).text(`${e.day} ${e.startTime}-${e.endTime} | ${e.section?.name||""} | ${e.subject?.name||""} | ${e.faculty?.name||""} | ${e.room?.name||""}`));doc.end(); return;
+
+    const sectionIds=sectionRows.map(section=>section._id);
+    const subjectRows=sectionIds.length?await Subject.find({
+      section:{$in:sectionIds},
+      active:{$ne:false},
+      $or:[{academicSession:sessionId},{academicSession:null}]
+    }).populate("faculty","name code").populate("section","program programId semester name").lean():[];
+
+    const subjects=subjectRows.map(subject=>{
+      const id=String(subject._id);
+      const sectionId=String(subject.section?._id||subject.section||"");
+      const required=Math.max(0,Number(subject.classesPerWeek||0));
+      const scheduled=scheduledBySubject.get(id)||0;
+      const facultyId=String(subject.faculty?._id||subject.faculty||"");
+      return {
+        id,name:subject.name||"Unnamed subject",code:subject.code||"",
+        section:sectionMap.get(sectionId)?.label||sectionLabel(subject.section),
+        faculty:subject.faculty?.name||"",facultyId,sectionId,required,scheduled,
+        unscheduled:Math.max(0,required-scheduled),
+        coverage:required?Number(Math.min(100,scheduled/required*100).toFixed(1)):(scheduled?100:0)
+      };
+    });
+
+    for(const subject of subjects){
+      const section=sectionMap.get(subject.sectionId);
+      if(section)section.required+=subject.required;
+      if(subject.facultyId&&!facultyMap.has(subject.facultyId)){
+        facultyMap.set(subject.facultyId,{
+          id:subject.facultyId,name:subject.faculty||"Unknown",classes:0,periods:0,
+          workingDays:new Set(),daily:new Map()
+        });
+      }
     }
-    return res.status(400).json({message:"Supported report types: excel, pdf."});
-  }catch(e){res.status(500).json({message:e.message});}
+
+    const maxFacultyPeriods=Math.max(1,...[...facultyMap.values()].map(item=>item.periods));
+    const daysOfWeek=days;
+    const faculty=[...facultyMap.values()].map(item=>({
+      name:item.name,classes:item.classes,periods:item.periods,workingDays:item.workingDays.size,
+      relativeLoad:Number((item.periods/maxFacultyPeriods*100).toFixed(1)),
+      Monday:item.daily.get("Monday")?.periods||0,
+      Tuesday:item.daily.get("Tuesday")?.periods||0,
+      Wednesday:item.daily.get("Wednesday")?.periods||0,
+      Thursday:item.daily.get("Thursday")?.periods||0,
+      Friday:item.daily.get("Friday")?.periods||0,
+      Saturday:item.daily.get("Saturday")?.periods||0,
+      Sunday:item.daily.get("Sunday")?.periods||0
+    })).sort((a,b)=>b.periods-a.periods||a.name.localeCompare(b.name));
+
+    const maxRoomPeriods=Math.max(1,...[...roomMap.values()].map(item=>item.periods));
+    const rooms=[...roomMap.values()].map(item=>({
+      name:item.name,type:item.type,classes:item.classes,periods:item.periods,
+      relativeLoad:Number((item.periods/maxRoomPeriods*100).toFixed(1))
+    })).sort((a,b)=>b.periods-a.periods||a.name.localeCompare(b.name));
+    const sections=[...sectionMap.values()].map(item=>({
+      label:item.label,classes:item.classes,periods:item.periods,required:item.required,
+      coverage:item.required?Number(Math.min(100,item.classes/item.required*100).toFixed(1)):(item.classes?100:0)
+    })).sort((a,b)=>b.periods-a.periods||a.label.localeCompare(b.label));
+
+    const totalPeriods=entries.reduce((sum,entry)=>sum+Math.max(1,Number(entry.duration||1)),0);
+    const metric=t.optimizationMetrics||{};
+    const requiredSessions=Number(metric.requiredSessions??subjects.reduce((sum,subject)=>sum+subject.required,0));
+    const scheduledSessions=Number(metric.scheduledSessions??entries.length);
+    const coverage=requiredSessions?Number((scheduledSessions/requiredSessions*100).toFixed(1)):100;
+    const unscheduled=subjects.filter(subject=>subject.unscheduled>0);
+    const conflicts=timetableConflicts(entries);
+    const summaryRows=[
+      {Item:"Academic Session",Value:sessionName},
+      {Item:"Timetable Version",Value:t.versionLabel||("Version "+String(t.version||1))},
+      {Item:"Status",Value:t.status||"DRAFT"},
+      {Item:"Scheduled Classes",Value:entries.length},
+      {Item:"Scheduled Periods",Value:totalPeriods},
+      {Item:"Required Weekly Sessions",Value:requiredSessions},
+      {Item:"Scheduled Sessions",Value:scheduledSessions},
+      {Item:"Coverage",Value:String(coverage)+"%"},
+      {Item:"Unscheduled Subject Requirements",Value:unscheduled.reduce((sum,subject)=>sum+subject.unscheduled,0)},
+      {Item:"Faculty with Scheduled or Assigned Classes",Value:faculty.length},
+      {Item:"Rooms in Master Data",Value:rooms.length},
+      {Item:"Sections in Academic Session",Value:sections.length},
+      {Item:"Resource Conflicts Detected",Value:conflicts.length}
+    ];
+
+    if(format==="excel"){
+      const workbook=new ExcelJS.Workbook();
+      workbook.creator="Time Table";
+      workbook.subject="Academic workload and timetable reports";
+      workbook.title=sessionName+" - Academic Reports";
+      workbook.created=new Date();
+
+      const addSheet=(name,columns,rows)=>{
+        const sheet=workbook.addWorksheet(name);
+        sheet.columns=columns;
+        sheet.addRows(rows);
+        sheet.views=[{state:"frozen",ySplit:1}];
+        sheet.getRow(1).height=24;
+        sheet.getRow(1).font={bold:true,color:{argb:"FFFFFFFF"}};
+        sheet.getRow(1).fill={type:"pattern",pattern:"solid",fgColor:{argb:"FF1D4ED8"}};
+        sheet.autoFilter={from:{row:1,column:1},to:{row:1,column:sheet.columnCount}};
+        sheet.eachRow(row=>row.eachCell(cell=>{
+          cell.alignment={vertical:"middle",wrapText:true};
+          cell.border={bottom:{style:"thin",color:{argb:"FFE2E8F0"}}};
+        }));
+        sheet.pageSetup={orientation:"landscape",fitToPage:true,fitToWidth:1,fitToHeight:0,printTitlesRow:"1:1"};
+        return sheet;
+      };
+
+      addSheet("Summary",[{header:"Report Item",key:"Item",width:38},{header:"Value",key:"Value",width:48}],summaryRows);
+      addSheet("Faculty Workload",[
+        {header:"Faculty",key:"name",width:26},{header:"Classes",key:"classes",width:11},
+        {header:"Periods",key:"periods",width:11},{header:"Working Days",key:"workingDays",width:15},
+        ...daysOfWeek.map(day=>({header:day,key:day,width:12})),
+        {header:"Relative Load %",key:"relativeLoad",width:17}
+      ],faculty);
+      addSheet("Subject Coverage",[
+        {header:"Subject",key:"name",width:28},{header:"Code",key:"code",width:15},
+        {header:"Section",key:"section",width:25},{header:"Faculty",key:"faculty",width:24},
+        {header:"Required / Week",key:"required",width:16},{header:"Scheduled",key:"scheduled",width:12},
+        {header:"Unscheduled",key:"unscheduled",width:14},{header:"Coverage %",key:"coverage",width:13}
+      ],subjects);
+      addSheet("Section Workload",[
+        {header:"Section",key:"label",width:30},{header:"Classes",key:"classes",width:12},
+        {header:"Periods",key:"periods",width:12},{header:"Required / Week",key:"required",width:16},
+        {header:"Coverage %",key:"coverage",width:13}
+      ],sections);
+      addSheet("Room Load",[
+        {header:"Room",key:"name",width:28},{header:"Type",key:"type",width:18},
+        {header:"Classes",key:"classes",width:12},{header:"Periods",key:"periods",width:12},
+        {header:"Relative Load %",key:"relativeLoad",width:18}
+      ],rooms);
+      addSheet("Daily Distribution",[
+        {header:"Day",key:"day",width:18},{header:"Classes",key:"classes",width:12},{header:"Periods",key:"periods",width:12}
+      ],days.map(day=>dailyMap.get(day)));
+      addSheet("Timetable Entries",[
+        {header:"Day",key:"day",width:14},{header:"Start",key:"startTime",width:12},
+        {header:"End",key:"endTime",width:12},{header:"Program",key:"program",width:22},
+        {header:"Semester",key:"semester",width:12},{header:"Section",key:"section",width:17},
+        {header:"Subject",key:"subject",width:28},{header:"Subject Code",key:"subjectCode",width:16},
+        {header:"Faculty",key:"faculty",width:25},{header:"Room",key:"room",width:18},
+        {header:"Duration (Periods)",key:"duration",width:18}
+      ],entries.map(entry=>({
+        day:entry.day||"",startTime:entry.startTime||"",endTime:entry.endTime||"",
+        program:entry.section?.program||entry.section?.programId?.name||"",
+        semester:entry.section?.semester||"",section:entry.section?.name||"",
+        subject:entry.subject?.name||"",subjectCode:entry.subject?.code||"",
+        faculty:entry.faculty?.name||"",room:entry.room?.name||"",
+        duration:Math.max(1,Number(entry.duration||1))
+      })));
+      addSheet("Validation",[
+        {header:"Type",key:"type",width:18},{header:"Resource",key:"resource",width:26},
+        {header:"Day",key:"day",width:14},{header:"Start",key:"startTime",width:12},
+        {header:"End",key:"endTime",width:12},{header:"Subjects",key:"subjects",width:48}
+      ],[
+        ...conflicts.map(item=>({type:item.type,resource:item.resource,day:item.day,startTime:item.startTime,endTime:item.endTime,subjects:(item.subjects||[]).join(" / ")})),
+        ...(t.warnings||[]).map(warning=>({type:"Generation warning",resource:String(warning),day:"",startTime:"",endTime:"",subjects:""}))
+      ]);
+
+      const buffer=Buffer.from(await workbook.xlsx.writeBuffer());
+      const filename="academic-reports-"+sessionName.replace(/[^a-z0-9_-]+/gi,"-")+".xlsx";
+      res.setHeader("Content-Disposition",'attachment; filename="'+filename+'"');
+      return res.type("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet").send(buffer);
+    }
+
+    const PDFDocument=(await import("pdfkit")).default;
+    const filename="academic-reports-"+sessionName.replace(/[^a-z0-9_-]+/gi,"-")+".pdf";
+    res.setHeader("Content-Disposition",'attachment; filename="'+filename+'"');
+    res.setHeader("Content-Type","application/pdf");
+    const pdf=new PDFDocument({size:"A4",layout:"landscape",margin:26});
+    pdf.pipe(res);
+    const margin=26;
+    const pageWidth=pdf.page.width;
+    const pageHeight=pdf.page.height;
+    const usableWidth=pageWidth-margin*2;
+    let y=margin;
+    pdf.font("Helvetica-Bold").fontSize(17).fillColor("#172033").text("Academic Reports",{x:margin,y,width:usableWidth,align:"center"});
+    y+=27;
+    pdf.font("Helvetica").fontSize(9).fillColor("#475569").text(sessionName+" | "+(t.versionLabel||("Version "+String(t.version||1)))+" | "+(t.status||"DRAFT"),{x:margin,y,width:usableWidth,align:"center"});
+    y+=24;
+    pdf.font("Helvetica-Bold").fontSize(9).fillColor("#172033").text("Summary",{x:margin,y});
+    y+=15;
+    const summaryLine="Classes: "+entries.length+"   Periods: "+totalPeriods+"   Required weekly sessions: "+requiredSessions+"   Scheduled: "+scheduledSessions+"   Coverage: "+coverage+"%   Unscheduled gaps: "+unscheduled.length+"   Conflicts: "+conflicts.length;
+    pdf.font("Helvetica").fontSize(8).fillColor("#475569").text(summaryLine,{x:margin,y,width:usableWidth});
+    y+=26;
+
+    function drawTable(title,columns,rows){
+      const naturalWidth=columns.reduce((sum,column)=>sum+column.width,0);
+      const scale=Math.min(1,usableWidth/naturalWidth);
+      const scaled=columns.map(column=>({...column,width:column.width*scale}));
+      const tableWidth=scaled.reduce((sum,column)=>sum+column.width,0);
+      const drawHeader=()=>{
+        const height=20;
+        pdf.save().fillColor("#EAF1FF").rect(margin,y,tableWidth,height).fill().restore();
+        let x=margin;
+        pdf.font("Helvetica-Bold").fontSize(7).fillColor("#172033");
+        for(const column of scaled){
+          pdf.text(column.label,x+3,y+5,{width:Math.max(8,column.width-6),height:12,lineBreak:false});
+          x+=column.width;
+        }
+        y+=height;
+      };
+      if(y+32>pageHeight-margin){pdf.addPage({size:"A4",layout:"landscape",margin:26});y=margin;}
+      pdf.font("Helvetica-Bold").fontSize(11).fillColor("#172033").text(title,margin,y);
+      y+=16;
+      drawHeader();
+      for(const row of rows){
+        const values=columns.map(column=>String(row[column.key]??"—"));
+        const heights=values.map((value,index)=>{
+          pdf.font("Helvetica").fontSize(6.5);
+          return pdf.heightOfString(value,{width:Math.max(8,scaled[index].width-6),fontSize:6.5,lineGap:0.5});
+        });
+        const rowHeight=Math.max(16,Math.ceil(Math.max(1,...heights))+6);
+        if(y+rowHeight>pageHeight-margin){
+          pdf.addPage({size:"A4",layout:"landscape",margin:26});
+          y=margin;
+          pdf.font("Helvetica-Bold").fontSize(9).fillColor("#172033").text(title+" (continued)",margin,y);
+          y+=14;
+          drawHeader();
+        }
+        let x=margin;
+        for(let index=0;index<columns.length;index++){
+          pdf.save().fillColor("#FFFFFF").rect(x,y,scaled[index].width,rowHeight).fill().restore();
+          pdf.strokeColor("#E2E8F0").lineWidth(0.35).rect(x,y,scaled[index].width,rowHeight).stroke();
+          pdf.font("Helvetica").fontSize(6.5).fillColor("#334155")
+            .text(values[index],x+3,y+3,{width:Math.max(8,scaled[index].width-6),height:rowHeight-5,fontSize:6.5,lineGap:0.5});
+          x+=scaled[index].width;
+        }
+        y+=rowHeight;
+      }
+      y+=16;
+    }
+
+    drawTable("Faculty Workload",[
+      {label:"Faculty",key:"name",width:145},{label:"Classes",key:"classes",width:50},
+      {label:"Periods",key:"periods",width:50},{label:"Days",key:"workingDays",width:45},
+      ...daysOfWeek.map(day=>({label:day.slice(0,3),key:day,width:43}))
+    ],faculty);
+    drawTable("Subject Session Coverage",[
+      {label:"Subject",key:"name",width:110},{label:"Code",key:"code",width:52},
+      {label:"Section",key:"section",width:100},{label:"Faculty",key:"faculty",width:95},
+      {label:"Required",key:"required",width:55},{label:"Scheduled",key:"scheduled",width:55},
+      {label:"Gap",key:"unscheduled",width:45},{label:"Coverage %",key:"coverage",width:60}
+    ],subjects);
+    drawTable("Section Workload",[
+      {label:"Section",key:"label",width:140},{label:"Classes",key:"classes",width:58},
+      {label:"Periods",key:"periods",width:58},{label:"Required",key:"required",width:70},
+      {label:"Coverage %",key:"coverage",width:70}
+    ],sections);
+    drawTable("Room Load",[
+      {label:"Room",key:"name",width:140},{label:"Type",key:"type",width:100},
+      {label:"Classes",key:"classes",width:62},{label:"Periods",key:"periods",width:62},
+      {label:"Relative Load %",key:"relativeLoad",width:90}
+    ],rooms);
+    drawTable("Daily Distribution",[
+      {label:"Day",key:"day",width:130},{label:"Classes",key:"classes",width:70},{label:"Periods",key:"periods",width:70}
+    ],days.map(day=>dailyMap.get(day)));
+    drawTable("Unscheduled Subjects",[
+      {label:"Subject",key:"name",width:130},{label:"Code",key:"code",width:60},
+      {label:"Section",key:"section",width:100},{label:"Faculty",key:"faculty",width:90},
+      {label:"Required",key:"required",width:55},{label:"Scheduled",key:"scheduled",width:55},
+      {label:"Gap",key:"unscheduled",width:45}
+    ],unscheduled);
+    drawTable("Resource Conflicts",[
+      {label:"Type",key:"type",width:80},{label:"Resource",key:"resource",width:120},
+      {label:"Day",key:"day",width:75},{label:"Start",key:"startTime",width:50},
+      {label:"End",key:"endTime",width:50},{label:"Subjects",key:"subjects",width:220}
+    ],conflicts.map(item=>({...item,subjects:(item.subjects||[]).join(" / ")})));
+    pdf.end();
+  }catch(e){
+    if(res.headersSent){res.end();return;}
+    res.status(500).json({message:e.message});
+  }
 });
 
 // Public sharing administration and read-only endpoints.
