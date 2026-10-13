@@ -222,6 +222,35 @@ async function installApiMocks(page, options = {}) {
         generationTimeLimitMs: 1000
       });
     }
+    if (path === "/reports/summary" && method === "GET") return json(options.report || {
+      session: { _id: "session-1", name: "Academic Year 2026-27", active: true },
+      timetable: { _id: "timetable-1", status: "DRAFT", version: 1, versionLabel: "Version 1" },
+      summary: { requiredSessions: 4, scheduledSessions: 3, coverage: 75, unscheduledSessions: 1, periods: 4 },
+      faculty: [{
+        id: "faculty-1", name: "Ms. Faculty", classes: 3, periods: 4, workingDays: 2, utilization: 100,
+        dailyBreakdown: [
+          { day: "Monday", classes: 2, periods: 3 },
+          { day: "Tuesday", classes: 1, periods: 1 }
+        ],
+        subjectBreakdown: [{
+          id: "subject-1", name: "Mathematics", code: "MATH101", section: "MBA · I · A",
+          required: 2, scheduled: 1, unscheduled: 1
+        }]
+      }],
+      rooms: [{ id: "room-1", name: "Room 101", type: "Classroom", classes: 3, periods: 4, utilization: 100 }],
+      sections: [{ id: "section-1", label: "MBA · I · A", classes: 3, periods: 4, required: 4, coverage: 75 }],
+      daily: [
+        { day: "Monday", classes: 2, periods: 3 }, { day: "Tuesday", classes: 1, periods: 1 },
+        { day: "Wednesday", classes: 0, periods: 0 }, { day: "Thursday", classes: 0, periods: 0 },
+        { day: "Friday", classes: 0, periods: 0 }, { day: "Saturday", classes: 0, periods: 0 },
+        { day: "Sunday", classes: 0, periods: 0 }
+      ],
+      validation: { errors: 1, warnings: 0, issues: [{ severity: "error", category: "Unscheduled sessions", message: "1 required session remains unscheduled." }] },
+      subjects: [
+        { id: "subject-1", name: "Mathematics", code: "MATH101", faculty: "Ms. Faculty", facultyId: "faculty-1", section: "MBA · I · A", sectionId: "section-1", required: 2, scheduled: 1, unscheduled: 1 },
+        { id: "subject-2", name: "Business Analytics", code: "BA102", faculty: "", facultyId: "", section: "MBA · I · A", sectionId: "section-1", required: 2, scheduled: 2, unscheduled: 0 }
+      ]
+    });
     if (path === "/timetable/latest" && method === "GET") return json(timetable);
     if (path === "/timetable/status" && method === "GET") {
       return json({ status: timetableStatus, approvalHistory: timetable.approvalHistory || [] });
@@ -405,6 +434,31 @@ test("admin can download saved full-session timetable as Excel and PDF", async (
   expect(pdfDownload.suggestedFilename()).toBe("full-session-timetable-test-v1.pdf");
 
   expect(exportCalls.map(call => call.format)).toEqual(["excel", "pdf"]);
+});
+
+test("admin can review faculty workload, subject coverage, unassigned subjects and daily details", async ({ page }) => {
+  await signIn(page, { sessions: [makeActiveSession()] });
+  await page.locator('[data-nav="Reports"]').click();
+
+  await expect(page.getByRole("heading", { name: "Academic Reports", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Faculty Workload", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Subject Session Coverage", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Room Load", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Section Workload", exact: true })).toBeVisible();
+  await expect(page.getByText("Ms. Faculty", { exact: true }).first()).toBeVisible();
+
+  await page.getByRole("button", { name: /Details/ }).click();
+  await expect(page.getByRole("heading", { name: "Subject allocation", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Daily teaching load", exact: true })).toBeVisible();
+  await expect(page.getByText("Mathematics", { exact: true }).first()).toBeVisible();
+
+  await page.getByLabel("Filter subject coverage").selectOption("UNASSIGNED");
+  await expect(page.getByText("Business Analytics", { exact: true })).toBeVisible();
+  await expect(page.getByText("Not assigned", { exact: true }).first()).toBeVisible();
+
+  await page.getByLabel("Filter subject coverage").selectOption("GAP");
+  await expect(page.getByText("Mathematics", { exact: true }).first()).toBeVisible();
+  await expect(page.getByText("Business Analytics", { exact: true })).toHaveCount(0);
 });
 
 test("admin can generate and submit a timetable for review", async ({ page }) => {
