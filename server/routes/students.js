@@ -257,6 +257,7 @@ router.post("/bulk-map", allowRoles("ADMIN", "SCHEDULER"), async (req, res) => {
     const academicSessionId = String(req.body?.academicSessionId || "").trim();
 
     if (!studentIds.length) return res.status(400).json({ message: "Select at least one student." });
+    if (studentIds.length > 1000) return res.status(400).json({ message: "Select no more than 1000 students per operation." });
     if (!sectionId) return res.status(400).json({ message: "Destination section is required." });
 
     const section = await Section.findById(sectionId).populate("programId", "name code").lean();
