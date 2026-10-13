@@ -1212,3 +1212,114 @@ button.danger:hover{background:#fff1f2}
   .dashboard-clean .quick-card{gap:8px;padding:10px}
   .dashboard-clean .quick-card-copy strong{font-size:11px}
 }
+
+
+/* Responsive navigation drawer: explicit toggle on tablet/mobile, stable desktop collapse. */
+.mobile-nav-trigger{
+  display:none;
+  align-items:center;
+  justify-content:center;
+  gap:8px;
+  min-height:38px;
+  padding:8px 12px;
+  border:1px solid #dbe3ef;
+  border-radius:10px;
+  background:#fff;
+  color:#172033;
+  font-size:13px;
+  font-weight:700;
+  box-shadow:0 4px 14px rgba(15,23,42,.08);
+}
+.sidebar-backdrop{display:none}
+@media(max-width:1000px){
+  .erp-sidebar,
+  .app.sidebar-collapsed .erp-sidebar{
+    position:fixed;
+    inset:0 auto 0 0;
+    z-index:1200;
+    display:flex;
+    flex:0 0 min(286px,88vw);
+    width:min(286px,88vw)!important;
+    min-width:0;
+    max-width:88vw;
+    height:100vh;
+    height:100dvh;
+    padding:18px 14px;
+    overflow:hidden;
+    visibility:hidden;
+    pointer-events:none;
+    transform:translateX(-105%);
+    box-shadow:none;
+    transition:transform .22s ease,visibility .22s ease,box-shadow .22s ease;
+  }
+  .app.mobile-nav-open .erp-sidebar,
+  .app.sidebar-collapsed.mobile-nav-open .erp-sidebar{
+    visibility:visible;
+    pointer-events:auto;
+    transform:translateX(0);
+    box-shadow:14px 0 42px rgba(15,23,42,.22);
+  }
+  .erp-sidebar .brand{justify-content:flex-start;flex-wrap:nowrap;gap:10px;padding:5px 8px}
+  .erp-sidebar .brand>span,
+  .erp-sidebar .workspace-label,
+  .erp-sidebar .nav-group-title .nav-group-label,
+  .erp-sidebar .nav-label,
+  .erp-sidebar .side-bottom>div{display:block}
+  .erp-sidebar .workspace-label{font-size:10px;letter-spacing:1.4px;margin:24px 10px 8px;color:#6b7d98}
+  .erp-sidebar .nav-group-title{display:flex;min-height:0;padding:7px 10px;font-size:10px;letter-spacing:1.05px}
+  .erp-sidebar .nav-group-title .nav-group-label{display:inline}
+  .erp-sidebar .nav-group-title .nav-group-chevron{margin-left:auto}
+  .erp-sidebar .nav-module-row{gap:2px}
+  .erp-sidebar .nav-module-row>.nav{padding:9px 11px}
+  .erp-sidebar .nav-module-toggle{display:grid;flex:0 0 27px;min-width:27px}
+  .erp-sidebar .nav-module-only-chevron{display:block}
+  .erp-sidebar .nav-subitems{display:grid!important;margin:1px 0 7px 18px;padding-left:9px}
+  .erp-sidebar .nav-subitem{justify-content:flex-start;min-height:35px;padding:8px 9px 8px 10px;gap:8px}
+  .erp-sidebar .nav-subitem .nav-subitem-marker{display:block}
+  .app.sidebar-collapsed.mobile-nav-open .erp-sidebar .nav-group-title{display:flex}
+  .app.sidebar-collapsed.mobile-nav-open .erp-sidebar .nav-label{display:block}
+  .app.sidebar-collapsed.mobile-nav-open .erp-sidebar .workspace-label{display:block}
+  .app.sidebar-collapsed.mobile-nav-open .erp-sidebar .side-bottom>div{display:block}
+  .app.sidebar-collapsed.mobile-nav-open .erp-sidebar .nav-module-toggle{display:grid}
+  .app.sidebar-collapsed.mobile-nav-open .erp-sidebar .nav-subitems{display:grid!important}
+  .app.sidebar-collapsed.mobile-nav-open .erp-sidebar .nav-module-row>.nav{justify-content:flex-start;padding:9px 11px}
+  .app.sidebar-collapsed.mobile-nav-open .erp-sidebar .side-bottom .primary,
+  .app.sidebar-collapsed.mobile-nav-open .erp-sidebar .side-bottom .secondary{font-size:13px;padding:10px 14px}
+  .app.sidebar-collapsed.mobile-nav-open .erp-sidebar .side-bottom .secondary:after{content:none}
+  .erp-main,
+  .app.sidebar-collapsed .erp-main{
+    width:100%;
+    min-width:0;
+    max-width:none;
+    padding:62px 18px 22px;
+  }
+  .mobile-nav-trigger{
+    display:inline-flex;
+    position:fixed;
+    top:10px;
+    left:12px;
+    z-index:1300;
+  }
+  .app.mobile-nav-open .mobile-nav-trigger{left:calc(min(88vw,286px) + 12px)}
+  .sidebar-backdrop{
+    display:block;
+    position:fixed;
+    inset:0;
+    z-index:1190;
+    padding:0;
+    border:0;
+    border-radius:0;
+    background:rgba(15,23,42,.48);
+    cursor:pointer;
+  }
+  .app:not(.mobile-nav-open) .sidebar-backdrop{display:none}
+  .erp-sidebar .sidebar-toggle{margin-left:auto}
+}
+@media(max-width:520px){
+  .erp-main,.app.sidebar-collapsed .erp-main{padding:58px 12px 16px}
+  .mobile-nav-trigger{top:8px;left:9px;min-height:36px}
+  .app.mobile-nav-open .mobile-nav-trigger{left:calc(min(88vw,286px) + 8px)}
+}
+@media(prefers-reduced-motion:reduce){
+  .erp-sidebar,.mobile-nav-trigger{transition:none}
+}
