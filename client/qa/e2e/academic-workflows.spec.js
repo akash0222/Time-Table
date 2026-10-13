@@ -251,6 +251,31 @@ async function installApiMocks(page, options = {}) {
         { id: "subject-2", name: "Business Analytics", code: "BA102", faculty: "", facultyId: "", section: "MBA · I · A", sectionId: "section-1", required: 2, scheduled: 2, unscheduled: 0 }
       ]
     });
+    if (path === "/timetable/readiness" && method === "GET") {
+      if (options.readiness) return json(options.readiness);
+      const configured = Boolean(options.includeSchedulingData);
+      return json({
+        session: activeSession ? { _id: activeSession._id, name: activeSession.name, active: true } : null,
+        status: configured ? "READY" : "NOT_READY",
+        summary: {
+          sections: configured ? sections.length : 0,
+          subjects: configured ? subjects.length : 0,
+          faculty: configured ? faculty.length : 0,
+          rooms: configured ? rooms.length : 0,
+          usableSlots: configured ? timeslots.length : 0,
+          workingDays: configured ? 1 : 0,
+          requiredSessions: configured ? 1 : 0,
+          invalidSubjects: 0,
+          errors: configured ? 0 : 1,
+          warnings: 0
+        },
+        issues: configured ? [] : [{
+          severity: "ERROR",
+          category: "Subject Mapping",
+          message: "No active subject mappings are configured for this academic session."
+        }]
+      });
+    }
     if (path === "/timetable/latest" && method === "GET") return json(timetable);
     if (path === "/timetable/status" && method === "GET") {
       return json({ status: timetableStatus, approvalHistory: timetable.approvalHistory || [] });
@@ -459,6 +484,57 @@ test("admin can review faculty workload, subject coverage, unassigned subjects a
   await page.getByLabel("Filter subject coverage").selectOption("GAP");
   await expect(page.getByText("Mathematics", { exact: true }).first()).toBeVisible();
   await expect(page.getByText("Business Analytics", { exact: true })).toHaveCount(0);
+});
+
+test("dashboard action center shows real readiness blockers and links to the fix", async ({ page }) => {
+  const activeSession = makeActiveSession();
+  await signIn(page, { sessions: [activeSession] });
+
+  const actionCenter = page.locator(".dashboard-action-center");
+  await expect(actionCenter.getByRole("heading", { name: "Action Center", exact: true })).toBeVisible();
+  await expect(actionCenter.getByText("1 errors", { exact: true })).toBeVisible();
+  await expect(actionCenter.getByText("Generation blocked", { exact: true })).toBeVisible();
+  await expect(actionCenter.getByText("No active subject mappings are configured for this academic session.")).toBeVisible();
+
+  await actionCenter.getByRole("button", { name: "Review Subject Mapping" }).click();
+  await expect(page).toHaveURL(/\/subject-and-faculty-mapping$/);
+  await expect(page.locator('[data-nav="Subject & Faculty Mapping"]')).toHaveClass(/active/);
+});
+
+test("generation is stopped when pre-generation readiness reports blockers", async ({ page }) => {
+  const activeSession = makeActiveSession();
+  await signIn(page, { sessions: [activeSession] });
+
+  let generationRequests = 0;
+  page.on("request", request => {
+    if (request.method() === "POST" && new URL(request.url()).pathname.endsWith("/timetable/generate")) {
+      generationRequests += 1;
+    }
+  });
+
+  await page.getByRole("button", { name: /Generate Timetable/ }).first().click();
+  await expect(page.getByRole("heading", { name: "Generation Readiness", exact: true })).toBeVisible();
+  await expect(page.getByText(/Generation blocked: 1 setup error/)).toBeVisible();
+  await expect(page.getByText("No active subject mappings are configured for this academic session.")).toBeVisible();
+  expect(generationRequests).toBe(0);
+});
+
+test("generation proceeds when readiness is valid and keeps warning-only findings non-blocking", async ({ page }) => {
+  const activeSession = makeActiveSession();
+  await signIn(page, {
+    sessions: [activeSession],
+    includeSchedulingData: true,
+    readiness: {
+      session: { _id: activeSession._id, name: activeSession.name, active: true },
+      status: "READY_WITH_WARNINGS",
+      summary: { sections: 1, subjects: 1, faculty: 1, rooms: 1, usableSlots: 1, workingDays: 1, requiredSessions: 1, invalidSubjects: 0, errors: 0, warnings: 1 },
+      issues: [{ severity: "WARNING", category: "Faculty Workload", message: "Faculty is close to the weekly capacity." }]
+    }
+  });
+
+  await page.getByRole("button", { name: /Generate Timetable/ }).first().click();
+  await expect(page.getByRole("heading", { name: "Section-wise Timetable", exact: true })).toBeVisible();
+  await expect(page.getByText("Mathematics", { exact: true }).first()).toBeVisible();
 });
 
 test("admin can generate and submit a timetable for review", async ({ page }) => {
