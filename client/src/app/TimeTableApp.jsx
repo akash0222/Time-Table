@@ -143,10 +143,17 @@ export default function App(){
     try{return JSON.parse(localStorage.getItem("tt_nav_collapsed_groups")||"{}")}catch{return {}}
   });
   const [expandedNavModules,setExpandedNavModules]=useState(()=>{
+    const currentPage=getPageForPath(window.location.pathname);
+    const activeParent=Object.entries(NAV_MODULE_CHILDREN)
+      .find(([parent,children])=>parent===currentPage||children.includes(currentPage))?.[0];
     const defaults={"Academic Sessions":true,"Full Session Timetable":true};
+    if(activeParent)defaults[activeParent]=true;
     try{
       const saved=localStorage.getItem("tt_nav_expanded_modules");
-      return saved ? {...defaults,...JSON.parse(saved)} : defaults;
+      const restored=saved?JSON.parse(saved):{};
+      // A stored collapsed value must not hide the parent of the page opened
+      // directly. After initialization, users can still collapse it manually.
+      return {...defaults,...restored,...(activeParent?{[activeParent]:true}:{})};
     }catch{return defaults;}
   });
   useEffect(()=>{
