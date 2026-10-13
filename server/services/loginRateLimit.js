@@ -1,6 +1,6 @@
 export function createLoginAttemptLimiter({
   limit = 10,
-  windowMs = 15 * 60 * 1000,
+  windowMs = 5 * 60 * 1000,
   maxKeys = 20000,
   now = () => Date.now()
 } = {}) {
@@ -26,7 +26,7 @@ export function createLoginAttemptLimiter({
     res.set("Retry-After", String(waitSeconds));
     return res.status(429).json({
       code: "LOGIN_RATE_LIMITED",
-      message: "Too many sign-in attempts. Please wait before trying again.",
+      message: "Too many failed sign-in attempts. Please try again when the timer reaches 00:00.",
       retryAfterSeconds: waitSeconds,
       lockedUntil: new Date(currentTime + waitSeconds * 1000).toISOString()
     });
@@ -64,9 +64,12 @@ export function createLoginAttemptLimiter({
     if (!current || currentTime - current.startedAt > windowMs) {
       if (!current && attempts.size >= maxKeys) return;
       attempts.set(key, { startedAt: currentTime, count: 1 });
-      return;
+      return { count: 1, remaining: Math.max(0, limit - 1), locked: limit <= 1, retryAfterSeconds: Math.ceil(windowMs / 1000) };
     }
     current.count += 1;
+    const remaining = Math.max(0, limit - current.count);
+    const locked = current.count >= limit;
+    return { count: current.count, remaining, locked, retryAfterSeconds: locked ? Math.ceil(windowMs / 1000) : 0 };
   }
 
   function clearFailedLogins(req) {
