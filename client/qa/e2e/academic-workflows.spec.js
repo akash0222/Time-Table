@@ -265,7 +265,7 @@ test("invalid login shows a useful error and does not authenticate", async ({ pa
 test("admin can open and refresh a direct module URL", async ({ page }) => {
   await signIn(page);
   await page.locator('[data-nav="Academic Sessions"]').click();
-  await expect(page.locator("h1", { hasText: "Academic Sessions" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Academic Sessions", exact: true })).toBeVisible();
   await expect(page.getByText("Program-wise academic calendar")).toBeVisible();
   await page.reload();
   await expect(page.locator("h1", { hasText: "Academic Sessions" })).toBeVisible();
@@ -318,7 +318,7 @@ test("admin can preview and import a holiday list from a CSV file", async ({ pag
   const activeSession = makeActiveSession();
   await signIn(page, { sessions: [activeSession] });
   await page.locator('[data-nav="Holiday Management"]').click();
-  await expect(page.locator("h1", { hasText: "Holiday Management" })).toBeVisible();
+  await expect(page.locator("h2", { hasText: "Holiday Management" })).toBeVisible();
 
   await page.locator("#holiday-upload-file").setInputFiles({
     name: "holidays.csv",
