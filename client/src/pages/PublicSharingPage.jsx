@@ -31,7 +31,7 @@ export default function PublicSharing({data,setMessage}){
   async function copy(token){try{await navigator.clipboard.writeText(publicUrl(token));setMessage("Public link copied to clipboard.")}catch{setMessage(publicUrl(token))}}
   const labelFor=l=>l.scope==="SECTION"?`${l.section?.program||""} · ${l.section?.semester||""} · ${l.section?.name||"Section"}`:l.scope==="FACULTY"?l.faculty?.name||"Faculty":"Complete timetable";
   return <div>
-    <div className="analytics-toolbar"><div><h2>Public Timetable Sharing</h2><p>Create secure read-only links without exposing the administration portal.</p></div><button className="secondary" onClick={load}><RefreshCw size={15}/> Refresh</button></div>
+    <div className="analytics-toolbar"><div><h2>Public Timetable Sharing</h2></div><button className="secondary" onClick={load}><RefreshCw size={15}/> Refresh</button></div>
     <section className="panel share-create-panel">
       <div className="panel-head"><div><h3>Create Share Link</h3><p>Only published or locked timetable versions can be shared.</p></div></div>
       <div className="share-form-grid">
@@ -43,7 +43,7 @@ export default function PublicSharing({data,setMessage}){
       </div>
       <div className="share-actions"><button className="primary" onClick={create} disabled={busy||loading}>{busy?"Creating...":"Create Secure Link"}</button></div>
     </section>
-    <section className="panel"><div className="panel-head"><div><h3>Existing Share Links</h3><p>Disable or delete links at any time.</p></div></div>
+    <section className="panel"><div className="panel-head"><div><h3>Existing Share Links</h3></div></div>
       {!links.length?<div className="empty-state"><h3>No share links</h3><p>Create a link above after publishing a timetable.</p></div>:<div className="share-link-list">{links.map(l=>{
         const expired=l.expiresAt&&new Date(l.expiresAt)<new Date();
         return <div className="share-link-row" key={l._id}><div className="share-link-main"><div><strong>{labelFor(l)}</strong><span>{l.scope} · {l.timetable?.versionLabel||`Version ${l.timetable?.version||""}`} · {l.timetable?.status||""}</span></div><code>{publicUrl(l.token)}</code><small>{expired ? "Expired" : l.expiresAt ? `Expires ${new Date(l.expiresAt).toLocaleString()}` : "No expiry"} · {l.accessCount||0} access{(l.accessCount||0)===1?"":"es"}</small></div><div className="share-link-actions"><button className="secondary" onClick={()=>copy(l.token)}><Copy size={14}/> Copy</button><button className="secondary" onClick={()=>window.open(`${API}/public/share/${l.token}/qr`,"_blank","noopener,noreferrer")} disabled={expired||!l.active}><QrCode size={14}/> QR</button><button className={l.active&&!expired?"secondary":"primary"} onClick={()=>toggle(l._id)} disabled={expired}>{l.active?"Disable":"Enable"}</button><button className="secondary" onClick={()=>remove(l._id)}><Trash2 size={14}/> Delete</button></div></div>
