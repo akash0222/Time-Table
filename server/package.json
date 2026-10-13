@@ -24,7 +24,8 @@
     "test:notification-access": "node qa/notification-access.test.mjs",
     "test:timetable-access": "node qa/timetable-access.test.mjs",
     "test:regression:faculty-workload": "node qa/regression-faculty-workload.mjs",
-    "test:regression:timetable-version-diff": "node qa/regression-timetable-version-diff.mjs"
+    "test:regression:timetable-version-diff": "node qa/regression-timetable-version-diff.mjs",
+    "test:regression:login-rate-limit": "node qa/regression-login-rate-limit.mjs"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
