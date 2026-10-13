@@ -147,6 +147,10 @@ export default function App(){
       return saved ? {...defaults,...JSON.parse(saved)} : defaults;
     }catch{return defaults;}
   });
+  useEffect(()=>{
+    const parent=Object.entries(NAV_MODULE_CHILDREN).find(([,children])=>children.includes(tab))?.[0];
+    if(parent) setExpandedNavModules(previous=>previous[parent]?previous:{...previous,[parent]:true});
+  },[tab]);
 
   const [data,setData]=useState({faculty:[],subjects:[],sections:[],rooms:[],timeslots:[],programs:[],students:[]});
   const [latest,setLatest]=useState(null);
