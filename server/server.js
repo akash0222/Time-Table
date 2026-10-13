@@ -2693,7 +2693,7 @@ app.get("/api/reports/summary", requireAuth, allowRoles("ADMIN","SCHEDULER"), as
     // Load faculty limits and availability from master data so workload is
     // measured against configured capacity, including faculty with zero classes.
     const [facultyRows,workloadSlots,defaultSchedulerSettings]=await Promise.all([
-      Faculty.find({active:{$ne:false}}).lean(),
+      Faculty.find().lean(),
       TimeSlot.find().sort({day:1,order:1}).lean(),
       SchedulerSetting.findOne({key:"default"}).lean()
     ]);
@@ -2896,7 +2896,7 @@ app.get("/api/reports/export/:type", requireAuth, allowRoles("ADMIN","SCHEDULER"
     const [sectionRows,roomRows,facultyRows,workloadSlots,defaultSchedulerSettings]=await Promise.all([
       Section.find({academicSession:sessionId}).populate("programId","name code").lean(),
       Room.find().lean(),
-      Faculty.find({active:{$ne:false}}).lean(),
+      Faculty.find().lean(),
       TimeSlot.find().sort({day:1,order:1}).lean(),
       SchedulerSetting.findOne({key:"default"}).lean()
     ]);
