@@ -226,17 +226,34 @@ async function installApiMocks(page, options = {}) {
       session: { _id: "session-1", name: "Academic Year 2026-27", active: true },
       timetable: { _id: "timetable-1", status: "DRAFT", version: 1, versionLabel: "Version 1" },
       summary: { requiredSessions: 4, scheduledSessions: 3, coverage: 75, unscheduledSessions: 1, periods: 4 },
-      faculty: [{
-        id: "faculty-1", name: "Ms. Faculty", classes: 3, periods: 4, workingDays: 2, utilization: 100,
-        dailyBreakdown: [
-          { day: "Monday", classes: 2, periods: 3 },
-          { day: "Tuesday", classes: 1, periods: 1 }
-        ],
-        subjectBreakdown: [{
-          id: "subject-1", name: "Mathematics", code: "MATH101", section: "MBA · I · A",
-          required: 2, scheduled: 1, unscheduled: 1
-        }]
-      }],
+      faculty: [
+        {
+          id: "faculty-1", name: "Ms. Faculty", classes: 3, periods: 4, workingDays: 2, utilization: 100,
+          capacityConfigured: true, maxClassesPerDay: 2, maxWorkingDays: 2,
+          capacityClasses: 4, capacityUtilization: 75, loadStatus: "WITHIN_CAPACITY",
+          availablePeriods: 18, freePeriods: 14,
+          dailyBreakdown: [
+            { day: "Monday", classes: 2, periods: 3, availablePeriods: 4, freePeriods: 1, capacityClasses: 2, capacityUtilization: 100 },
+            { day: "Tuesday", classes: 1, periods: 1, availablePeriods: 4, freePeriods: 3, capacityClasses: 2, capacityUtilization: 50 }
+          ],
+          subjectBreakdown: [{
+            id: "subject-1", name: "Mathematics", code: "MATH101", section: "MBA · I · A",
+            required: 2, scheduled: 1, unscheduled: 1
+          }]
+        },
+        {
+          id: "faculty-2", name: "Dr. Overloaded", classes: 6, periods: 8, workingDays: 4, utilization: 200,
+          capacityConfigured: true, maxClassesPerDay: 1, maxWorkingDays: 4,
+          capacityClasses: 4, capacityUtilization: 150, loadStatus: "OVER_CAPACITY",
+          availablePeriods: 24, freePeriods: 16, dailyBreakdown: [], subjectBreakdown: []
+        },
+        {
+          id: "faculty-3", name: "Dr. Limits Missing", classes: 0, periods: 0, workingDays: 0, utilization: 0,
+          capacityConfigured: false, maxClassesPerDay: null, maxWorkingDays: null,
+          capacityClasses: null, capacityUtilization: null, loadStatus: "LIMITS_NOT_CONFIGURED",
+          availablePeriods: 24, freePeriods: 24, dailyBreakdown: [], subjectBreakdown: []
+        }
+      ],
       rooms: [{ id: "room-1", name: "Room 101", type: "Classroom", classes: 3, periods: 4, utilization: 100 }],
       sections: [{ id: "section-1", label: "MBA · I · A", classes: 3, periods: 4, required: 4, coverage: 75 }],
       daily: [
@@ -461,7 +478,7 @@ test("admin can download saved full-session timetable as Excel and PDF", async (
   expect(exportCalls.map(call => call.format)).toEqual(["excel", "pdf"]);
 });
 
-test("admin can review faculty workload, subject coverage, unassigned subjects and daily details", async ({ page }) => {
+test("admin can review capacity-based faculty workload, overload alerts and daily detail", async ({ page }) => {
   await signIn(page, { sessions: [makeActiveSession()] });
   await page.locator('[data-nav="Reports"]').click();
 
@@ -472,10 +489,23 @@ test("admin can review faculty workload, subject coverage, unassigned subjects a
   await expect(page.getByRole("heading", { name: "Section Workload", exact: true })).toBeVisible();
   await expect(page.getByText("Ms. Faculty", { exact: true }).first()).toBeVisible();
 
-  await page.getByRole("button", { name: /Details/ }).click();
+  const facultyPanel=page.locator(".report-panel").filter({has:page.getByRole("heading",{name:"Faculty Workload",exact:true})});
+  await expect(facultyPanel.getByText("1", { exact: true }).first()).toBeVisible();
+  await expect(facultyPanel.getByText("Over capacity", { exact: true }).first()).toBeVisible();
+  await expect(facultyPanel.getByText("Limits not configured", { exact: true }).first()).toBeVisible();
+  await expect(facultyPanel.getByRole("columnheader", {name:"Weekly Capacity"})).toBeVisible();
+  await expect(facultyPanel.getByRole("columnheader", {name:"Capacity Used"})).toBeVisible();
+
+  const msFacultyRow=facultyPanel.locator("tr").filter({hasText:"Ms. Faculty"}).first();
+  await expect(msFacultyRow).toContainText("4 classes");
+  await expect(msFacultyRow).toContainText("75% used");
+  await msFacultyRow.getByRole("button", { name: /Details/ }).click();
+  await expect(page.getByRole("heading", { name: "Workload summary", exact: true })).toBeVisible();
+  await expect(page.getByText("14", { exact: true }).first()).toBeVisible();
   await expect(page.getByRole("heading", { name: "Subject allocation", exact: true })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Daily teaching load", exact: true })).toBeVisible();
   await expect(page.getByText("Mathematics", { exact: true }).first()).toBeVisible();
+  await expect(page.getByText(/free \/ .* available periods/).first()).toBeVisible();
 
   await page.getByLabel("Filter subject coverage").selectOption("UNASSIGNED");
   await expect(page.getByText("Business Analytics", { exact: true })).toBeVisible();
