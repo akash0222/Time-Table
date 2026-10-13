@@ -424,10 +424,11 @@ export default function App(){
                       : <button
                           type="button"
                           title={sidebarCollapsed?item.name:undefined}
-                          className="nav nav-module-link nav-module-only"
+                          className={"nav nav-module-link nav-module-only"+(moduleIsCurrent?" active":"")}
                           onClick={toggleModule}
                           aria-expanded={moduleExpanded}
                           aria-controls={moduleId}
+                          aria-current={moduleIsCurrent?"location":undefined}
                         ><item.Icon size={17}/><span className="nav-label">{item.name}</span><ChevronDown className="nav-module-only-chevron" size={13}/></button>}
                     {item.routeAllowed&&<button
                       type="button"
