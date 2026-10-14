@@ -15,7 +15,7 @@ export default function AcademicStructure({sessions=[],activeSession,programs=[]
     try{const r=await axios.get(`${API}/academic-structure${sessionId?`?sessionId=${sessionId}`:""}`);setStructure(r.data||{programs:[],sections:[]});}
     catch(e){setMessage(e.response?.data?.message||e.message)}finally{setLoading(false)}
   }
-  useEffect(()=>{loadStructure()},[sessionId]);
+  useEffect(()=>{loadStructure()},[sessionId,programs]);
   const session=sessions.find(x=>String(x._id)===String(sessionId));
   const activePrograms=(programs||[]).filter(p=>p.active!==false);
   function reset(){setEditing(null);setForm({programId:"",semester:"",name:"",maxClassesPerDay:6,capacity:0})}
