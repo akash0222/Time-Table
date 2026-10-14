@@ -367,6 +367,9 @@ export function generateTimetable({
         fDays.get(fid).add(day);
         fDayCount.set(`${fid}|${day}`,(fDayCount.get(`${fid}|${day}`)||0)+duration);
       }
+      if(sid && day){
+        secDayCount.set(`${sid}|${day}`,(secDayCount.get(`${sid}|${day}`)||0)+duration);
+      }
       for(const slot of usableSlots){
         if(!entryOverlapsSlot(fixed,slot)) continue;
         const key=slotKey(slot);
