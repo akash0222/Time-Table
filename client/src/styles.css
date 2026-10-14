@@ -1742,3 +1742,48 @@ button.danger:hover{background:#fff1f2}
     display:none!important;
   }
 }
+
+
+/* Academic session workflow and sidebar context */
+.academic-session-form-grid{
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  align-items:end;
+}
+.academic-session-form-grid .field input:disabled{
+  color:#334155;
+  background:#f1f5f9;
+  opacity:1;
+  font-weight:700;
+}
+.sidebar-session-context{
+  display:flex;
+  align-items:center;
+  gap:9px;
+  width:100%;
+  min-width:0;
+  margin:12px 0 4px;
+  padding:10px 11px;
+  border:1px solid rgba(148,163,184,.2);
+  border-radius:11px;
+  color:#dbeafe;
+  background:rgba(30,41,59,.72);
+  text-align:left;
+  cursor:pointer;
+}
+.sidebar-session-context:hover{background:rgba(37,99,235,.18);border-color:rgba(96,165,250,.45)}
+.sidebar-session-dot{
+  width:8px;height:8px;flex:0 0 8px;border-radius:50%;
+  background:#34d399;box-shadow:0 0 0 3px rgba(52,211,153,.12);
+}
+.sidebar-session-copy{display:flex;flex:1;min-width:0;flex-direction:column;gap:3px}
+.sidebar-session-copy small{font-size:9px;letter-spacing:1px;font-weight:800;color:#94a3b8}
+.sidebar-session-copy strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;color:#f8fafc}
+.app.sidebar-collapsed .sidebar-session-context{justify-content:center;padding:10px 5px}
+.app.sidebar-collapsed .sidebar-session-copy{display:none}
+.app.sidebar-collapsed .sidebar-session-context>svg{display:none}
+@media(max-width:1000px){
+  .academic-session-form-grid{grid-template-columns:minmax(0,1fr)}
+  .app.sidebar-collapsed.mobile-nav-open .sidebar-session-context{justify-content:flex-start;padding:10px 11px}
+  .app.sidebar-collapsed.mobile-nav-open .sidebar-session-copy{display:flex}
+  .app.sidebar-collapsed.mobile-nav-open .sidebar-session-context>svg{display:block}
+}
