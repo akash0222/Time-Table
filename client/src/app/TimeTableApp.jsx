@@ -293,7 +293,7 @@ export default function App(){
       // Warnings are surfaced in the Readiness page, but blocking errors stop generation.
       let preflight;
       try{
-        preflight=(await axios.get(`${API}/timetable/readiness`,{params:{sessionId:activeSession._id}})).data;
+        preflight=(await axios.get(`${API}/timetable/readiness`,{params:{sessionId:activeSession._id,programIds:(programIds||[]).join(",")}})).data;
       }catch(checkError){
         setTab("Generation Readiness");
         setMessage(`Generation was not started because pre-generation checks could not be completed. ${checkError.response?.data?.message||checkError.message||"Retry the readiness check."}`);
@@ -306,7 +306,7 @@ export default function App(){
         return;
       }
       const preflightErrors=Number(preflight.summary.errors||0);
-      if((preflight.status==="NOT_READY"||preflightErrors>0) && (!programIds?.length || programIds.length===(data.programs||[]).filter(p=>p.active!==false).length)){
+      if(preflight.status==="NOT_READY"||preflightErrors>0){
         setTab("Generation Readiness");
         setMessage(`Generation blocked: ${preflightErrors||1} setup error(s) must be resolved first. Review the findings in Generation Readiness.`);
         return;
