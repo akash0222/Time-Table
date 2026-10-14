@@ -11,6 +11,7 @@ assert.match(programDateInputIssue(normalizeProgramDates([{program:"",startDate:
 assert.match(programDateInputIssue(normalizeProgramDates([{program:p1,startDate:"2026-02-30",endDate:"2027-06-30"}])), /valid Start Date and End Date/);
 assert.match(programDateInputIssue(normalizeProgramDates([{program:p1,startDate:"2027-06-30",endDate:"2026-07-01"}])), /cannot be before/);
 assert.match(programDateInputIssue(normalizeProgramDates([{program:p1,startDate:"2026-07-01",endDate:"2027-06-30"},{program:p1,startDate:"2026-07-01",endDate:"2027-06-30"}])), /only one date range/);
+assert.equal(programDateInputIssue(normalizeProgramDates([{program:p1,semester:"Semester I",startDate:"2026-07-01",endDate:"2027-06-30"},{program:p1,semester:"Semester III",startDate:"2026-08-01",endDate:"2027-06-30"}])), "");
 assert.equal(programDateInputIssue(normalizeProgramDates([{program:p1,startDate:"2026-07-01",endDate:"2027-06-30"},{program:p2,startDate:"2026-08-01",endDate:"2027-06-30"}])), "");
 assert.match(programDateInputIssue([]), /At least one program calendar/);
 
