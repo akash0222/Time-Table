@@ -438,14 +438,14 @@ export default function App(){
           <button type="button" className="secondary" onClick={()=>setSelectedProgramIds((data.programs||[]).filter(p=>p.active!==false).map(p=>String(p._id)))}>Select all</button>
           <button type="button" className="secondary" onClick={()=>setSelectedProgramIds([])}>Clear selection</button>
         </div>
-        <div style={{display:"grid",gap:8,maxHeight:300,overflowY:"auto",marginBottom:18}}>
-          {(data.programs||[]).filter(p=>p.active!==false).map(program=><label key={program._id} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 12px",border:"1px solid var(--border, #dbe2ea)",borderRadius:10,cursor:"pointer"}}>
+        <div className="modal-program-list">
+          {(data.programs||[]).filter(p=>p.active!==false).map(program=><label key={program._id} className="modal-program-option">
             <input type="checkbox" checked={selectedProgramIds.includes(String(program._id))} onChange={event=>setSelectedProgramIds(previous=>event.target.checked?[...new Set([...previous,String(program._id)])]:previous.filter(id=>id!==String(program._id)))}/>
             <span><strong>{program.name}</strong>{program.code&&<small style={{display:"block",opacity:.7}}>{program.code}</small>}</span>
           </label>)}
           {!(data.programs||[]).some(p=>p.active!==false)&&<p>No active programs found. Add or activate a program first.</p>}
         </div>
-        <p style={{fontSize:13,opacity:.75}}>Only sections mapped to the selected programs will be generated. Before saving, the generator reserves existing classes from other programs and checks faculty, room, section, daily-load, and consecutive-period conflicts. Existing programs are preserved; if a conflict-free timetable cannot be completed, nothing is saved.</p>
+        <p className="generation-conflict-note">Only sections mapped to the selected programs will be generated. Before saving, the generator reserves existing classes from other programs and checks faculty, room, section, daily-load, and consecutive-period conflicts. Existing programs are preserved; if a conflict-free timetable cannot be completed, nothing is saved.</p>
         <div className="modal-footer" style={{display:"flex",justifyContent:"flex-end",gap:8}}>
           <button type="button" className="secondary" onClick={()=>setShowGenerationDialog(false)}>Cancel</button>
           <button type="button" className="primary" disabled={loading||!selectedProgramIds.length} onClick={()=>generate(selectedProgramIds)}><WandSparkles size={16}/> Generate selected ({selectedProgramIds.length})</button>
