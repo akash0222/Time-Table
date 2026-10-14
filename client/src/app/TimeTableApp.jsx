@@ -112,6 +112,7 @@ export default function App(){
   const [sessions,setSessions]=useState([]);
   const [versionList,setVersionList]=useState([]);
   const [approvalHistory,setApprovalHistory]=useState([]);
+  const loadRef=useRef(null);
 
   async function load(){
     if(!API){
@@ -186,6 +187,27 @@ export default function App(){
       setMessage(`Some data could not be loaded. Check the backend/API configuration, then retry. ${loadErrors.slice(0,3).join(" | ")}`);
     }
   }
+  // Revalidate server-backed records when the user returns to an open tab.
+  // Keep the mounted page, but refresh its data instead of showing pre-reset records.
+  loadRef.current=load;
+  useEffect(()=>{
+    if(!auth) return;
+    let lastRefreshAt=0;
+    const refreshIfVisible=()=>{
+      if(document.visibilityState==="hidden") return;
+      const now=Date.now();
+      if(now-lastRefreshAt<3000) return;
+      lastRefreshAt=now;
+      loadRef.current?.().catch(e=>setMessage(e.response?.data?.message||"Unable to refresh application data."));
+    };
+    const onVisibilityChange=()=>{ if(document.visibilityState==="visible") refreshIfVisible(); };
+    window.addEventListener("focus",refreshIfVisible);
+    document.addEventListener("visibilitychange",onVisibilityChange);
+    return ()=>{
+      window.removeEventListener("focus",refreshIfVisible);
+      document.removeEventListener("visibilitychange",onVisibilityChange);
+    };
+  },[auth?.username]);
   useEffect(()=>{if(auth) load().catch(e=>setMessage(e.response?.data?.message||"Start the backend server first."));},[auth?.username]);
   useEffect(()=>{
     if(!auth || !activeSession?._id) return;
