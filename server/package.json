@@ -33,7 +33,8 @@
     "test:integration:full-workflow": "node qa/full-workflow-integration.mjs",
     "test:regression:time-slot-validation": "node qa/time-slot-validation.test.mjs",
     "test:regression:program-date-validation": "node qa/program-date-validation.test.mjs",
-    "test:regression:timetable-workflow-notes": "node qa/timetable-workflow-notes.test.mjs"
+    "test:regression:timetable-workflow-notes": "node qa/timetable-workflow-notes.test.mjs",
+    "test:regression:program-semester-scope": "node qa/program-semester-scope.test.mjs"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
