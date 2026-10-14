@@ -75,6 +75,46 @@ assert.equal(result.validation?.stats?.hardErrors, 0, "A valid one-class fixture
 
 console.log("PASS  Generator imports timetable validator successfully");
 console.log("PASS  One-class fixture is generated");
+// Program-scoped generation must treat an existing class as a fixed reservation.
+const reservedFacultyClass = {
+  day: "Monday",
+  startTime: "09:00",
+  endTime: "10:00",
+  order: 1,
+  duration: 1,
+  faculty: "qa-faculty-1",
+  section: "other-program-section",
+  subject: "other-program-subject",
+  room: "qa-room-1"
+};
+const blockedByExistingProgram = generateBestTimetable({
+  faculty,
+  subjects,
+  sections,
+  rooms,
+  slots,
+  programs: [],
+  settings: {
+    maxConsecutiveFaculty: 2,
+    maxConsecutiveSection: 3,
+    avoidSameSubjectSameDay: true,
+    distributeSubjectAcrossDays: true,
+    avoidFirstLastPeriod: false,
+    holidayDays: ["Sunday"]
+  },
+  reservedEntries: [reservedFacultyClass],
+  runs: 1,
+  totalMaxMillis: 1000,
+  perRunMillis: 750,
+  attemptsPerRun: 10
+});
+assert.equal(
+  blockedByExistingProgram.entries.length,
+  0,
+  "Generation must not double-book a faculty member already teaching for another program."
+);
+console.log("PASS  Existing program entries reserve faculty/room/section time during generation");
+
 console.log("PASS  Generated candidate passes hard-constraint validation");
 console.log("PASS  Validation statistics contain zero hard errors");
 // An availability change must invalidate a stored Tuesday class if faculty
