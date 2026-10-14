@@ -283,7 +283,13 @@ export default function App(){
 
   function positionFlyout(event){
     const rect=event.currentTarget.getBoundingClientRect();
-    setFlyoutTop(Math.max(104,Math.min(rect.top,window.innerHeight-360)));
+    const isPhone=window.matchMedia("(max-width: 700px)").matches;
+    // Mobile flyouts use a centered overlay; desktop flyouts track their module,
+    // while keeping enough room below for the submenu to scroll.
+    const top=isPhone
+      ? Math.max(16,Math.round(window.innerHeight*0.1))
+      : Math.max(16,Math.min(rect.top,window.innerHeight-220));
+    setFlyoutTop(top);
   }
 
   function showNavGroup(event,group){
@@ -490,7 +496,7 @@ export default function App(){
       if(!group)return null;
       const items=group.items.filter(item=>!flyoutSearch||item.name.toLowerCase().includes(flyoutSearch.toLowerCase()));
       return <div className="nav-flyout-backdrop" onMouseDown={event=>{if(event.target===event.currentTarget)setActiveNavGroup(null);}}>
-        <section className="nav-flyout-panel" role="dialog" aria-label={group.label+" submenu"} style={{top:flyoutTop}}>
+        <section className="nav-flyout-panel" role="dialog" aria-label={group.label+" submenu"} style={{top:flyoutTop,maxHeight:`calc(100dvh - ${flyoutTop}px - 18px)`}}>
           <header className="nav-flyout-header"><strong>{group.label}</strong><button type="button" onClick={()=>setActiveNavGroup(null)} aria-label="Close submenu"><X size={16}/></button></header>
           <div className="nav-flyout-search"><Search size={15}/><input value={flyoutSearch} onChange={event=>setFlyoutSearch(event.target.value)} placeholder="Search submodules..." aria-label="Search submodules"/></div>
           <div className="nav-flyout-items">
