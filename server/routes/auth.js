@@ -68,6 +68,35 @@ router.get("/me", requireAuth, async (req, res) => {
   res.json({ user });
 });
 
+router.post("/change-password", requireAuth, async (req, res) => {
+  try {
+    const currentPassword = String(req.body?.currentPassword || "");
+    const newPassword = String(req.body?.newPassword || "");
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({ message: "Current password and new password are required." });
+    }
+    if (newPassword.length < 10) {
+      return res.status(400).json({ message: "New password must contain at least 10 characters." });
+    }
+    const user = await User.findById(req.user.id);
+    if (!user || user.active === false) {
+      return res.status(401).json({ message: "User account is inactive." });
+    }
+    if (!(await bcrypt.compare(currentPassword, user.passwordHash))) {
+      return res.status(400).json({ message: "Current password is incorrect." });
+    }
+    if (await bcrypt.compare(newPassword, user.passwordHash)) {
+      return res.status(400).json({ message: "New password must be different from the current password." });
+    }
+    user.passwordHash = await bcrypt.hash(newPassword, 12);
+    await user.save();
+    return res.json({ ok: true, message: "Password changed successfully." });
+  } catch (error) {
+    console.error("POST /api/auth/change-password failed:", error?.message || error);
+    return res.status(500).json({ message: "Unable to change password right now. Please try again." });
+  }
+});
+
 router.get("/users", requireAuth, async (req, res) => {
   if (req.user.role !== "ADMIN") return res.status(403).json({ message: "Only administrators can view users." });
   const users = await User.find().populate("faculty", "name code").populate("section", "name program semester").select("-passwordHash").sort({ createdAt: -1 });
