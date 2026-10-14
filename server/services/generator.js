@@ -448,13 +448,14 @@ export function generateTimetable({
     });
 
     function canPlaceConsecutive(fid,sid,block,day){
+      const section = sMap.get(sid);
       const candidateInterval={
         startTime:block[0]?.startTime,
         endTime:block.at(-1)?.endTime,
         duration:block.length
       };
       const relevant=[...fixedEntries,...entries].filter(e=>
-        e.day===day&&calendarWindowsOverlap(e,sec)
+        e.day===day&&calendarWindowsOverlap(e,section)
       );
       const facultyItems=relevant.filter(e=>idOf(e.faculty)===fid).concat(candidateInterval);
       const sectionItems=relevant.filter(e=>idOf(e.section)===sid).concat(candidateInterval);
