@@ -320,6 +320,7 @@ export default function App(){
     setFlyoutSearch("");
     setActiveNavGroup(null);
     setMobileNavOpen(false);
+    setProfileOpen(false);
   }
 
   function persistSidebarWidth(width){
@@ -567,19 +568,7 @@ export default function App(){
         <button
           type="button"
           className="sidebar-toggle"
-          onClick={()=>{
-            if(window.matchMedia("(max-width: 1000px)").matches){
-              setMobileNavOpen(false);
-              setActiveNavGroup(null);
-              return;
-            }
-            setSidebarCollapsed(current=>{
-              const next=!current;
-              try{localStorage.setItem("tt_sidebar_collapsed",String(next));}catch{}
-              if(next)setActiveNavGroup(null);
-              return next;
-            });
-          }}
+          onClick={toggleSidebar}
           aria-label={mobileNavOpen?"Close navigation":sidebarCollapsed?"Expand navigation":"Collapse navigation"}
           title={mobileNavOpen?"Close navigation":sidebarCollapsed?"Expand navigation":"Collapse navigation"}
           aria-expanded={!sidebarCollapsed}
@@ -613,7 +602,7 @@ export default function App(){
         {normalizedNavQuery&&!visibleNavGroups.length&&<div className="nav-search-empty" role="status">No pages match “{navQuery.trim()}”.</div>}
       </nav>
       <div className="side-bottom">
-        {(["ADMIN","SCHEDULER"].includes(auth.role)) && <button className="primary full" onClick={()=>{setSelectedProgramIds((data.programs||[]).filter(p=>p.active!==false).map(p=>String(p._id)));setShowGenerationDialog(true);}} disabled={loading}><WandSparkles size={17}/> Generate Timetable</button>}
+        {(["ADMIN","SCHEDULER"].includes(auth.role)) && <button className="primary full" onClick={()=>{setSelectedProgramIds((data.programs||[]).filter(p=>p.active!==false).map(p=>String(p._id)));setShowGenerationDialog(true);}} disabled={loading}><WandSparkles size={17}/><span>Generate Timetable</span></button>}
       </div>
       <div
         className="sidebar-resize-handle"
