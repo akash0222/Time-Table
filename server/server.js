@@ -1084,182 +1084,148 @@ app.get("/api/timetable/readiness", requireAuth, allowRoles("ADMIN","SCHEDULER")
 app.post("/api/timetable/generate", requireAuth, allowRoles("ADMIN", "SCHEDULER"), async (req,res) => {
   try {
     const academicSessionId=req.body?.academicSessionId||null;
+    const requestedProgramIds=Array.isArray(req.body?.programIds)
+      ? [...new Set(req.body.programIds.map(value=>String(value||"").trim()).filter(Boolean))]
+      : [];
     if(academicSessionId){
       const session=await AcademicSession.findById(academicSessionId);
       if(!session)return res.status(404).json({message:"Selected academic session was not found."});
     }
-    // IMPORTANT: load Subjects as raw documents. Do not depend on populate().
-    // A valid MongoDB ObjectId reference is enough for the generator.
-    const [faculty, sections, rooms, slots, programs] = await Promise.all([
+    if(requestedProgramIds.some(id=>!mongoose.isValidObjectId(id))){
+      return res.status(400).json({message:"One or more selected program IDs are invalid."});
+    }
+
+    const [faculty, allSections, rooms, slots, programs] = await Promise.all([
       Faculty.find().lean(),
-      academicSessionId ? Section.find({ academicSession: academicSessionId }).lean() : Section.find().lean(),
+      academicSessionId ? Section.find({academicSession:academicSessionId}).lean() : Section.find().lean(),
       Room.find().lean(),
       TimeSlot.find().sort({day:1,order:1}).lean(),
-      Program.find().lean()
+      Program.find({active:{$ne:false}}).lean()
     ]);
-
-    const sectionIdsForSession = sections.map(s => s._id);
-    const subjectFilter = academicSessionId
-      ? { $and: [
-          { $or: [{ academicSession: academicSessionId }, { academicSession: null }] },
-          { section: { $in: sectionIdsForSession } },
-          { active: { $ne: false } }
-        ] }
-      : { active: { $ne: false } };
-    const subjects = await Subject.find(subjectFilter).lean();
-
-    let settings = null;
-    try {
-      settings = await SchedulerSetting.findOne({ key: "default" }).lean();
-      const override = settings?.sessionOverrides?.find(x => String(x.academicSession) === String(academicSessionId));
-      if (override) settings = { ...settings, ...override };
-    } catch (settingsError) {
-      console.error("Scheduler settings unavailable:", settingsError.message);
+    const programById=new Map(programs.map(program=>[String(program._id),program]));
+    const selectedPrograms=requestedProgramIds.map(id=>programById.get(id));
+    if(requestedProgramIds.length && selectedPrograms.some(program=>!program)){
+      return res.status(400).json({message:"One or more selected programs do not exist or are inactive. Refresh Programs and try again."});
+    }
+    const selectedProgramNames=new Set(selectedPrograms.flatMap(program=>[program.name,program.code].filter(Boolean).map(value=>String(value).trim().toLowerCase())));
+    const isSelectedSection=section=>{
+      if(!requestedProgramIds.length)return true;
+      const programId=String(section.programId?._id||section.programId||"");
+      if(programId && requestedProgramIds.includes(programId))return true;
+      const legacyProgram=String(section.program||"").trim().toLowerCase();
+      return selectedProgramNames.has(legacyProgram);
+    };
+    const sections=allSections.filter(isSelectedSection);
+    if(requestedProgramIds.length && !sections.length){
+      return res.status(400).json({message:"No sections are mapped to the selected program(s) in this academic session."});
     }
 
-    if (!subjects.length) return res.status(400).json({message:"No subjects found. Import or add Subjects first."});
-    const holidayDays = new Set(["Sunday", ...(Array.isArray(settings?.holidayDays) ? settings.holidayDays : [])]);
-    const usableSlots = slots.filter(s => !s.isBreak && !holidayDays.has(String(s.day)));
-    if (!usableSlots.length) return res.status(400).json({message:`No usable time slots found after excluding holidays (${[...holidayDays].join(", ")}). Add Time Slots for working days first.`});
-    if (!faculty.length) return res.status(400).json({message:"No faculty found. Add or import Faculty first."});
-    if (!sections.length) return res.status(400).json({message:"No sections found. Add or import Sections first."});
-    if (!rooms.length) return res.status(400).json({message:"No rooms found. Add or import Rooms first."});
+    // Load session subjects, then scope generation to the selected sections.
+    const allSessionSectionIds=allSections.map(section=>section._id);
+    const subjectFilter=academicSessionId
+      ? {$and:[{$or:[{academicSession:academicSessionId},{academicSession:null}]},{section:{$in:allSessionSectionIds}},{active:{$ne:false}}]}
+      : {active:{$ne:false}};
+    const allSubjects=await Subject.find(subjectFilter).lean();
+    const selectedSectionIds=new Set(sections.map(section=>String(section._id)));
+    const subjects=allSubjects.filter(subject=>selectedSectionIds.has(String(subject.section?._id||subject.section||"")));
 
-    const facultyIds = new Set(faculty.map(f => String(f._id)));
-    const sectionIds = new Set(sections.map(s => String(s._id)));
+    let settings=null;
+    try{
+      settings=await SchedulerSetting.findOne({key:"default"}).lean();
+      const override=settings?.sessionOverrides?.find(x=>String(x.academicSession)===String(academicSessionId));
+      if(override)settings={...settings,...override};
+    }catch(settingsError){console.error("Scheduler settings unavailable:",settingsError.message);}
 
-    const invalidSubjects = [];
-    const validSubjects = [];
+    if(!subjects.length)return res.status(400).json({message:"No active subjects found for the selected program(s) and academic session."});
+    const holidayDays=new Set(["Sunday",...(Array.isArray(settings?.holidayDays)?settings.holidayDays:[])]);
+    const usableSlots=slots.filter(slot=>!slot.isBreak&&!holidayDays.has(String(slot.day)));
+    if(!usableSlots.length)return res.status(400).json({message:`No usable time slots found after excluding holidays (${[...holidayDays].join(", ")}). Add Time Slots for working days first.`});
+    if(!faculty.length)return res.status(400).json({message:"No faculty found. Add or import Faculty first."});
+    if(!sections.length)return res.status(400).json({message:"No sections found. Add or import Sections first."});
+    if(!rooms.length)return res.status(400).json({message:"No rooms found. Add or import Rooms first."});
 
-    for (const s of subjects) {
-      const fid = s.faculty ? String(s.faculty._id || s.faculty) : "";
-      const sid = s.section ? String(s.section._id || s.section) : "";
-      const reasons = [];
-
-      if (!fid) reasons.push("Faculty reference is empty");
-      else if (!facultyIds.has(fid)) reasons.push(`Faculty ID ${fid} does not exist`);
-
-      if (!sid) reasons.push("Section reference is empty");
-      else if (!sectionIds.has(sid)) reasons.push(`Section ID ${sid} does not exist`);
-
-      if (reasons.length) {
-        invalidSubjects.push({name:s.name,faculty:fid,section:sid,reasons});
-      } else {
-        validSubjects.push(s);
-      }
+    const facultyIds=new Set(faculty.map(item=>String(item._id)));
+    const sectionIds=new Set(sections.map(item=>String(item._id)));
+    const invalidSubjects=[];
+    const validSubjects=[];
+    for(const subject of subjects){
+      const facultyId=subject.faculty?String(subject.faculty._id||subject.faculty):"";
+      const sectionId=subject.section?String(subject.section._id||subject.section):"";
+      const reasons=[];
+      if(!facultyId)reasons.push("Faculty reference is empty");
+      else if(!facultyIds.has(facultyId))reasons.push(`Faculty ID ${facultyId} does not exist`);
+      if(!sectionId)reasons.push("Section reference is empty");
+      else if(!sectionIds.has(sectionId))reasons.push(`Section ID ${sectionId} does not exist in the selected program/session`);
+      if(reasons.length)invalidSubjects.push({name:subject.name,faculty:facultyId,section:sectionId,reasons});
+      else validSubjects.push(subject);
     }
+    console.log("GENERATION DATA CHECK",{programs:requestedProgramIds.length?selectedPrograms.map(p=>p.name):["ALL"],faculty:faculty.length,sections:sections.length,subjects:subjects.length,validSubjects:validSubjects.length,invalidSubjects:invalidSubjects.length,invalid:invalidSubjects.slice(0,20)});
+    if(!validSubjects.length)return res.status(422).json({message:"No valid subjects can be scheduled for the selected program(s).",warnings:[`${invalidSubjects.length} subject(s) have invalid Faculty/Section references.`],diagnostics:invalidSubjects.slice(0,50)});
 
-    console.log("GENERATION DATA CHECK", {
-      faculty: faculty.length,
-      sections: sections.length,
-      subjects: subjects.length,
-      validSubjects: validSubjects.length,
-      invalidSubjects: invalidSubjects.length,
-      invalid: invalidSubjects.slice(0,20)
+    const generationRuns=Math.max(1,Math.min(30,Number(req.body?.generationRuns||settings?.generationRuns||env.schedulerGenerationRuns)));
+    const generationTimeLimitMs=Math.max(1000,Math.min(120000,Number(req.body?.generationTimeLimitMs||settings?.generationTimeLimitMs||env.schedulerGenerationTimeLimitMs)));
+    const result=generateBestTimetable({
+      faculty,subjects:validSubjects,sections,rooms,slots:usableSlots,programs,
+      settings:settings||{},runs:generationRuns,totalMaxMillis:generationTimeLimitMs,
+      perRunMillis:Math.max(750,Math.floor(generationTimeLimitMs/generationRuns)),
+      attemptsPerRun:env.schedulerGenerationAttempts
     });
+    const requiredSessions=validSubjects.reduce((n,subject)=>n+Number(subject.classesPerWeek||0),0);
+    console.log("Timetable generation:",{programs:requestedProgramIds.length?selectedPrograms.map(p=>p.name):["ALL"],requestedSessions:requiredSessions,generatedSessions:result.entries?.length||0,warnings:result.warnings||[]});
+    const validation=validateTimetable({entries:result.entries||[],faculty,sections,subjects:validSubjects,rooms,slots:usableSlots,programs,settings:settings||{},holidayDays:settings?.holidayDays||["Sunday"]});
+    if(!(result.entries?.length))return res.status(422).json({message:"No timetable entries could be generated.",warnings:result.warnings||[],diagnostics:invalidSubjects.slice(0,50)});
+    if(result.entries.length<requiredSessions)return res.status(422).json({message:`Timetable generation is incomplete: ${result.entries.length}/${requiredSessions} required weekly sessions were scheduled. Nothing was saved.`,warnings:result.warnings||[],validation});
+    if(!validation.valid)return res.status(422).json({message:"Generated timetable failed hard-constraint validation. Nothing was saved.",warnings:result.warnings||[],validation});
 
-    if (!validSubjects.length) {
-      return res.status(422).json({
-        message: "No valid subjects can be scheduled.",
-        warnings: [
-          `${invalidSubjects.length} subject(s) have invalid Faculty/Section references.`,
-          "The server checked the actual MongoDB ObjectIds against the current Faculty and Section collections."
-        ],
-        diagnostics: invalidSubjects.slice(0,50)
-      });
-    }
-
-    const generationRuns = Math.max(1, Math.min(30, Number(req.body?.generationRuns || settings?.generationRuns || env.schedulerGenerationRuns)));
-    const generationTimeLimitMs = Math.max(1000, Math.min(120000, Number(req.body?.generationTimeLimitMs || settings?.generationTimeLimitMs || env.schedulerGenerationTimeLimitMs)));
-    const result = generateBestTimetable({
-      faculty,
-      subjects: validSubjects,
-      sections,
-      rooms,
-      slots: usableSlots,
-      programs: await Program.find({}).lean(),
-      settings: settings || {},
-      runs: generationRuns,
-      totalMaxMillis: generationTimeLimitMs,
-      perRunMillis: Math.max(750, Math.floor(generationTimeLimitMs / generationRuns)),
-      attemptsPerRun: env.schedulerGenerationAttempts
+    // For program-scoped runs, keep all other programs' current entries and replace
+    // only the selected program entries. Validate the merged timetable before saving.
+    const currentQuery=academicSessionId?{academicSession:academicSessionId,isCurrent:true}:{isCurrent:true};
+    const current=await Timetable.findOne(currentQuery).sort({version:-1}).lean();
+    const preservedEntries=requestedProgramIds.length
+      ? (current?.entries||[]).filter(entry=>!selectedSectionIds.has(String(entry.section?._id||entry.section||"")))
+      : [];
+    const mergedEntries=[...preservedEntries,...(result.entries||[])];
+    const allValidSubjects=allSubjects.filter(subject=>{
+      const facultyId=String(subject.faculty?._id||subject.faculty||"");
+      const sectionId=String(subject.section?._id||subject.section||"");
+      return facultyIds.has(facultyId)&&allSections.some(section=>String(section._id)===sectionId);
     });
-
-    console.log("Timetable generation:", {
-      requestedSessions: validSubjects.reduce((n,s)=>n+Number(s.classesPerWeek||0),0),
-      generatedSessions: result.entries?.length || 0,
-      warnings: result.warnings || []
-    });
-
-    const requiredSessions = validSubjects.reduce((n,s)=>n+Number(s.classesPerWeek||0),0);
-    const validation = validateTimetable({
-      entries: result.entries || [],
-      faculty,
-      sections,
-      subjects: validSubjects,
-      rooms,
-      slots: usableSlots,
-      programs,
-      settings: settings || {},
-      holidayDays: settings?.holidayDays || ["Sunday"]
-    });
-
-    if (!(result.entries?.length)) {
-      return res.status(422).json({
-        message: "No timetable entries could be generated.",
-        warnings: result.warnings || [],
-        diagnostics: invalidSubjects.slice(0,50)
-      });
+    const mergedValidation=requestedProgramIds.length?validateTimetable({
+      entries:mergedEntries,faculty,sections:allSections,subjects:allValidSubjects,rooms,slots:usableSlots,programs,
+      settings:settings||{},holidayDays:settings?.holidayDays||["Sunday"]
+    }):validation;
+    if(requestedProgramIds.length&&!mergedValidation.valid){
+      return res.status(422).json({message:"The selected program timetable conflicts with existing entries from other programs. Nothing was saved.",warnings:result.warnings||[],validation:mergedValidation});
     }
 
-    if (result.entries.length < requiredSessions) {
-      return res.status(422).json({
-        message: `Timetable generation is incomplete: ${result.entries.length}/${requiredSessions} required weekly sessions were scheduled. Nothing was saved.`,
-        warnings: result.warnings || [],
-        validation
-      });
-    }
-
-    if (!validation.valid) {
-      return res.status(422).json({
-        message: "Generated timetable failed hard-constraint validation. Nothing was saved.",
-        warnings: result.warnings || [],
-        validation
-      });
-    }
-
-    if(academicSessionId){
-      await Timetable.updateMany({academicSession:academicSessionId},{$set:{isCurrent:false}});
-    }
+    if(academicSessionId)await Timetable.updateMany({academicSession:academicSessionId},{$set:{isCurrent:false}});
     const lastVersion=academicSessionId
       ? await Timetable.findOne({academicSession:academicSessionId}).sort({version:-1}).select("version")
       : await Timetable.findOne().sort({version:-1}).select("version");
     const nextVersion=Number(lastVersion?.version||0)+1;
-    const saved = await Timetable.create({
+    const saved=await Timetable.create({
       ...result,
-      optimizationScore: result.metrics?.qualityScore ?? result.score ?? null,
-      optimizationMetrics: result.metrics || null,
-      optimizationRuns: generationRuns,
-      academicSession: academicSessionId,
-      version: nextVersion,
-      versionLabel: `Version ${nextVersion}`,
-      isCurrent: true,
-      createdBy: req.user?.username||"",
-      status: "DRAFT",
-      statusChangedAt: new Date(),
-      statusNote: ""
+      entries:mergedEntries,
+      optimizationScore:result.metrics?.qualityScore??result.score??null,
+      optimizationMetrics:result.metrics||null,
+      optimizationRuns:generationRuns,
+      academicSession:academicSessionId,
+      version:nextVersion,
+      versionLabel:`Version ${nextVersion}`,
+      isCurrent:true,
+      createdBy:req.user?.username||"",
+      status:"DRAFT",
+      statusChangedAt:new Date(),
+      statusNote:"",
+      generationScope:requestedProgramIds.length?{programIds:requestedProgramIds,programNames:selectedPrograms.map(p=>p.name)}:null
     });
-
-    const populated = await Timetable.findById(saved._id)
-      .populate("entries.section entries.subject entries.faculty entries.room");
-
+    const populated=await Timetable.findById(saved._id).populate("entries.section entries.subject entries.faculty entries.room");
     res.json(populated);
-  } catch(e) {
-    console.error("TIMETABLE GENERATION ERROR", e);
-    res.status(500).json({message:e.message, stack:process.env.NODE_ENV === "development" ? e.stack : undefined});
+  }catch(e){
+    console.error("TIMETABLE GENERATION ERROR",e);
+    res.status(500).json({message:e.message,stack:process.env.NODE_ENV==="development"?e.stack:undefined});
   }
 });
-
 
 app.get("/api/timetable/versions", requireAuth, async (req,res)=>{
   try{
