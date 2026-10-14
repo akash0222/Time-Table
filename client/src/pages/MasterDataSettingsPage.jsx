@@ -3,7 +3,7 @@ import AvailabilityMatrix from "./AvailabilityMatrixPage.jsx";
 import MasterView from "./MasterViewPage.jsx";
 import {Users, BookOpen, DoorOpen, Clock3, Activity, Search} from "lucide-react";
 
-export default function MasterDataSettings({data,setData,reload,setMessage}){
+export default function MasterDataSettings({data,setData,reload,setMessage,sessions=[]}){
   const [section,setSection]=useState("Programs");
   const [query,setQuery]=useState("");
   const items=[
@@ -53,7 +53,7 @@ export default function MasterDataSettings({data,setData,reload,setMessage}){
         </div>
         {selected.name==="Availability"
           ? <AvailabilityMatrix data={data} reload={reload} setMessage={setMessage}/>
-          : <MasterView type={selected.name} data={data} setData={setData} reload={reload}/>
+          : <MasterView type={selected.name} data={data} setData={setData} reload={reload} sessions={sessions} setMessage={setMessage}/>
         }
       </div>
     </section>
