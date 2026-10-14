@@ -443,18 +443,61 @@ app.put("/api/academic-structure/sections/:id", requireAuth, async (req, res) =>
   try {
     const row = await Section.findById(req.params.id);
     if (!row) return res.status(404).json({ message: "Section not found." });
-    const { programId, academicSession, semester, name, maxClassesPerDay, capacity } = req.body || {};
-    if (programId) {
-      const program = await Program.findById(programId).lean();
-      if (!program) return res.status(404).json({ message: "Program not found." });
-      row.programId = program._id;
-      row.program = program.name;
+
+    const body = req.body || {};
+    const nextProgramId = body.programId !== undefined ? (body.programId || null) : (row.programId || null);
+    const nextSessionId = body.academicSession !== undefined ? (body.academicSession || null) : (row.academicSession || null);
+    const nextSemester = body.semester !== undefined ? String(body.semester).trim() : String(row.semester || "").trim();
+    const nextName = body.name !== undefined ? String(body.name).trim() : String(row.name || "").trim();
+
+    let nextProgram = null;
+    if (nextProgramId) {
+      nextProgram = await Program.findById(nextProgramId).lean();
+      if (!nextProgram) return res.status(404).json({ message: "Program not found." });
     }
-    if (academicSession !== undefined) row.academicSession = academicSession || null;
-    if (semester !== undefined) row.semester = String(semester).trim();
-    if (name !== undefined) row.name = String(name).trim();
-    if (maxClassesPerDay !== undefined) row.maxClassesPerDay = Number(maxClassesPerDay || 6);
-    if (capacity !== undefined) row.capacity = Math.max(Number(capacity || 0), 0);
+    if (body.academicSession !== undefined && nextSessionId) {
+      const session = await AcademicSession.findById(nextSessionId).lean();
+      if (!session) return res.status(404).json({ message: "Academic Session not found." });
+    }
+    if (!nextSemester || !nextName) return res.status(400).json({ message: "Semester and Section Name are required." });
+
+    const programChanged = String(nextProgramId || "") !== String(row.programId || "");
+    const sessionChanged = String(nextSessionId || "") !== String(row.academicSession || "");
+    if (programChanged || sessionChanged) {
+      const [studentCount, subjectCount] = await Promise.all([
+        Student.countDocuments({ section: row._id }),
+        Subject.countDocuments({ section: row._id })
+      ]);
+      if (studentCount || subjectCount) {
+        return res.status(409).json({
+          message: `This section has linked records (${studentCount} student record(s), ${subjectCount} subject mapping(s)). Create the target section and use student promotion/subject mapping workflows rather than changing its program or academic session in place.`
+        });
+      }
+    }
+
+    const duplicateFilter = {
+      _id: { $ne: row._id },
+      academicSession: nextSessionId,
+      semester: nextSemester,
+      name: nextName
+    };
+    if (nextProgramId) duplicateFilter.programId = nextProgramId;
+    else duplicateFilter.program = String(body.program !== undefined ? body.program : row.program || "").trim();
+    const duplicate = await Section.findOne(duplicateFilter).lean();
+    if (duplicate) return res.status(409).json({ message: "This section already exists for the selected Program, Semester and Academic Session." });
+
+    if (nextProgramId) {
+      row.programId = nextProgramId;
+      row.program = nextProgram.name;
+    } else if (body.program !== undefined) {
+      row.program = String(body.program || "").trim();
+    }
+    if (body.academicSession !== undefined) row.academicSession = nextSessionId;
+    row.semester = nextSemester;
+    row.name = nextName;
+    if (body.maxClassesPerDay !== undefined) row.maxClassesPerDay = Number(body.maxClassesPerDay || 6);
+    if (body.capacity !== undefined) row.capacity = Math.max(Number(body.capacity || 0), 0);
+
     await row.save();
     res.json(await Section.findById(row._id).populate("programId", "name code").populate("academicSession", "name active").lean());
   } catch (e) { res.status(400).json({ message: e.message }); }
@@ -2001,7 +2044,7 @@ app.get("/api/timetable/workflow", requireAuth, async (req, res) => {
       role,
       canEditDraft:["ADMIN","SCHEDULER"].includes(role) && status === "DRAFT",
       actions:(actions[status]||[]).map(x=>({...x,allowed:x.roles.includes(role)})),
-      history:timetable?.approvalHistory||[]
+      history:["ADMIN","SCHEDULER"].includes(role) ? (timetable?.approvalHistory||[]) : []
     });
   } catch(e){ res.status(500).json({message:e.message}); }
 });
