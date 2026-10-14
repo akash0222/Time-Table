@@ -562,3 +562,16 @@
   .app.mobile-nav-open .mobile-nav-trigger{display:none!important}
 }
 @media(prefers-reduced-motion:reduce){.app .erp-sidebar,.app .nav-flyout-panel{transition:none!important;animation:none!important}}
+
+
+/* On narrow screens show the module submenu as a usable overlay instead of
+   squeezing it into the few pixels remaining beside the open drawer. */
+@media(max-width:700px){
+  .app.mobile-nav-open .nav-flyout-panel{
+    left:14px!important;
+    right:14px!important;
+    width:auto!important;
+    max-width:none!important;
+    max-height:70dvh!important;
+  }
+}
