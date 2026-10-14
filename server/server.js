@@ -1179,9 +1179,18 @@ app.post("/api/timetable/generate", requireAuth, allowRoles("ADMIN", "SCHEDULER"
 
     const generationRuns=Math.max(1,Math.min(30,Number(req.body?.generationRuns||settings?.generationRuns||env.schedulerGenerationRuns)));
     const generationTimeLimitMs=Math.max(1000,Math.min(120000,Number(req.body?.generationTimeLimitMs||settings?.generationTimeLimitMs||env.schedulerGenerationTimeLimitMs)));
+    // Read the current session timetable before generating. When only some
+    // programs are selected, entries from the other programs are immutable
+    // reservations during candidate search, not merely checked after generation.
+    const currentQuery=academicSessionId?{academicSession:academicSessionId,isCurrent:true}:{isCurrent:true};
+    const current=await Timetable.findOne(currentQuery).sort({version:-1}).lean();
+    const reservedEntries=requestedProgramIds.length
+      ? (current?.entries||[]).filter(entry=>!selectedSectionIds.has(String(entry.section?._id||entry.section||"")))
+      : [];
+
     const result=generateBestTimetable({
       faculty,subjects:validSubjects,sections,rooms,slots:usableSlots,programs,
-      settings:settings||{},runs:generationRuns,totalMaxMillis:generationTimeLimitMs,
+      settings:settings||{},reservedEntries,runs:generationRuns,totalMaxMillis:generationTimeLimitMs,
       perRunMillis:Math.max(750,Math.floor(generationTimeLimitMs/generationRuns)),
       attemptsPerRun:env.schedulerGenerationAttempts
     });
@@ -1194,8 +1203,6 @@ app.post("/api/timetable/generate", requireAuth, allowRoles("ADMIN", "SCHEDULER"
 
     // For program-scoped runs, keep all other programs' current entries and replace
     // only the selected program entries. Validate the merged timetable before saving.
-    const currentQuery=academicSessionId?{academicSession:academicSessionId,isCurrent:true}:{isCurrent:true};
-    const current=await Timetable.findOne(currentQuery).sort({version:-1}).lean();
     const preservedEntries=requestedProgramIds.length
       ? (current?.entries||[]).filter(entry=>!selectedSectionIds.has(String(entry.section?._id||entry.section||"")))
       : [];
