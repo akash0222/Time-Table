@@ -19,6 +19,8 @@ export default function MasterView({type,data,setData,reload,sessions=[],setMess
   function edit(record){
     if(key==="semesters"){
       setForm({...record,academicSession:record.academicSession?._id||record.academicSession||"",program:record.program?._id||record.program||""});
+    }else if(key==="sections"){
+      setForm({...record,academicSession:refId(record.academicSession),programId:refId(record.programId)});
     }else if(key==="timeslots"){
       setForm({
         ...record,
