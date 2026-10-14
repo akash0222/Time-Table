@@ -28,7 +28,8 @@
     "test:regression:login-rate-limit": "node qa/regression-login-rate-limit.mjs",
     "test:regression:session-plan-targets": "node qa/session-plan-targets.test.mjs",
     "test:regression:subject-program-mapping": "node qa/subject-program-mapping.test.mjs",
-    "test:regression:session-plan-versioning": "node qa/session-plan-versioning.test.mjs"
+    "test:regression:session-plan-versioning": "node qa/session-plan-versioning.test.mjs",
+    "test:regression:subject-session-constraints": "node qa/subject-session-constraints.test.mjs"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
