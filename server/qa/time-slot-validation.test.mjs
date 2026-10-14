@@ -3,8 +3,8 @@ import { timeToMinutes, timeSlotInputIssue, timeSlotConflictIssue } from "../ser
 
 assert.equal(timeToMinutes("09:00"), 540);
 assert.equal(timeToMinutes("9:00"), 540);
-assert.equal(timeToMinutes("24:00"), Number.NaN);
-assert.equal(timeToMinutes("09:60"), Number.NaN);
+assert.ok(Number.isNaN(timeToMinutes("24:00")));
+assert.ok(Number.isNaN(timeToMinutes("09:60")));
 
 assert.equal(timeSlotInputIssue({day:"Monday",startTime:"09:00",endTime:"10:00",order:1}), "");
 assert.match(timeSlotInputIssue({day:"Funday",startTime:"09:00",endTime:"10:00",order:1}), /valid weekday/);
@@ -13,13 +13,18 @@ assert.match(timeSlotInputIssue({day:"Monday",startTime:"bad",endTime:"10:00",or
 assert.match(timeSlotInputIssue({day:"Monday",startTime:"09:00",endTime:"10:00",order:0}), /Period order/);
 assert.match(timeSlotInputIssue({day:"Monday",startTime:"09:00",endTime:"10:00",order:1,program:"not-an-object-id"}), /Program selection/);
 
-const slot = { _id:"slot-1", day:"Monday", startTime:"09:00", endTime:"10:00", order:1, program:null };
-assert.match(timeSlotConflictIssue({day:"Monday",startTime:"09:30",endTime:"10:30",order:2,program:null},[slot]), /overlaps/);
-assert.match(timeSlotConflictIssue({day:"Monday",startTime:"10:00",endTime:"11:00",order:1,program:null},[slot]), /order 1/);
-assert.equal(timeSlotConflictIssue({day:"Monday",startTime:"10:00",endTime:"11:00",order:2,program:null},[slot]), "");
-assert.equal(timeSlotConflictIssue({day:"Tuesday",startTime:"09:00",endTime:"10:00",order:1,program:null},[slot]), "");
-assert.equal(timeSlotConflictIssue({day:"Monday",startTime:"09:30",endTime:"10:30",order:2,program:"64b000000000000000000001"},[slot]), /./.test("shared slots collide") ? timeSlotConflictIssue({day:"Monday",startTime:"09:30",endTime:"10:30",order:2,program:"64b000000000000000000001"},[slot]) : "");
-assert.equal(timeSlotConflictIssue({day:"Monday",startTime:"09:00",endTime:"10:00",order:1,program:"64b000000000000000000002"},[{...slot,program:"64b000000000000000000001"}]), "");
-assert.equal(timeSlotConflictIssue({day:"Monday",startTime:"10:00",endTime:"11:00",order:2,program:null},[slot], "slot-1"), "");
+const programA = "64b000000000000000000001";
+const programB = "64b000000000000000000002";
+const shared = { _id:"slot-1", day:"Monday", startTime:"09:00", endTime:"10:00", order:1, program:null };
+const programSpecific = {...shared, _id:"slot-2", program:programA};
+
+assert.match(timeSlotConflictIssue({day:"Monday",startTime:"09:30",endTime:"10:30",order:2,program:null},[shared]), /overlaps/);
+assert.match(timeSlotConflictIssue({day:"Monday",startTime:"10:00",endTime:"11:00",order:1,program:null},[shared]), /order 1/);
+assert.equal(timeSlotConflictIssue({day:"Monday",startTime:"10:00",endTime:"11:00",order:2,program:null},[shared]), "");
+assert.equal(timeSlotConflictIssue({day:"Tuesday",startTime:"09:00",endTime:"10:00",order:1,program:null},[shared]), "");
+assert.match(timeSlotConflictIssue({day:"Monday",startTime:"09:30",endTime:"10:30",order:2,program:programA},[shared]), /overlaps/);
+assert.equal(timeSlotConflictIssue({day:"Monday",startTime:"09:00",endTime:"10:00",order:1,program:programB},[programSpecific]), "");
+assert.match(timeSlotConflictIssue({day:"Monday",startTime:"10:00",endTime:"11:00",order:1,program:programA},[programSpecific]), /order 1/);
+assert.equal(timeSlotConflictIssue({day:"Monday",startTime:"10:00",endTime:"11:00",order:2,program:null},[shared],"slot-1"), "");
 
 console.log("Time slot validation regression tests passed.");
