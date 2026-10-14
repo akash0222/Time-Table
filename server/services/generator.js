@@ -35,13 +35,34 @@ function slotKey(s) {
   return `${s.day}|${s.startTime}-${s.endTime}`;
 }
 
+function timeToMinutes(value) {
+  const match = String(value ?? "").trim().match(/^(\\d{1,2}):(\\d{2})$/);
+  if (!match) return NaN;
+  const hours = Number(match[1]);
+  const minutes = Number(match[2]);
+  if (hours < 0 || hours > 23 || minutes < 0 || minutes > 59) return NaN;
+  return hours * 60 + minutes;
+}
+
 function entryOverlapsSlot(entry, slot) {
   if (String(entry?.day) !== String(slot?.day)) return false;
   const entryStart = Number(entry?.order || 0);
   const entryDuration = Math.max(1, Number(entry?.duration || 1));
   const slotOrder = Number(slot?.order || 0);
   const slotDuration = Math.max(1, Number(slot?.duration || 1));
-  return entryStart < slotOrder + slotDuration && slotOrder < entryStart + entryDuration;
+  const overlapsByOrder = entryStart < slotOrder + slotDuration && slotOrder < entryStart + entryDuration;
+
+  // Program-specific timetables may use different period orders for classes
+  // whose clock times overlap. Reserve by actual clock interval as well as
+  // period order to avoid double-booking faculty, sections, or rooms.
+  const entryStartTime = timeToMinutes(entry?.startTime);
+  const entryEndTime = timeToMinutes(entry?.endTime);
+  const slotStartTime = timeToMinutes(slot?.startTime);
+  const slotEndTime = timeToMinutes(slot?.endTime);
+  const overlapsByClock = Number.isFinite(entryStartTime) && Number.isFinite(entryEndTime)
+    && Number.isFinite(slotStartTime) && Number.isFinite(slotEndTime)
+    && entryStartTime < slotEndTime && slotStartTime < entryEndTime;
+  return overlapsByOrder || overlapsByClock;
 }
 
 function shuffle(a) {
@@ -488,11 +509,19 @@ export function generateTimetable({
 
           const conflict=block.some(slot=>{
             const key=slotKey(slot);
-            return (
+            const busyByKey =
               fBusy.has(`${fid}|${key}`) ||
               secBusy.has(`${sid}|${key}`) ||
-              roomBusy.has(`${roomId}|${key}`)
-            );
+              roomBusy.has(`${roomId}|${key}`);
+            if (busyByKey) return true;
+
+            return [...fixedEntries, ...entries].some(existing => {
+              if (String(existing?.day) !== String(slot.day)) return false;
+              const sameFaculty = idOf(existing.faculty) === fid;
+              const sameSection = idOf(existing.section) === sid;
+              const sameRoom = idOf(existing.room) === roomId;
+              return (sameFaculty || sameSection || sameRoom) && entryOverlapsSlot(existing, slot);
+            });
           });
 
           if(conflict) continue;
