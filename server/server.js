@@ -39,6 +39,7 @@ import ShareLink from "./models/ShareLink.js";
 import Student from "./models/Student.js";
 import { filterTimetableEntriesForUser } from "./services/timetableAccess.js";
 import { subjectProgramMatchesSection } from "./services/subjectProgramMapping.js";
+import { subjectWeeklyLimitIssue } from "./services/subjectSessionConstraints.js";
 
 const app = express();
 globalThis.__APP_STARTED_AT = Date.now();
@@ -596,12 +597,8 @@ function crud(path, Model) {
         }
         body.academicSession = session._id;
         body.programId = program?._id || section.programId || null;
-        const weekly = Math.max(1, Number(body.classesPerWeek || 1));
-        const total = Math.max(0, Number(body.totalSessions || 0));
-        const weeklyMax = Number(body.maxClassesPerWeek || weekly);
-        if (total === 0 && weeklyMax < weekly) {
-          return res.status(400).json({message:"Max Classes / Week must be at least Classes / Week when Total Sessions is 0."});
-        }
+        const weeklyIssue = subjectWeeklyLimitIssue(body);
+        if (weeklyIssue) return res.status(400).json({message:weeklyIssue});
       }
 
       res.status(201).json(await Model.create(body));
@@ -690,12 +687,12 @@ function crud(path, Model) {
         }
         body.academicSession = session._id;
         body.programId = program?._id || section.programId || row.programId || null;
-        const weekly = Math.max(1, Number(body.classesPerWeek ?? row.classesPerWeek ?? 1));
-        const total = Math.max(0, Number(body.totalSessions ?? row.totalSessions ?? 0));
-        const weeklyMax = Number(body.maxClassesPerWeek ?? row.maxClassesPerWeek ?? weekly);
-        if (total === 0 && weeklyMax > 0 && weeklyMax < weekly) {
-          return res.status(400).json({message:"Max Classes / Week must be at least Classes / Week when Total Sessions is 0."});
-        }
+        const weeklyIssue = subjectWeeklyLimitIssue({
+          classesPerWeek: body.classesPerWeek ?? row.classesPerWeek,
+          totalSessions: body.totalSessions ?? row.totalSessions,
+          maxClassesPerWeek: body.maxClassesPerWeek ?? row.maxClassesPerWeek
+        });
+        if (weeklyIssue) return res.status(400).json({message:weeklyIssue});
       }
 
       const updated = await Model.findByIdAndUpdate(
@@ -804,9 +801,8 @@ app.post("/api/subject-mappings", requireAuth, async (req, res) => {
     const classesPerWeek = Math.max(1, Number(b.classesPerWeek || 1));
     const totalSessions = Math.max(0, Number(b.totalSessions || 0));
     const maxClassesPerWeek = Number(b.maxClassesPerWeek || classesPerWeek);
-    if (totalSessions === 0 && maxClassesPerWeek < classesPerWeek) {
-      return res.status(400).json({ message: "Max Classes / Week must be at least Classes / Week when Total Sessions is 0." });
-    }
+    const weeklyIssue = subjectWeeklyLimitIssue({classesPerWeek,totalSessions,maxClassesPerWeek});
+    if (weeklyIssue) return res.status(400).json({message:weeklyIssue});
     const row = await Subject.create({
       academicSession: session._id,
       programId,
@@ -846,10 +842,12 @@ app.put("/api/subject-mappings/:id", requireAuth, async (req, res) => {
     const nextMaxClassesPerWeek = b.maxClassesPerWeek !== undefined
       ? Number(b.maxClassesPerWeek || 0)
       : Number(row.maxClassesPerWeek || b.classesPerWeek || row.classesPerWeek || 1);
-    const effectiveWeeklyMax = nextMaxClassesPerWeek > 0 ? nextMaxClassesPerWeek : nextClassesPerWeek;
-    if (nextTotalSessions === 0 && effectiveWeeklyMax < nextClassesPerWeek) {
-      return res.status(400).json({ message: "Max Classes / Week must be at least Classes / Week when Total Sessions is 0." });
-    }
+    const weeklyIssue = subjectWeeklyLimitIssue({
+      classesPerWeek:nextClassesPerWeek,
+      totalSessions:nextTotalSessions,
+      maxClassesPerWeek:nextMaxClassesPerWeek
+    });
+    if (weeklyIssue) return res.status(400).json({message:weeklyIssue});
     Object.assign(row, {
       academicSession: session._id,
       programId,
