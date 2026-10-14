@@ -65,6 +65,9 @@ jobs:
       - name: Test program-specific session targets
         working-directory: server
         run: npm run test:regression:session-plan-targets
+      - name: Test subject program mapping consistency
+        working-directory: server
+        run: npm run test:regression:subject-program-mapping
       - name: Test login failed-attempt limiter
         working-directory: server
         run: npm run test:regression:login-rate-limit
