@@ -11,6 +11,7 @@ import Program from '../models/Program.js';
 import User from '../models/User.js';
 import {generateBestTimetable} from '../services/generator.js';
 import {allowRoles} from '../middleware/auth.js';
+import {subjectTarget, subjectEligibleWeeks, requiredSessionCount} from '../services/sessionPlanTargets.js';
 
 const router=Router();
 const pad=n=>String(n).padStart(2,'0');
@@ -70,19 +71,6 @@ function buildWeeks(start,end,holidays,slotDays){
 }
 
 function idOf(v){return String(v?._id??v??'');}
-function subjectTarget(subject,weekCount){
-  const explicit=Number(subject.totalSessions||0);
-  if(explicit>0) return explicit;
-  const weekly=Number(subject.classesPerWeek||0);
-  return Math.max(0,weekly*weekCount);
-}
-
-function subjectEligibleWeeks(subject,weeks){
-  if(!subject._programStartDate || !subject._programEndDate) return weeks.length;
-  const start=String(subject._programStartDate).slice(0,10);
-  const end=String(subject._programEndDate).slice(0,10);
-  return weeks.filter(w=>w.workingDates.some(d=>d>=start && d<=end)).length;
-}
 
 function subjectWeeklyMax(subject,weekCount){
   const explicit=Number(subject.maxClassesPerWeek||0);
@@ -152,7 +140,7 @@ function buildAllocation(subjects,weeks,slots,seed=0){
 function sig(e){return `${e.date}|${e.startTime}|${e.endTime}|${idOf(e.subject)}|${idOf(e.section)}|${idOf(e.faculty)}`;}
 
 async function generatePlan({session,holidays,faculty,subjects,sections,rooms,slots,settings,weeks}){
-  const totalRequired=subjects.reduce((n,s)=>n+subjectTarget(s,weeks.length),0);
+  const totalRequired=requiredSessionCount(subjects,weeks);
   const activeSlots=slots.filter(s=>!s.isBreak);
   const attempts=Math.min(12,Math.max(3,Number(settings?.sessionGenerationAttempts||6)));
   let best=null;
@@ -720,7 +708,7 @@ router.post('/generate',allowRoles('ADMIN','SCHEDULER'),async(req,res)=>{
     if(!allWeeks.length)return res.status(422).json({message:'No academic weeks could be created from the session dates.'});
     if(allWeeks.length>54)return res.status(400).json({message:'Too many academic weeks.'});
 
-    const totalRequired=subjects.reduce((n,s)=>n+subjectTarget(s,subjectEligibleWeeks(s,allWeeks)),0);
+    const totalRequired=requiredSessionCount(subjects,allWeeks);
     if(!totalRequired)return res.status(422).json({message:'Set Total Sessions or Classes / Week for your subjects.'});
 
     const result=await generatePlan({session,holidays,faculty,subjects,sections,rooms,slots,settings:effectiveSettings,weeks:allWeeks});
