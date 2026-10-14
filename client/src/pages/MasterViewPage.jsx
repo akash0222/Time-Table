@@ -84,7 +84,7 @@ export default function MasterView({type,data,setData,reload}){
         roomType:body.roomType||"Classroom"
       };
       if((body.maxClassesPerWeek>0?body.maxClassesPerWeek:body.classesPerWeek)<body.classesPerWeek){
-        setMessage("Max Classes / Week must be at least Classes / Week when Total Sessions is 0.");
+        setMessage("Max Classes / Week cannot be lower than Classes / Week. The weekly timetable must be able to place the configured weekly target.");
         return;
       }
     }
