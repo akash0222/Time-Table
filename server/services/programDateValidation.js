@@ -43,3 +43,32 @@ export function programDateInputIssue(programDates) {
 
   return "";
 }
+
+ 
+export function sessionDateBounds(programDates=[], startDate="", endDate="") {
+  const rows=Array.isArray(programDates)?programDates:[];
+  const starts=rows.map(row=>String(row?.startDate||"")).filter(Boolean).sort();
+  const ends=rows.map(row=>String(row?.endDate||"")).filter(Boolean).sort();
+  return {
+    startDate:String(startDate||starts[0]||"").trim().slice(0,10),
+    endDate:String(endDate||ends[ends.length-1]||"").trim().slice(0,10)
+  };
+}
+
+export function sessionDateBoundsIssue(programDates, startDate, endDate) {
+  const start=String(startDate||"").trim();
+  const end=String(endDate||"").trim();
+  if(!validDateOnly(start)||!validDateOnly(end)){
+    return "Academic session must have valid Start Date and End Date values in YYYY-MM-DD format.";
+  }
+  if(end<start){
+    return "Academic session End Date cannot be before its Start Date.";
+  }
+  const outside=(Array.isArray(programDates)?programDates:[]).find(row=>
+    row.startDate<start || row.endDate>end
+  );
+  if(outside){
+    return "Overall academic session dates must include every program/semester calendar date range.";
+  }
+  return "";
+}
