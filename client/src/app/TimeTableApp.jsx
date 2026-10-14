@@ -734,8 +734,8 @@ export default function App(){
             >
               <span className="header-profile-avatar">{String(auth.name||auth.username||"U").trim().charAt(0).toUpperCase()}</span>
               <span className="header-profile-trigger-copy">
-                <strong>{auth.name||auth.username||"User"}</strong>
-                <small>{String(auth.role||"USER").replace(/_/g," ")}</small>
+                <strong>Profile</strong>
+                <small>{auth.name||auth.username||"User"} · {String(auth.role||"USER").replace(/_/g," ")}</small>
               </span>
               <ChevronDown size={15} className={profileOpen?"profile-chevron open":"profile-chevron"}/>
             </button>
