@@ -824,3 +824,56 @@
 @media(max-width:1000px){
   .app .erp-main>.app-topbar .mobile-nav-trigger span{display:none!important}
 }
+
+
+/* Reference ERP palette: soft mint navigation rail with green active state. */
+.app .erp-sidebar{
+  background:linear-gradient(180deg,#dff8eb 0%,#d3f2e3 100%)!important;
+  border-right:1px solid #b9e4cf;
+  color:#365f53!important;
+  box-shadow:2px 0 18px rgba(7,95,70,.035);
+}
+.app .sidebar-brand-row{border-bottom-color:rgba(16,98,69,.13)}
+.app .sidebar-brand-row .brand{color:#164d3e!important}
+.app .sidebar-brand-row .brand svg{color:#059669!important}
+.app .sidebar-brand-row .brand>span{color:#164d3e!important;font-weight:850}
+.app .sidebar-brand-row .sidebar-toggle{
+  border-color:rgba(16,98,69,.20)!important;
+  background:rgba(255,255,255,.55)!important;
+  color:#1c7b5e!important;
+}
+.app .sidebar-brand-row .sidebar-toggle:hover{background:#fff!important;color:#047857!important}
+.app .erp-sidebar .workspace-label{color:#5e8377!important}
+.app .erp-sidebar .sidebar-nav.module-nav .nav-module-entry>button.nav-module-button{
+  color:#46685d!important;
+  border-color:transparent!important;
+  background:transparent!important;
+}
+.app .erp-sidebar .sidebar-nav.module-nav .nav-module-entry>button.nav-module-button>svg{color:#1c9b70!important}
+.app .erp-sidebar .sidebar-nav.module-nav .nav-module-entry>button.nav-module-button:hover,
+.app .erp-sidebar .sidebar-nav.module-nav .nav-module-entry>button.nav-module-button:focus-visible{
+  border-color:rgba(16,185,129,.13)!important;
+  background:rgba(255,255,255,.54)!important;
+  color:#12664d!important;
+}
+.app .erp-sidebar .sidebar-nav.module-nav .nav-module-entry>button.nav-module-button.has-current{
+  border-color:#caeedb!important;
+  background:#f6fffa!important;
+  color:#087352!important;
+  box-shadow:inset 3px 0 #10b981!important;
+}
+.app .erp-sidebar .sidebar-nav.module-nav .nav-module-entry>button.nav-module-button.has-current>svg,
+.app .erp-sidebar .sidebar-nav.module-nav .nav-module-entry>button.nav-module-button.is-open>svg{color:#059669!important}
+.app .erp-sidebar .sidebar-nav.module-nav .nav-module-entry>button.nav-module-button.is-open{
+  border-color:#b7e8d0!important;
+  background:#c9efdc!important;
+  color:#075e49!important;
+}
+.app.sidebar-collapsed .erp-sidebar .sidebar-nav.module-nav .nav-module-entry>button.nav-module-button.has-current{
+  box-shadow:inset 3px 0 #10b981!important;
+}
+.app .erp-sidebar .side-bottom{border-top-color:rgba(16,98,69,.13)}
+.app .erp-sidebar .side-bottom .primary{box-shadow:0 7px 18px rgba(5,150,105,.17)}
+@media(max-width:1000px){
+  .app.mobile-nav-open .erp-sidebar{box-shadow:14px 0 42px rgba(15,82,62,.16)!important}
+}
