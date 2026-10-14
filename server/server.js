@@ -1518,8 +1518,10 @@ app.get("/api/timetable/versions", requireAuth, async (req,res)=>{
     const rows=await Timetable.find({academicSession:sessionId})
       .select("version versionLabel status isCurrent createdAt updatedAt notes academicSession totalEntries entries approvalHistory statusChangedAt statusNote")
       .sort({version:-1}).lean();
+    const manager = ["ADMIN","SCHEDULER"].includes(String(req.user?.role||"").toUpperCase());
     res.json(rows.map(x=>({
       ...x,
+      notes:manager ? x.notes : undefined,
       totalEntries:x.totalEntries??x.entries?.length??0,
       entries:undefined,
       approvalHistory:undefined,
