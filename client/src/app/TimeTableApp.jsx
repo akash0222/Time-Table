@@ -468,6 +468,8 @@ export default function App(){
               aria-expanded={active}
               aria-haspopup={group.items.length>1?"dialog":undefined}
               title={group.label}
+              data-nav-module={group.label}
+              data-nav-group={group.label}
             >
               <Icon size={18}/>
               <span>{group.label}</span>
@@ -492,7 +494,7 @@ export default function App(){
           <header className="nav-flyout-header"><strong>{group.label}</strong><button type="button" onClick={()=>setActiveNavGroup(null)} aria-label="Close submenu"><X size={16}/></button></header>
           <div className="nav-flyout-search"><Search size={15}/><input value={flyoutSearch} onChange={event=>setFlyoutSearch(event.target.value)} placeholder="Search submodules..." aria-label="Search submodules"/></div>
           <div className="nav-flyout-items">
-            {items.map(item=><button type="button" key={item.name} className={tab===item.name?"nav-flyout-item active":"nav-flyout-item"} onClick={()=>navigateToNavPage(item.name,group.label)}>
+            {items.map(item=><button type="button" key={item.name} data-nav={item.name} data-nav-group={group.label} aria-current={tab===item.name?"page":undefined} className={tab===item.name?"nav-flyout-item active":"nav-flyout-item"} onClick={()=>navigateToNavPage(item.name,group.label)}>
               <span className="nav-flyout-marker" aria-hidden="true"/><span>{item.name}</span>{tab===item.name&&<Check size={15}/>}
             </button>)}
             {!items.length&&<p className="nav-search-empty">No submodules found.</p>}
