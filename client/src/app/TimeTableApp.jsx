@@ -530,12 +530,12 @@ export default function App(){
       {tab==="Approval & Versions" && <ApprovalVersions activeSession={activeSession} role={auth.role} onRefresh={load} setMessage={setMessage}/>}
       {tab==="Timetable" && <TimetableVersions activeSession={activeSession} versionList={versionList} setVersionList={setVersionList} setLatest={setLatest} setMessage={setMessage} role={auth.role}/>}
       {tab==="Settings" && <SchedulerSettings settings={settings} setSettings={setSettings} setMessage={setMessage} activeSession={activeSession}/>} 
-      {tab==="Master Data Settings" && <MasterDataSettings data={data} setData={setData} reload={load} setMessage={setMessage}/>}
+      {tab==="Master Data Settings" && <MasterDataSettings data={data} setData={setData} reload={load} setMessage={setMessage} sessions={sessions}/>}
       {(tab==="Subject & Faculty Mapping") && <SubjectFacultyMapping data={data} sessions={sessions} activeSession={activeSession} reload={load} setMessage={setMessage}/>}
       {tab==="Program & Section Mapping" && <AcademicStructure sessions={sessions} activeSession={activeSession} programs={data.programs} data={data} reload={load} setMessage={setMessage}/>}
       {tab==="Import Center" && <ExcelImport reload={load} setMessage={setMessage}/>}
       {["Programs","Faculty","Subjects","Sections","Rooms","Time Slots"].includes(tab) &&
-        <MasterView type={tab} data={data} setData={setData} reload={load}/>}
+        <MasterView type={tab} data={data} setData={setData} reload={load} sessions={sessions} setMessage={setMessage}/>}
       {tab==="Availability" && <AvailabilityMatrix data={data} reload={load} setMessage={setMessage}/>}
       {tab==="Excel Import" && <ExcelImport reload={load} setMessage={setMessage}/>}
       </Suspense>
