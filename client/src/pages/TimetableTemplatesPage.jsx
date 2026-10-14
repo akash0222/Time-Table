@@ -13,6 +13,15 @@ export default function TimetableTemplates({sessions,activeSession,setLatest,set
   const [notes,setNotes]=useState("");
   const [loading,setLoading]=useState(false);
 
+  useEffect(()=>{
+    const sessionRows=Array.isArray(sessions)?sessions:[];
+    if(sourceSessionId&&!sessionRows.some(item=>String(item._id)===String(sourceSessionId))){
+      setSourceSessionId("");setSourceVersions([]);setSourceId("");
+    }
+    if(targetSessionId&&!sessionRows.some(item=>String(item._id)===String(targetSessionId))){
+      setTargetSessionId("");
+    }
+  },[sessions]);
   const targetSessions=(sessions||[]).filter(s=>String(s._id)!==String(sourceSessionId));
   async function loadVersions(sessionId){
     setSourceSessionId(sessionId);setSourceId("");setSourceVersions([]);
