@@ -363,6 +363,53 @@ async function signIn(page, options = {}) {
   await expect(page.getByRole("heading", { name: "Dashboard", exact: true })).toBeVisible();
 }
 
+const moduleForPage = {
+  "Academic Sessions":"Academic Setup",
+  "Academic Structure":"Academic Setup",
+  "Holiday Management":"Academic Setup",
+  "Master Data Settings":"Academic Setup",
+  "Subject & Faculty Mapping":"Academic Setup",
+  "Program & Section Mapping":"Academic Setup",
+  "Generation Readiness":"Timetable & Scheduling",
+  "Availability":"Timetable & Scheduling",
+  "Optimization":"Timetable & Scheduling",
+  "Full Session Timetable":"Timetable & Scheduling",
+  "All Program Timetables":"Timetable & Scheduling",
+  "Timetable":"Timetable & Scheduling",
+  "Approval & Versions":"Timetable & Scheduling",
+  "Calendar View":"Timetable & Scheduling",
+  "Students":"Students & Operations",
+  "Student Mapping":"Students & Operations",
+  "Student Profile":"Students & Operations",
+  "Student Promotion":"Students & Operations",
+  "Attendance":"Students & Operations",
+  "Fees":"Students & Operations",
+  "My Timetable":"Portals & Communication",
+  "Faculty Portal":"Portals & Communication",
+  "Section Portal":"Portals & Communication",
+  "Notifications":"Portals & Communication",
+  "Excel Import":"Tools & Sharing",
+  "Import Center":"Tools & Sharing",
+  "Templates & Clone":"Tools & Sharing",
+  "Public Sharing":"Tools & Sharing",
+  "Reports":"Reports & Audit",
+  "Analytics":"Reports & Audit",
+  "Validation":"Reports & Audit",
+  "Audit Logs":"Reports & Audit",
+  "Change History":"Reports & Audit",
+  "User Management":"Administration",
+  "Settings":"Administration"
+};
+
+async function navigateToPage(page, pageName) {
+  const moduleName = moduleForPage[pageName];
+  if (!moduleName) throw new Error("No navigation module configured for " + pageName);
+  await page.locator(".nav-module-button").filter({ has: page.locator("span", { hasText: moduleName }) }).click();
+  if (pageName !== "Dashboard") {
+    await page.locator(".nav-flyout-panel").getByRole("button", { name: pageName, exact: true }).click();
+  }
+}
+
 test("invalid login shows a useful error and does not authenticate", async ({ page }) => {
   await installApiMocks(page);
   await page.goto("/");
@@ -375,7 +422,7 @@ test("invalid login shows a useful error and does not authenticate", async ({ pa
 
 test("admin can open and refresh a direct module URL", async ({ page }) => {
   await signIn(page);
-  await page.locator('[data-nav="Academic Sessions"]').click();
+  await navigateToPage(page, "Academic Sessions");
   await expect(page.getByRole("heading", { name: "Academic Sessions", exact: true })).toBeVisible();
   await expect(page.getByText("Program-wise academic calendar")).toBeVisible();
   await page.reload();
@@ -387,7 +434,7 @@ test("clears stale academic structure when backend records disappear while the t
   const programs = [{ ...sampleProgram }];
   const sections = [{ ...sampleSection }];
   await signIn(page, { programs, sections });
-  await page.locator('[data-nav="Academic Structure"]').click();
+  await navigateToPage(page, "Academic Structure");
   await expect(page.getByText("Program → Semester → Section", { exact: true })).toBeVisible();
   await expect(page.getByText("MBA", { exact: true }).first()).toBeVisible();
 
@@ -402,20 +449,20 @@ test("clears stale academic structure when backend records disappear while the t
 
 test("admin can create an academic session with program-wise dates", async ({ page }) => {
   await signIn(page);
-  await page.locator('[data-nav="Academic Sessions"]').click();
-  await page.locator(".field").filter({ hasText: "Academic Session Name" }).locator("input").fill("E2E Academic 2026-27");
-  await page.locator(".field").filter({ hasText: "Description" }).locator("input").fill("Created by automated browser test");
-  await page.locator('input[type="date"]').nth(0).fill("2026-04-01");
-  await page.locator('input[type="date"]').nth(1).fill("2027-03-31");
+  await navigateToPage(page, "Academic Sessions");
+  await page.locator("#session-start-year").fill("2028");
+  await page.getByLabel("Description (optional)").fill("Created by automated browser test");
+  await page.locator("#session-start-date").fill("2028-04-01");
+  await page.locator("#session-end-date").fill("2029-03-31");
   await page.getByRole("button", { name: "+ Add Academic Session" }).click();
   await expect(page.getByText("Academic session created with program-wise dates.")).toBeVisible();
-  await expect(page.getByRole("cell", { name: "E2E Academic 2026-27" })).toBeVisible();
+  await expect(page.getByRole("cell", { name: "2028-2029" })).toBeVisible();
 });
 
 test("admin can configure a holiday for an academic session", async ({ page }) => {
   const activeSession = makeActiveSession();
   await signIn(page, { sessions: [activeSession] });
-  await page.locator('[data-nav="Holiday Management"]').click();
+  await navigateToPage(page, "Holiday Management");
   await expect(page.locator("h2", { hasText: "Holiday Management" })).toBeVisible();
   await expect(page.getByText("Configured Holiday Dates")).toBeVisible();
   await page.locator("#holiday-name").fill("Independence Day");
@@ -445,7 +492,7 @@ test("admin can configure a holiday for an academic session", async ({ page }) =
 test("admin can preview and import a holiday list from a CSV file", async ({ page }) => {
   const activeSession = makeActiveSession();
   await signIn(page, { sessions: [activeSession] });
-  await page.locator('[data-nav="Holiday Management"]').click();
+  await navigateToPage(page, "Holiday Management");
   await expect(page.locator("h2", { hasText: "Holiday Management" })).toBeVisible();
 
   await page.locator("#holiday-upload-file").setInputFiles({
@@ -518,7 +565,7 @@ test("admin can download saved full-session timetable as Excel and PDF", async (
     });
   });
 
-  await page.locator('[data-nav="Full Session Timetable"]').click();
+  await navigateToPage(page, "Full Session Timetable");
   await expect(page.getByRole("heading", { name: "Full Academic Session Timetable", exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: /Version 1 · DRAFT · 1 weeks/ })).toBeVisible();
 
@@ -537,7 +584,7 @@ test("admin can download saved full-session timetable as Excel and PDF", async (
 
 test("admin can review capacity-based faculty workload, overload alerts and daily detail", async ({ page }) => {
   await signIn(page, { sessions: [makeActiveSession()] });
-  await page.locator('[data-nav="Reports"]').click();
+  await navigateToPage(page, "Reports");
 
   await expect(page.getByRole("heading", { name: "Academic Reports", exact: true })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Faculty Workload", exact: true })).toBeVisible();
@@ -596,7 +643,7 @@ test("admin can review approval status, compare timetable versions and require w
     ]
   });
 
-  await page.locator('[data-nav="Approval & Versions"]').click();
+  await navigateToPage(page, "Approval & Versions");
   await expect(page.getByRole("heading",{name:"Timetable Approval & Versions",exact:true})).toBeVisible();
   await expect(page.locator(".approval-status-pill.submitted").first()).toContainText("Submitted for review");
   await expect(page.getByText("scheduler-one",{exact:false})).toBeVisible();
@@ -627,7 +674,7 @@ test("admin can safely restore an old timetable version as a new draft with a re
       {_id:"version-1",version:1,versionLabel:"Version 1",status:"PUBLISHED",isCurrent:false,totalEntries:3,createdAt:"2026-10-12T09:00:00.000Z"}
     ]
   });
-  await page.locator('[data-nav="Approval & Versions"]').click();
+  await navigateToPage(page, "Approval & Versions");
   await expect(page.getByRole("heading",{name:"Version History & Safe Restore",exact:true})).toBeVisible();
 
   const oldVersionRow=page.locator("tr").filter({hasText:"Version 1"}).first();
@@ -652,7 +699,8 @@ test("dashboard action center shows real readiness blockers and links to the fix
 
   await actionCenter.getByRole("button", { name: "Review Subject Mapping" }).click();
   await expect(page).toHaveURL(/\/subject-and-faculty-mapping$/);
-  await expect(page.locator('[data-nav="Subject & Faculty Mapping"]')).toHaveClass(/active/);
+  await page.locator('.nav-module-button[data-nav-module="Academic Setup"]').click();
+  await expect(page.locator('.nav-flyout-panel [data-nav="Subject & Faculty Mapping"]')).toHaveClass(/active/);
 });
 
 test("generation is stopped when pre-generation readiness reports blockers", async ({ page }) => {
