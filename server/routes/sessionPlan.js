@@ -12,6 +12,7 @@ import User from '../models/User.js';
 import {generateBestTimetable} from '../services/generator.js';
 import {allowRoles} from '../middleware/auth.js';
 import {subjectTarget, subjectEligibleWeeks, requiredSessionCount} from '../services/sessionPlanTargets.js';
+import {createCurrentSessionPlan} from '../services/sessionPlanVersioning.js';
 
 const router=Router();
 const pad=n=>String(n).padStart(2,'0');
@@ -714,11 +715,10 @@ router.post('/generate',allowRoles('ADMIN','SCHEDULER'),async(req,res)=>{
     if(result.error)return res.status(422).json({message:result.error});
     const last=await SessionPlan.findOne({academicSession:session._id}).sort({version:-1}).select('version');
     const version=(last?.version||0)+1;
-    const doc=await SessionPlan.create({
+    const doc=await createCurrentSessionPlan(SessionPlan,{
       academicSession:session._id,
       version,
       status:'DRAFT',
-      isCurrent:true,
       holidays,
       weeks:result.planned,
       totalEntries:result.totalScheduled,
@@ -726,7 +726,7 @@ router.post('/generate',allowRoles('ADMIN','SCHEDULER'),async(req,res)=>{
     });
 
     // Only update the source session calendar after the generated plan version
-    // has been created successfully. Generation/DB failures must not mutate it.
+    // has been saved and promoted to current successfully.
     await AcademicSession.findByIdAndUpdate(session._id,{holidayDates:persistedHolidayDates});
 
     res.status(201).json({id:doc._id,version,weeks:result.planned.length,totalEntries:result.totalScheduled});
