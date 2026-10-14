@@ -183,6 +183,9 @@ export default function App(){
 
     if(loadErrors.length){
       setMessage(`Some data could not be loaded. Check the backend/API configuration, then retry. ${loadErrors.slice(0,3).join(" | ")}`);
+    }else{
+      // Clear only a stale load/API error; retain unrelated action feedback.
+      setMessage(current=>/^Some data could not be loaded\./i.test(String(current||""))||/^Backend API is not configured\./i.test(String(current||""))?"":current);
     }
   }
   // Revalidate server-backed records when the user returns to an open tab.
