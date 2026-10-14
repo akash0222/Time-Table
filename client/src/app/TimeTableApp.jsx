@@ -496,9 +496,15 @@ export default function App(){
       </div>
     </aside>
     {activeNavGroup&&(()=>{
-      const group=visibleNavGroups.find(item=>item.label===activeNavGroup);
+      // Build the flyout from the full role-scoped navigation tree. The main
+      // sidebar search narrows the visible children, but must not prevent a
+      // selected module from rendering its submenu after click/hover.
+      const group=navGroupsForRole(auth.role).find(item=>item.label===activeNavGroup);
       if(!group)return null;
-      const items=group.items.filter(item=>!flyoutSearch||item.name.toLowerCase().includes(flyoutSearch.toLowerCase()));
+      const items=group.items.filter(item=>
+        (!normalizedNavQuery||item.name.toLowerCase().includes(normalizedNavQuery))&&
+        (!flyoutSearch||item.name.toLowerCase().includes(flyoutSearch.toLowerCase()))
+      );
       return <div className="nav-flyout-backdrop" onMouseDown={event=>{if(event.target===event.currentTarget)setActiveNavGroup(null);}}>
         <section className="nav-flyout-panel" role="dialog" aria-label={group.label+" submenu"} style={{top:flyoutTop,maxHeight:`calc(100dvh - ${flyoutTop}px - 18px)`}}>
           <header className="nav-flyout-header"><strong>{group.label}</strong><button type="button" onClick={()=>setActiveNavGroup(null)} aria-label="Close submenu"><X size={16}/></button></header>
