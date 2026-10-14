@@ -369,7 +369,7 @@ test("profile dropdown is in the global header and supports password change and 
   await profile.click();
   await expect(page.getByRole("menu",{name:"Profile menu"})).toBeVisible();
   await expect(page.getByText("admin",{exact:true})).toBeVisible();
-  await expect(page.getByRole("menu").getByText("ADMIN",{exact:true})).toBeVisible();
+  await expect(page.getByRole("menu").getByText("ADMIN",{exact:true}).first()).toBeVisible();
 
   await page.getByRole("menuitem",{name:"Change Password"}).click();
   const dialog=page.getByRole("dialog",{name:"Change Password"});
