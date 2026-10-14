@@ -35,6 +35,15 @@ function slotKey(s) {
   return `${s.day}|${s.startTime}-${s.endTime}`;
 }
 
+function entryOverlapsSlot(entry, slot) {
+  if (String(entry?.day) !== String(slot?.day)) return false;
+  const entryStart = Number(entry?.order || 0);
+  const entryDuration = Math.max(1, Number(entry?.duration || 1));
+  const slotOrder = Number(slot?.order || 0);
+  const slotDuration = Math.max(1, Number(slot?.duration || 1));
+  return entryStart < slotOrder + slotDuration && slotOrder < entryStart + entryDuration;
+}
+
 function shuffle(a) {
   const x=[...a];
   for(let i=x.length-1;i>0;i--){
@@ -134,6 +143,7 @@ export function generateBestTimetable({
   slots=[],
   programs=[],
   settings={},
+  reservedEntries=[],
   runs=4,
   totalMaxMillis=12000,
   perRunMillis=4000,
@@ -156,6 +166,7 @@ export function generateBestTimetable({
       slots,
       programs,
       settings,
+      reservedEntries,
       attempts:Math.max(1, Number(attemptsPerRun)||500),
       maxMillis
     });
@@ -215,6 +226,7 @@ export function generateTimetable({
   slots=[],
   programs=[],
   settings={},
+  reservedEntries=[],
   attempts=60,
   maxMillis=10000
 }){
@@ -340,6 +352,30 @@ export function generateTimetable({
     const secDayCount=new Map();
     const subDayCount=new Map();
 
+    // Existing classes from other programs are fixed reservations. Seed them
+    // into the candidate search so a program-scoped run schedules around them
+    // instead of generating independently and failing only after the merge.
+    const fixedEntries=Array.isArray(reservedEntries)?reservedEntries:[];
+    for(const fixed of fixedEntries){
+      const fid=idOf(fixed.faculty);
+      const sid=idOf(fixed.section);
+      const rid=idOf(fixed.room);
+      const day=String(fixed.day||"");
+      const duration=Math.max(1,Number(fixed.duration||1));
+      if(fid && day){
+        if(!fDays.has(fid)) fDays.set(fid,new Set());
+        fDays.get(fid).add(day);
+        fDayCount.set(`${fid}|${day}`,(fDayCount.get(`${fid}|${day}`)||0)+duration);
+      }
+      for(const slot of usableSlots){
+        if(!entryOverlapsSlot(fixed,slot)) continue;
+        const key=slotKey(slot);
+        if(fid) fBusy.add(`${fid}|${key}`);
+        if(sid) secBusy.add(`${sid}|${key}`);
+        if(rid) roomBusy.add(`${rid}|${key}`);
+      }
+    }
+
     const ordered=shuffle(candidatesByTask).sort((a,b)=>{
       const af=fMap.get(idOf(a.task.subject.faculty));
       const bf=fMap.get(idOf(b.task.subject.faculty));
@@ -354,7 +390,7 @@ export function generateTimetable({
       const fOrders=[];
       const sOrders=[];
 
-      for(const e of entries){
+      for(const e of [...fixedEntries,...entries]){
         if(e.day!==day) continue;
 
         const start=Number(e.order||0);
