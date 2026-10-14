@@ -191,6 +191,16 @@ function normalizeProgramDates(programDates){
   }));
 }
 
+function subjectProgramMatchesSection(section, program){
+  if(!section||!program)return true;
+  const sectionProgramId=String(section.programId?._id??section.programId??"").trim();
+  if(sectionProgramId)return sectionProgramId===String(program._id);
+  const legacyProgram=String(section.program||"").trim().toLowerCase();
+  if(!legacyProgram)return true;
+  return legacyProgram===String(program.name||"").trim().toLowerCase()
+    || legacyProgram===String(program.code||"").trim().toLowerCase();
+}
+
 app.get("/api/sessions", requireAuth, async (_req,res)=>{
   try{
     const rows=await AcademicSession.find().populate("programDates.program","name code").sort({createdAt:-1}).lean();
@@ -574,7 +584,11 @@ app.post("/api/subject-mappings", requireAuth, async (req, res) => {
     if (!session) return res.status(404).json({ message: "Academic Session not found." });
     if (!section) return res.status(404).json({ message: "Section not found." });
     if (!faculty) return res.status(404).json({ message: "Faculty not found." });
+    if (b.programId && !program) return res.status(404).json({ message: "Program not found." });
     if (section.academicSession && String(section.academicSession) !== String(session._id)) return res.status(400).json({ message: "Selected section belongs to a different Academic Session." });
+    if (program && !subjectProgramMatchesSection(section, program)) {
+      return res.status(400).json({ message: "Selected program does not match the selected section. Choose the section's program or correct the section mapping first." });
+    }
     const programId = program?._id || section.programId || null;
     const exists = await Subject.findOne({ academicSession: session._id, section: section._id, code: String(b.code || "").trim() || undefined, name: String(b.name).trim() });
     if (exists) return res.status(409).json({ message: "This subject is already mapped to the selected section and academic session." });
@@ -605,15 +619,27 @@ app.put("/api/subject-mappings/:id", requireAuth, async (req, res) => {
     const faculty = b.faculty ? await Faculty.findById(b.faculty).lean() : await Faculty.findById(row.faculty).lean();
     if (!session || !section || !faculty) return res.status(404).json({ message: "Academic Session, Section or Faculty not found." });
     if (section.academicSession && String(section.academicSession) !== String(session._id)) return res.status(400).json({ message: "Selected section belongs to a different Academic Session." });
-    const programId = b.programId || section.programId || row.programId || null;
+    const explicitProgram = b.programId ? await Program.findById(b.programId).lean() : null;
+    if (b.programId && !explicitProgram) return res.status(404).json({ message: "Program not found." });
+    const programId = explicitProgram?._id || section.programId || row.programId || null;
+    const mappedProgram = explicitProgram || (programId ? await Program.findById(programId).lean() : null);
+    if (mappedProgram && !subjectProgramMatchesSection(section, mappedProgram)) {
+      return res.status(400).json({ message: "Selected program does not match the selected section. Choose the section's program or correct the section mapping first." });
+    }
     Object.assign(row, {
-      academicSession: session._id, programId, subjectType: b.subjectType || row.subjectType || "CORE", active: b.active !== false,
+      academicSession: session._id,
+      programId,
+      subjectType: b.subjectType !== undefined ? b.subjectType : (row.subjectType || "CORE"),
+      active: b.active !== undefined ? Boolean(b.active) : row.active !== false,
       name: b.name !== undefined ? String(b.name).trim() : row.name,
       code: b.code !== undefined ? String(b.code || "").trim() : row.code,
-      faculty: faculty._id, section: section._id,
-      classesPerWeek: Number(b.classesPerWeek || row.classesPerWeek || 1),
-      totalSessions: Number(b.totalSessions || 0), maxClassesPerWeek: Number(b.maxClassesPerWeek || row.maxClassesPerWeek || b.classesPerWeek || row.classesPerWeek || 1),
-      duration: Number(b.duration || row.duration || 1), roomType: b.roomType || row.roomType || "Classroom"
+      faculty: faculty._id,
+      section: section._id,
+      classesPerWeek: b.classesPerWeek !== undefined ? Number(b.classesPerWeek) : Number(row.classesPerWeek || 1),
+      totalSessions: b.totalSessions !== undefined ? Number(b.totalSessions || 0) : Number(row.totalSessions || 0),
+      maxClassesPerWeek: b.maxClassesPerWeek !== undefined ? Number(b.maxClassesPerWeek || 0) : Number(row.maxClassesPerWeek || 0),
+      duration: b.duration !== undefined ? Number(b.duration) : Number(row.duration || 1),
+      roomType: b.roomType !== undefined ? b.roomType : (row.roomType || "Classroom")
     });
     await row.save();
     res.json(await Subject.findById(row._id).populate("academicSession", "name active").populate("programId", "name code").populate("faculty", "name code").populate("section", "program semester name academicSession").lean());
