@@ -1,4 +1,5 @@
 import { validateTimetable } from "./timetable/validator.js";
+import { timeSlotMatchesSection } from "./timetable/academicCalendar.js";
 
 function idOf(v) {
   if (v === null || v === undefined) return "";
@@ -59,10 +60,14 @@ function entryOverlapsSlot(entry, slot) {
   const entryEndTime = timeToMinutes(entry?.endTime);
   const slotStartTime = timeToMinutes(slot?.startTime);
   const slotEndTime = timeToMinutes(slot?.endTime);
-  const overlapsByClock = Number.isFinite(entryStartTime) && Number.isFinite(entryEndTime)
-    && Number.isFinite(slotStartTime) && Number.isFinite(slotEndTime)
-    && entryStartTime < slotEndTime && slotStartTime < entryEndTime;
-  return overlapsByOrder || overlapsByClock;
+  const hasClockTimes = Number.isFinite(entryStartTime) && Number.isFinite(entryEndTime)
+    && Number.isFinite(slotStartTime) && Number.isFinite(slotEndTime);
+  if (hasClockTimes) {
+    // Period order is local to a program/semester schedule. Clock intervals
+    // decide collisions when schedules use different start times or numbering.
+    return entryStartTime < slotEndTime && slotStartTime < entryEndTime;
+  }
+  return overlapsByOrder;
 }
 
 function shuffle(a) {
@@ -168,7 +173,8 @@ export function generateBestTimetable({
   runs=4,
   totalMaxMillis=12000,
   perRunMillis=4000,
-  attemptsPerRun=500
+  attemptsPerRun=500,
+  academicSessionId=""
 }) {
   const started=Date.now();
   let best=null;
@@ -188,6 +194,7 @@ export function generateBestTimetable({
       programs,
       settings,
       reservedEntries,
+      academicSessionId,
       attempts:Math.max(1, Number(attemptsPerRun)||500),
       maxMillis
     });
@@ -206,6 +213,7 @@ export function generateBestTimetable({
         slots,
         programs,
         settings,
+        academicSessionId,
         holidayDays: settings?.holidayDays || ["Sunday"]
       });
       candidate = {
@@ -249,7 +257,8 @@ export function generateTimetable({
   settings={},
   reservedEntries=[],
   attempts=60,
-  maxMillis=10000
+  maxMillis=10000,
+  academicSessionId=""
 }){
   const deadline=Date.now()+Number(maxMillis||10000);
 
@@ -295,7 +304,8 @@ export function generateTimetable({
   // Sunday is always a holiday and cannot be overridden. Additional recurring
   // holiday weekdays can be configured from Scheduler Settings.
   const holidayDays = new Set(["Sunday", ...configuredHolidayDays]);
-  const allUsableSlots=slots.filter(s=>s && !s.isBreak);
+  const allUsableSlots=slots.filter(s=>s && !s.isBreak
+    && (!idOf(s.academicSession)||idOf(s.academicSession)===idOf(academicSessionId)));
   const usableSlots=allUsableSlots.filter(s=>!holidayDays.has(String(s.day)));
   const excludedHolidaySlots=allUsableSlots.length-usableSlots.length;
 
@@ -334,7 +344,7 @@ export function generateTimetable({
 
   const candidatesByTask=tasks.map(task=>{
     const section=sMap.get(idOf(task.subject.section));
-    const subjectSlots=usableSlots.filter(slot=>programMatches(section,slot,programs));
+    const subjectSlots=usableSlots.filter(slot=>timeSlotMatchesSection(slot,section,programs,academicSessionId));
     return {
       task,
       blocks:buildBlocks(subjectSlots,Number(task.subject.duration||1))
