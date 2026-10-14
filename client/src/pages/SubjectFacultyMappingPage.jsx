@@ -19,6 +19,17 @@ export default function SubjectFacultyMapping({data,sessions,activeSession,reloa
   const [form,setForm]=useState({name:"",code:"",faculty:"",section:"",subjectType:"CORE",classesPerWeek:3,totalSessions:0,maxClassesPerWeek:3,duration:1,roomType:"Classroom",active:true});
 
   useEffect(()=>{ if(!sessionId&&activeSession?._id) setSessionId(activeSession._id); },[activeSession?._id]);
+  useEffect(()=>{
+    const sessionRows=Array.isArray(sessions)?sessions:[];
+    if(sessionId&&!sessionRows.some(item=>String(item._id)===String(sessionId))){
+      const activeId=activeSession?._id&&sessionRows.some(item=>String(item._id)===String(activeSession._id))
+        ?String(activeSession._id):"";
+      setSessionId(activeId);
+      setProgramId("");setSemester("");setSectionId("");setFacultyId("");
+      setRows([]);setSummary(null);setEditingId(null);
+      setForm({name:"",code:"",faculty:"",section:"",subjectType:"CORE",classesPerWeek:3,totalSessions:0,maxClassesPerWeek:3,duration:1,roomType:"Classroom",active:true});
+    }
+  },[sessions,activeSession?._id]);
   const sessionSections=(data.sections||[]).filter(s=>!sessionId||refId(s.academicSession)===String(sessionId));
   const filteredSections=sessionSections.filter(s=>(!programId||refId(s.programId)===String(programId))&&(!semester||String(s.semester)===String(semester)));
   const semesters=[...new Set(sessionSections.filter(s=>!programId||refId(s.programId)===String(programId)).map(s=>s.semester).filter(Boolean))].sort((a,b)=>String(a).localeCompare(String(b),undefined,{numeric:true}));
