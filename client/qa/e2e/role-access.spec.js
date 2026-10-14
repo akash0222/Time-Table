@@ -225,8 +225,9 @@ test("Scheduler can run timetable workflows but cannot administer users", async 
   await expect(page.locator('.nav-module-button[data-nav-module="Tools & Sharing"]')).toBeVisible();
   await openModule(page, "Tools & Sharing");
   await expect(page.locator('.nav-flyout-panel [data-nav="Public Sharing"]')).toHaveCount(0);
-  await openModule(page, "Administration");
-  await expect(page.locator('.nav-flyout-panel [data-nav="User Management"]')).toHaveCount(0);
+  // Scheduler receives Settings but not the User Management submodule.
+  await page.locator('.nav-module-button[data-nav-module="Administration"]').click();
+  await expect(page).toHaveURL(/\/settings$/);
 
   await openSubmodule(page, "Academic Setup", "Academic Sessions");
   await expect(page.getByRole("heading", { name: "Create Academic Session", exact: true })).toBeVisible();
@@ -241,9 +242,14 @@ test("Faculty can see their faculty portal but not academic administration", asy
   await installRoleApiMocks(page, "FACULTY");
 
   await expect(page.locator('.nav-module-button[data-nav-module="Portals & Communication"]')).toBeVisible();
-  await expect(page.locator('.nav-module-button[data-nav-module="Students & Operations"]')).toHaveCount(0);
+  await expect(page.locator('.nav-module-button[data-nav-module="Students & Operations"]')).toBeVisible();
   await expect(page.locator('.nav-module-button[data-nav-module="Academic Setup"]')).toHaveCount(0);
   await expect(page.locator('.nav-module-button[data-nav-module="Administration"]')).toHaveCount(0);
+  await openModule(page, "Students & Operations");
+  await expect(page.locator('.nav-flyout-panel [data-nav="Student Profile"]')).toBeVisible();
+  await expect(page.locator('.nav-flyout-panel [data-nav="Attendance"]')).toBeVisible();
+  await expect(page.locator('.nav-flyout-panel [data-nav="Students"]')).toHaveCount(0);
+  await expect(page.locator('.nav-flyout-panel [data-nav="Student Promotion"]')).toHaveCount(0);
 
   await openSubmodule(page, "Portals & Communication", "Faculty Portal");
   await expect(page.getByRole("heading", { name: "Faculty Portal" })).toBeVisible();
@@ -259,9 +265,14 @@ test("Viewer can only see assigned section timetable and cannot open another sec
   await installRoleApiMocks(page, "VIEWER");
 
   await expect(page.locator('.nav-module-button[data-nav-module="Portals & Communication"]')).toBeVisible();
-  await expect(page.locator('.nav-module-button[data-nav-module="Students & Operations"]')).toHaveCount(0);
+  await expect(page.locator('.nav-module-button[data-nav-module="Students & Operations"]')).toBeVisible();
   await expect(page.locator('.nav-module-button[data-nav-module="Academic Setup"]')).toHaveCount(0);
   await expect(page.locator('.nav-module-button[data-nav-module="Administration"]')).toHaveCount(0);
+  await openModule(page, "Students & Operations");
+  await expect(page.locator('.nav-flyout-panel [data-nav="Student Profile"]')).toBeVisible();
+  await expect(page.locator('.nav-flyout-panel [data-nav="Attendance"]')).toBeVisible();
+  await expect(page.locator('.nav-flyout-panel [data-nav="Student Mapping"]')).toHaveCount(0);
+  await expect(page.locator('.nav-flyout-panel [data-nav="Student Promotion"]')).toHaveCount(0);
 
   await openSubmodule(page, "Portals & Communication", "Section Portal");
   await expect(page.getByRole("heading", { name: "Student / Section Timetable" })).toBeVisible();
