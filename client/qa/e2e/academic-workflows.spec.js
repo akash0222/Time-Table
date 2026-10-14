@@ -450,6 +450,7 @@ test("clears stale academic structure when backend records disappear while the t
 test("admin can create an academic session with program-wise dates", async ({ page }) => {
   await signIn(page);
   await navigateToPage(page, "Academic Sessions");
+  await expect(page.getByRole("button", { name: "+ Add Semester Calendar" })).toBeDisabled();
   await page.locator("#session-start-year").fill("2028");
   await page.locator(".field").filter({ hasText: "Description (optional)" }).locator("input").fill("Created by automated browser test");
   await page.locator("#session-start-date").fill("2028-04-01");
