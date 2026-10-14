@@ -528,6 +528,17 @@ app.delete("/api/academic-structure/sections/:id", requireAuth, async (req, res)
   } catch (e) { res.status(400).json({ message: e.message }); }
 });
 
+async function resolveProgramFromText(value) {
+  const wanted = String(value || "").trim().toLowerCase();
+  if (!wanted) return null;
+  const candidates = await Program.find().select("_id name code").lean();
+  return candidates.find(program =>
+    [program.name, program.code].some(candidate =>
+      String(candidate || "").trim().toLowerCase() === wanted
+    )
+  ) || null;
+}
+
 function crud(path, Model) {
   app.get(`/api/${path}`, requireAuth, async (_req,res) => {
     try { res.json(await Model.find().sort({ createdAt: -1 })); }
@@ -705,22 +716,28 @@ function crud(path, Model) {
       const dependencyMap = {
         faculty: [
           [Subject, {faculty:id}, "subject assignment(s)"],
-          [Timetable, {"entries.faculty":id}, "timetable entry/entries"]
+          [Timetable, {"entries.faculty":id}, "timetable entry/entries"],
+          [SessionPlan, {"weeks.entries.faculty":id}, "full-session plan entry/entries"]
         ],
         subjects: [
-          [Timetable, {"entries.subject":id}, "timetable entry/entries"]
+          [Timetable, {"entries.subject":id}, "timetable entry/entries"],
+          [SessionPlan, {"weeks.entries.subject":id}, "full-session plan entry/entries"]
         ],
         sections: [
-          [Student, {section:id, active:{$ne:false}}, "active student(s)"],
+          [Student, {section:id}, "student record(s)"],
           [Subject, {section:id}, "subject assignment(s)"],
-          [Timetable, {"entries.section":id}, "timetable entry/entries"]
+          [Timetable, {"entries.section":id}, "timetable entry/entries"],
+          [SessionPlan, {"weeks.entries.section":id}, "full-session plan entry/entries"]
         ],
         rooms: [
-          [Timetable, {"entries.room":id}, "timetable entry/entries"]
+          [Timetable, {"entries.room":id}, "timetable entry/entries"],
+          [SessionPlan, {"weeks.entries.room":id}, "full-session plan entry/entries"]
         ],
         timeslots: [],
         programs: [
           [Section, {programId:id}, "section(s)"],
+          [Subject, {programId:id}, "subject mapping(s)"],
+          [TimeSlot, {program:id}, "time-slot mapping(s)"],
           [AcademicSession, {"programDates.program":id}, "academic-session program date(s)"]
         ]
       };
