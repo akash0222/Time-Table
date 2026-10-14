@@ -857,8 +857,21 @@ app.put("/api/subject-mappings/:id", requireAuth, async (req, res) => {
 
 app.delete("/api/subject-mappings/:id", requireAuth, async (req, res) => {
   if (!["ADMIN", "SCHEDULER"].includes(req.user?.role)) return res.status(403).json({ message: "Only Admin or Scheduler can manage subject mappings." });
-  try { const row = await Subject.findByIdAndDelete(req.params.id); if (!row) return res.status(404).json({ message: "Subject mapping not found." }); res.json({ ok: true }); }
-  catch (e) { res.status(400).json({ message: e.message }); }
+  try {
+    const row = await Subject.findById(req.params.id).select("_id name");
+    if (!row) return res.status(404).json({ message: "Subject mapping not found." });
+    const [timetableCount, sessionPlanCount] = await Promise.all([
+      Timetable.countDocuments({"entries.subject": row._id}),
+      SessionPlan.countDocuments({"weeks.entries.subject": row._id})
+    ]);
+    if (timetableCount || sessionPlanCount) {
+      return res.status(409).json({
+        message: `Cannot remove subject "${row.name}" because it is referenced by ${timetableCount} timetable version(s) and ${sessionPlanCount} full-session plan(s). Deactivate it or create a replacement mapping to preserve historical schedules.`
+      });
+    }
+    await Subject.findByIdAndDelete(row._id);
+    res.json({ ok: true });
+  } catch (e) { res.status(400).json({ message: e.message }); }
 });
 
 app.get("/api/subject-mappings/summary", requireAuth, allowRoles("ADMIN", "SCHEDULER"), async (req, res) => {
