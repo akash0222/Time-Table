@@ -1311,7 +1311,8 @@ app.get("/api/timetable/readiness", requireAuth, allowRoles("ADMIN","SCHEDULER")
     const sectionMap=new Map(sections.map(x=>[String(x._id),x]));
     const issues=[];
     const warnings=[];
-    const usableSlots=slots.filter(x=>x&&!x.isBreak&&String(x.day)!=="Sunday");
+    const usableSlots=slots.filter(x=>x&&!x.isBreak&&String(x.day)!=="Sunday"
+      &&(!String(x.academicSession||"")||String(x.academicSession)===sessionId));
     const days=[...new Set(usableSlots.map(x=>String(x.day)))];
 
     const push=(severity,category,message,meta={})=>{
@@ -1324,6 +1325,13 @@ app.get("/api/timetable/readiness", requireAuth, allowRoles("ADMIN","SCHEDULER")
     if(!faculty.length) push("ERROR","Faculty","No faculty records are configured.");
     if(!rooms.length) push("ERROR","Rooms","No rooms are configured.");
     if(!usableSlots.length) push("ERROR","Time Slots","No usable non-break Monday-Saturday time slots are configured.");
+
+    for(const section of sections){
+      const scopedSlots=usableSlots.filter(slot=>timeSlotMatchesSection(slot,section,programs,sessionId));
+      if(!scopedSlots.length){
+        push("ERROR","Time Slots",`No time slots are configured for ${section.program||"Program"} · ${section.semester||"Semester"} · ${section.name||"Section"} in this academic session.`);
+      }
+    }
 
     const mappedSectionIds=new Set(subjects.map(x=>String(x.section||"")));
     for(const section of sections){
@@ -1353,7 +1361,8 @@ app.get("/api/timetable/readiness", requireAuth, allowRoles("ADMIN","SCHEDULER")
       const type=String(sub.roomType||"Classroom");
       roomNeeds.set(type,(roomNeeds.get(type)||0)+weekly);
       if(weekly<1) push("ERROR","Weekly Load",`${sub.name||"Unnamed subject"} has zero classes per week.`);
-      if(Number(sub.duration||1)>usableSlots.length) push("ERROR","Duration",`${sub.name||"Unnamed subject"} requires ${sub.duration} consecutive periods, but the configured timetable has fewer usable periods.`);
+      const scopedSlots=usableSlots.filter(slot=>timeSlotMatchesSection(slot,sec,programs,sessionId));
+      if(Number(sub.duration||1)>scopedSlots.length) push("ERROR","Duration",`${sub.name||"Unnamed subject"} requires ${sub.duration} consecutive periods, but its program/semester timetable has fewer usable periods.`);
     }
 
     for(const [fid,load] of facultyLoad){
@@ -1370,7 +1379,8 @@ app.get("/api/timetable/readiness", requireAuth, allowRoles("ADMIN","SCHEDULER")
     for(const [sid,load] of sectionLoad){
       const sec=sectionMap.get(sid); if(!sec) continue;
       const maxPerDay=Math.max(1,Number(sec.maxClassesPerDay||1));
-      const capacity=days.length*maxPerDay;
+      const sectionDays=[...new Set(usableSlots.filter(slot=>timeSlotMatchesSection(slot,sec,programs,sessionId)).map(slot=>String(slot.day)))];
+      const capacity=sectionDays.length*maxPerDay;
       if(load>capacity) push("ERROR","Section Workload",`${sec.program||"Program"} · ${sec.semester||""} · ${sec.name||"Section"} requires ${load} periods but has an estimated weekly capacity of ${capacity}.`);
     }
 
@@ -1384,8 +1394,11 @@ app.get("/api/timetable/readiness", requireAuth, allowRoles("ADMIN","SCHEDULER")
       const f=facultyMap.get(String(sub.faculty||""));
       if(!f) continue;
       const unavailable=new Set(Array.isArray(f.unavailableSlots)?f.unavailableSlots:[]);
-      const availDays=new Set(Array.isArray(f.availableDays)&&f.availableDays.length?f.availableDays:days);
-      const possible=usableSlots.filter(slot=>availDays.has(String(slot.day))&&!unavailable.has(`${slot.day}|${slot.startTime}-${slot.endTime}`));
+      const section=sectionMap.get(String(sub.section||""));
+      const scopedSlots=usableSlots.filter(slot=>timeSlotMatchesSection(slot,section,programs,sessionId));
+      const scopedDays=[...new Set(scopedSlots.map(slot=>String(slot.day)))];
+      const availDays=new Set(Array.isArray(f.availableDays)&&f.availableDays.length?f.availableDays:scopedDays);
+      const possible=scopedSlots.filter(slot=>availDays.has(String(slot.day))&&!unavailable.has(`${slot.day}|${slot.startTime}-${slot.endTime}`));
       if(!possible.length) blockedByFaculty.push(sub.name||"Unnamed subject");
     }
     if(blockedByFaculty.length) push("ERROR","Faculty Availability",`${blockedByFaculty.length} subject mapping(s) have no available period after faculty availability restrictions.`);
