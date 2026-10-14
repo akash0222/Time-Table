@@ -1,4 +1,4 @@
-import { isValidObjectId } from "mongoose";
+import mongoose from "mongoose";
 
 export const TIMETABLE_DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 
@@ -26,7 +26,7 @@ export function timeSlotInputIssue(slot) {
   if (end <= start) return "End Time must be later than Start Time."; 
   const order = Number(slot?.order);
   if (!Number.isInteger(order) || order < 1 || order > 100) return "Period order must be an integer between 1 and 100."; 
-  if (slot?.program && !isValidObjectId(idOf(slot.program))) return "Program selection is invalid."; 
+  if (slot?.program && !mongoose.isValidObjectId(idOf(slot.program))) return "Program selection is invalid."; 
   return "";
 }
 
