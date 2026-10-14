@@ -13,6 +13,7 @@ import {generateBestTimetable} from '../services/generator.js';
 import {allowRoles} from '../middleware/auth.js';
 import {subjectTarget, subjectEligibleWeeks, requiredSessionCount} from '../services/sessionPlanTargets.js';
 import {createCurrentSessionPlan} from '../services/sessionPlanVersioning.js';
+import {timeSlotMatchesSection, resolveProgramCalendar} from '../services/timetable/academicCalendar.js';
 
 const router=Router();
 const pad=n=>String(n).padStart(2,'0');
@@ -84,8 +85,9 @@ function subjectWeeklyMax(subject,weekCount){
 
 // Create a balanced but non-identical weekly distribution for every subject.
 // It deliberately does not require the same number of sessions every week.
-function buildAllocation(subjects,weeks,slots,seed=0){
+function buildAllocation(subjects,weeks,slots,seed=0,{sections=[],programs=[],academicSessionId=''}={}){
   const allocation=weeks.map(()=>new Map());
+  const sectionMap=new Map(sections.map(section=>[idOf(section),section]));
   const rng=()=>{
     let x=(seed+1)*1103515245+12345;
     seed=(x>>>0);
@@ -99,7 +101,9 @@ function buildAllocation(subjects,weeks,slots,seed=0){
     const maxPerWeek=subjectWeeklyMax(subject,eligibleWeekCount);
     const start=subject._programStartDate ? String(subject._programStartDate).slice(0,10) : null;
     const end=subject._programEndDate ? String(subject._programEndDate).slice(0,10) : null;
-    const activeSlots = (slots||[]).filter(s=>!s.isBreak && String(s.day)!=="Sunday");
+    const section = sectionMap.get(idOf(subject.section));
+    const activeSlots = (slots||[]).filter(s=>!s.isBreak && String(s.day)!=="Sunday"
+      && timeSlotMatchesSection(s,section,programs,academicSessionId));
     const slotsPerDay = new Map();
     for(const slot of activeSlots){
       const day=String(slot.day||"");
@@ -140,7 +144,7 @@ function buildAllocation(subjects,weeks,slots,seed=0){
 
 function sig(e){return `${e.date}|${e.startTime}|${e.endTime}|${idOf(e.subject)}|${idOf(e.section)}|${idOf(e.faculty)}`;}
 
-async function generatePlan({session,holidays,faculty,subjects,sections,rooms,slots,settings,weeks}){
+async function generatePlan({session,holidays,faculty,subjects,sections,rooms,slots,settings,weeks,programs=[]}){
   const totalRequired=requiredSessionCount(subjects,weeks);
   const activeSlots=slots.filter(s=>!s.isBreak);
   const attempts=Math.min(12,Math.max(3,Number(settings?.sessionGenerationAttempts||6)));
@@ -148,7 +152,7 @@ async function generatePlan({session,holidays,faculty,subjects,sections,rooms,sl
 
   for(let allocationAttempt=0;allocationAttempt<attempts;allocationAttempt++){
     let allocation;
-    try{allocation=buildAllocation(subjects,weeks,activeSlots,allocationAttempt*7919+17);}catch(e){return {error:e.message};}
+    try{allocation=buildAllocation(subjects,weeks,activeSlots,allocationAttempt*7919+17,{sections,programs,academicSessionId:idOf(session)});}catch(e){return {error:e.message};}
 
     const planned=[];
     let previous=new Set();
@@ -184,7 +188,7 @@ async function generatePlan({session,holidays,faculty,subjects,sections,rooms,sl
 
       for(let trial=0;trial<4;trial++){
         const r=generateBestTimetable({
-          faculty,subjects:weekSubjectsWithWindows,sections,rooms,slots:weekSlots,
+          faculty,subjects:weekSubjectsWithWindows,sections,rooms,slots:weekSlots,programs,academicSessionId:idOf(session),
           settings:{...settings,avoidSameSubjectSameDay:false},
           runs:Number(settings?.generationRuns||4),
           totalMaxMillis:Math.min(12000,Number(settings?.generationTimeLimitMs||10000)),
@@ -671,38 +675,27 @@ router.post('/generate',allowRoles('ADMIN','SCHEDULER'),async(req,res)=>{
       if(p.name)programMap.set(`name:${String(p.name).trim().toLowerCase()}`,p);
       if(p.code)programMap.set(`code:${String(p.code).trim().toLowerCase()}`,p);
     }
-    const programDateMap=new Map((programDates||[]).map(x=>[String(x.program),x]));
     if(programDates.length){
-      const sessionProgramIds=new Set();
-      for(const section of sections){
-        if(section.programId) sessionProgramIds.add(String(section.programId));
-        else {
-          const match=programs.find(p=>String(p.name||'').trim().toLowerCase()===String(section.program||'').trim().toLowerCase() || String(p.code||'').trim().toLowerCase()===String(section.program||'').trim().toLowerCase());
-          if(match) sessionProgramIds.add(String(match._id));
-        }
+      const missingSections=sections.filter(section=>!resolveProgramCalendar(programDates,section,programs));
+      if(missingSections.length){
+        const labels=missingSections.map(section=>[section.program,section.semester,section.name].filter(Boolean).join(' · '));
+        return res.status(422).json({message:`Configure session dates for these program/semester combinations: ${labels.join(', ')}.`});
       }
-      const missingPrograms=programs.filter(p=>p.active!==false && sessionProgramIds.has(String(p._id))).filter(p=>!programDateMap.has(String(p._id)));
-      if(missingPrograms.length)return res.status(422).json({message:`Configure session dates for these programs: ${missingPrograms.map(p=>p.name).join(', ')}.`});
     }
     for(const subject of subjects){
       const section=sections.find(x=>String(x._id)===String(subject.section));
-      // Program ObjectId is the canonical mapping. Text names/codes are
-      // only a compatibility fallback for legacy sections.
-      const sectionProgramId=String(section?.programId?._id||section?.programId||'');
-      const program=programMap.get(sectionProgramId)
-        || programMap.get(`name:${String(section?.program||'').trim().toLowerCase()}`)
-        || programMap.get(`code:${String(section?.program||'').trim().toLowerCase()}`);
-      const pd=program ? programDateMap.get(String(program._id)) : null;
-      if(programDates.length && !pd){
-        throw new Error(`${subject.name}: no program-wise session dates are configured for program "${section?.program||'Unknown'}".`);
+      const calendar=resolveProgramCalendar(programDates,section,programs);
+      if(programDates.length&&!calendar){
+        throw new Error(`${subject.name}: no academic date range is configured for ${section?.program||'Unknown'} · ${section?.semester||'semester'}.`);
       }
-      if(pd){
-        subject._programStartDate=dateKey(new Date(pd.startDate));
-        subject._programEndDate=dateKey(new Date(pd.endDate));
+      if(calendar){
+        subject._programStartDate=dateKey(new Date(calendar.startDate));
+        subject._programEndDate=dateKey(new Date(calendar.endDate));
       }
     }
 
-    const activeSlots=slots.filter(s=>!s.isBreak);
+    const activeSlots=slots.filter(s=>!s.isBreak
+      && (!idOf(s.academicSession)||idOf(s.academicSession)===String(session._id)));
     const slotDays=new Set(activeSlots.map(s=>s.day));
     const allWeeks=buildWeeks(start,end,holidays,slotDays);
     if(!allWeeks.length)return res.status(422).json({message:'No academic weeks could be created from the session dates.'});
@@ -711,7 +704,7 @@ router.post('/generate',allowRoles('ADMIN','SCHEDULER'),async(req,res)=>{
     const totalRequired=requiredSessionCount(subjects,allWeeks);
     if(!totalRequired)return res.status(422).json({message:'Set Total Sessions or Classes / Week for your subjects.'});
 
-    const result=await generatePlan({session,holidays,faculty,subjects,sections,rooms,slots,settings:effectiveSettings,weeks:allWeeks});
+    const result=await generatePlan({session,holidays,faculty,subjects,sections,rooms,slots:activeSlots,settings:effectiveSettings,weeks:allWeeks,programs});
     if(result.error)return res.status(422).json({message:result.error});
     const last=await SessionPlan.findOne({academicSession:session._id}).sort({version:-1}).select('version');
     const version=(last?.version||0)+1;
