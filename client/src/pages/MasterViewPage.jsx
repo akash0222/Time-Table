@@ -25,7 +25,7 @@ export default function MasterView({type,data,setData,reload}){
         section:record.section?._id||record.section||"",
         classesPerWeek:record.classesPerWeek||1,
         totalSessions:record.totalSessions||0,
-        maxClassesPerWeek:Number(record.totalSessions||0)===0?Math.max(Number(record.maxClassesPerWeek||0),Number(record.classesPerWeek||1)):(record.maxClassesPerWeek||record.classesPerWeek||1),
+        maxClassesPerWeek:Math.max(Number(record.maxClassesPerWeek||0),Number(record.classesPerWeek||1)),
         duration:record.duration||1,
         roomType:record.roomType||"Classroom"
       });
@@ -83,7 +83,7 @@ export default function MasterView({type,data,setData,reload}){
         duration:Number(body.duration||1),
         roomType:body.roomType||"Classroom"
       };
-      if(body.totalSessions===0&&body.maxClassesPerWeek<body.classesPerWeek){
+      if((body.maxClassesPerWeek>0?body.maxClassesPerWeek:body.classesPerWeek)<body.classesPerWeek){
         setMessage("Max Classes / Week must be at least Classes / Week when Total Sessions is 0.");
         return;
       }
@@ -165,7 +165,7 @@ export default function MasterView({type,data,setData,reload}){
           ])}
           onChange={v=>setForm({...form,section:v})}
         />
-        <Input label="Default Classes / Week" type="number" value={form.classesPerWeek||1} onChange={v=>setForm(current=>{const nextWeekly=Math.max(1,Number(v||1));const next={...current,classesPerWeek:v};if(Number(current.totalSessions||0)===0&&Number(current.maxClassesPerWeek||0)<nextWeekly)next.maxClassesPerWeek=String(nextWeekly);return next;})}/>
+        <Input label="Default Classes / Week" type="number" value={form.classesPerWeek||1} onChange={v=>setForm(current=>{const nextWeekly=Math.max(1,Number(v||1));const next={...current,classesPerWeek:v};if(Number(current.maxClassesPerWeek||0)<nextWeekly)next.maxClassesPerWeek=String(nextWeekly);return next;})}/>
         <Input label="Total Sessions / Academic Session" type="number" value={form.totalSessions||0} onChange={v=>setForm({...form,totalSessions:v})}/>
         <Input label="Max Classes / Week" type="number" value={form.maxClassesPerWeek||form.classesPerWeek||1} onChange={v=>setForm({...form,maxClassesPerWeek:v})}/>
         <Input label="Duration (Periods)" type="number" value={form.duration||1} onChange={v=>setForm({...form,duration:v})}/>
