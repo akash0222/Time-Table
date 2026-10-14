@@ -45,8 +45,9 @@ function timeToMinutes(value) {
   return hours * 60 + minutes;
 }
 
-function entryOverlapsSlot(entry, slot) {
+function entryOverlapsSlot(entry, slot, candidateSection = null) {
   if (String(entry?.day) !== String(slot?.day)) return false;
+  if (candidateSection && !calendarWindowsOverlap(entry,candidateSection)) return false;
   const entryStart = Number(entry?.order || 0);
   const entryDuration = Math.max(1, Number(entry?.duration || 1));
   const slotOrder = Number(slot?.order || 0);
@@ -114,6 +115,32 @@ function maxRun(orders){
     else run=1;
     best=Math.max(best,run);
     prev=n;
+  }
+  return best;
+}
+
+function calendarWindowsOverlap(a,b){
+  const aStart=String(a?.calendarStartDate||a?._calendarStartDate||"");
+  const aEnd=String(a?.calendarEndDate||a?._calendarEndDate||"");
+  const bStart=String(b?.calendarStartDate||b?._calendarStartDate||"");
+  const bEnd=String(b?.calendarEndDate||b?._calendarEndDate||"");
+  if(!aStart||!aEnd||!bStart||!bEnd)return true;
+  return aStart<=bEnd&&bStart<=aEnd;
+}
+
+function longestClockRun(items){
+  const rows=items.map(item=>({
+    start:timeToMinutes(item.startTime),
+    end:timeToMinutes(item.endTime),
+    count:Math.max(1,Number(item.duration||1))
+  })).filter(item=>Number.isFinite(item.start)&&Number.isFinite(item.end)&&item.end>item.start)
+    .sort((a,b)=>a.start-b.start);
+  let best=0,run=0,previousEnd=null;
+  for(const item of rows){
+    if(previousEnd!==null&&item.start>=previousEnd&&item.start-previousEnd<=15)run+=item.count;
+    else run=item.count;
+    best=Math.max(best,run);
+    previousEnd=item.end;
   }
   return best;
 }
@@ -421,27 +448,18 @@ export function generateTimetable({
     });
 
     function canPlaceConsecutive(fid,sid,block,day){
-      const fOrders=[];
-      const sOrders=[];
-
-      for(const e of [...fixedEntries,...entries]){
-        if(e.day!==day) continue;
-
-        const start=Number(e.order||0);
-        const duration=Math.max(1,Number(e.duration||1));
-        const orders=Array.from({length:duration},(_,i)=>start+i);
-
-        if(idOf(e.faculty)===fid) fOrders.push(...orders);
-        if(idOf(e.section)===sid) sOrders.push(...orders);
-      }
-
-      fOrders.push(...block.map(s=>Number(s.order||0)));
-      sOrders.push(...block.map(s=>Number(s.order||0)));
-
-      return (
-        maxRun(fOrders)<=cfg.maxConsecutiveFaculty &&
-        maxRun(sOrders)<=cfg.maxConsecutiveSection
+      const candidateInterval={
+        startTime:block[0]?.startTime,
+        endTime:block.at(-1)?.endTime,
+        duration:block.length
+      };
+      const relevant=[...fixedEntries,...entries].filter(e=>
+        e.day===day&&calendarWindowsOverlap(e,sec)
       );
+      const facultyItems=relevant.filter(e=>idOf(e.faculty)===fid).concat(candidateInterval);
+      const sectionItems=relevant.filter(e=>idOf(e.section)===sid).concat(candidateInterval);
+      return longestClockRun(facultyItems)<=cfg.maxConsecutiveFaculty
+        && longestClockRun(sectionItems)<=cfg.maxConsecutiveSection;
     }
 
     function getOptions(item){
@@ -483,20 +501,21 @@ export function generateTimetable({
 
         if(!effectiveAvailableDays.has(day)) continue;
 
-        const workingDays=fDays.get(fid)||new Set();
+        const calendarEntries=[...fixedEntries,...entries].filter(e=>calendarWindowsOverlap(e,sec));
+        const facultyEntries=calendarEntries.filter(e=>idOf(e.faculty)===fid);
+        const workingDays=new Set(facultyEntries.map(e=>String(e.day)));
         const maxWorkingDays=Number(f.maxWorkingDays||7);
-
-        if(!workingDays.has(day) && workingDays.size>=maxWorkingDays){
-          continue;
-        }
+        if(!workingDays.has(day)&&workingDays.size>=maxWorkingDays)continue;
 
         const maxFacultyDay=Number(f.maxClassesPerDay||99);
-        const facultyCount=fDayCount.get(`${fid}|${day}`)||0;
-        if(facultyCount+block.length>maxFacultyDay) continue;
+        const facultyCount=facultyEntries.filter(e=>String(e.day)===day)
+          .reduce((sum,e)=>sum+Math.max(1,Number(e.duration||1)),0);
+        if(facultyCount+block.length>maxFacultyDay)continue;
 
         const maxSectionDay=Number(sec.maxClassesPerDay||99);
-        const sectionCount=secDayCount.get(`${sid}|${day}`)||0;
-        if(sectionCount+block.length>maxSectionDay) continue;
+        const sectionCount=calendarEntries.filter(e=>idOf(e.section)===sid&&String(e.day)===day)
+          .reduce((sum,e)=>sum+Math.max(1,Number(e.duration||1)),0);
+        if(sectionCount+block.length>maxSectionDay)continue;
 
         if(block.some(slot=>unavailable.has(slotKey(slot)))) continue;
 
@@ -517,22 +536,15 @@ export function generateTimetable({
         for(const room of roomsAllowed){
           const roomId=idOf(room);
 
-          const conflict=block.some(slot=>{
-            const key=slotKey(slot);
-            const busyByKey =
-              fBusy.has(`${fid}|${key}`) ||
-              secBusy.has(`${sid}|${key}`) ||
-              roomBusy.has(`${roomId}|${key}`);
-            if (busyByKey) return true;
-
-            return [...fixedEntries, ...entries].some(existing => {
-              if (String(existing?.day) !== String(slot.day)) return false;
-              const sameFaculty = idOf(existing.faculty) === fid;
-              const sameSection = idOf(existing.section) === sid;
-              const sameRoom = idOf(existing.room) === roomId;
-              return (sameFaculty || sameSection || sameRoom) && entryOverlapsSlot(existing, slot);
-            });
-          });
+          const conflict=block.some(slot=>
+            [...fixedEntries,...entries].some(existing=>{
+              if(String(existing?.day)!==String(slot.day))return false;
+              const sameFaculty=idOf(existing.faculty)===fid;
+              const sameSection=idOf(existing.section)===sid;
+              const sameRoom=idOf(existing.room)===roomId;
+              return (sameFaculty||sameSection||sameRoom)&&entryOverlapsSlot(existing,slot,sec);
+            })
+          );
 
           if(conflict) continue;
 
@@ -609,7 +621,9 @@ export function generateTimetable({
           section:sec._id,
           subject:sub._id,
           faculty:f._id,
-          room:room._id
+          room:room._id,
+          calendarStartDate:String(sec._calendarStartDate||""),
+          calendarEndDate:String(sec._calendarEndDate||"")
         });
 
         if(place(index+1)) return true;
