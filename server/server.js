@@ -12,6 +12,7 @@ import Section from "./models/Section.js";
 import Room from "./models/Room.js";
 import TimeSlot from "./models/TimeSlot.js";
 import Program from "./models/Program.js";
+import Semester from "./models/Semester.js";
 import AcademicSession from "./models/AcademicSession.js";
 import Timetable from "./models/Timetable.js";
 import SessionPlan from "./models/SessionPlan.js";
@@ -570,6 +571,14 @@ function crud(path, Model) {
         } else {
           const active = await AcademicSession.findOne({active:true}).select("_id").lean();
           if (active) body.academicSession = active._id;
+        }
+        if (body.programId && body.academicSession) {
+          const session = await AcademicSession.findById(body.academicSession).lean();
+          const programLinked = (session?.programDates || []).some(row => String(row.program) === String(body.programId));
+          if (!programLinked) return res.status(400).json({message:"Link this Program to the selected Academic Session first in Academic Sessions."});
+          const semesterName = String(body.semester || "").trim();
+          const semesterMaster = semesterName ? await Semester.findOne({academicSession:body.academicSession,program:body.programId,name:semesterName,active:true}).lean() : null;
+          if (!semesterMaster) return res.status(400).json({message:"Select a semester configured for this Academic Session and Program in Master Data Settings → Semesters."});
         }
       }
 
