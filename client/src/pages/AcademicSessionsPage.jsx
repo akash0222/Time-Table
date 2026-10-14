@@ -3,7 +3,7 @@ import axios from "axios";
 import {API} from "../core/api";
 import {Input} from "../components/SharedComponents.jsx";
 
-export default function AcademicSessions({sessions,programs,activeSession,setSessions,setActiveSession,setMessage}){
+export default function AcademicSessions({sessions,programs,semesters=[],activeSession,setSessions,setActiveSession,setMessage}){
   const activePrograms=(programs||[]).filter(p=>p.active!==false);
   const blankDates=()=>activePrograms.map(p=>({program:p._id,semester:"",startDate:"",endDate:""}));
   const [form,setForm]=useState({name:"",description:"",programDates:blankDates()});
@@ -29,7 +29,7 @@ export default function AcademicSessions({sessions,programs,activeSession,setSes
   }
   function addSemesterCalendar(){
     setForm(f=>({...f,programDates:[...(f.programDates||[]),{
-      program:activePrograms[0]?._id||"",semester:"Semester I",startDate:"",endDate:""
+      program:activePrograms[0]?._id||"",semester:"",startDate:"",endDate:""
     }]}));
   }
   function removeCalendarRow(index){
@@ -126,7 +126,7 @@ export default function AcademicSessions({sessions,programs,activeSession,setSes
             <option value="">Select program</option>
             {activePrograms.map(p=><option value={p._id} key={p._id}>{p.name}{p.code?" ("+p.code+")":""}</option>)}
           </select></td>
-          <td><input type="text" value={x.semester||""} placeholder="Blank = program default" onChange={e=>updateProgramDate(index,"semester",e.target.value)}/></td>
+          <td><select value={x.semester||""} onChange={e=>updateProgramDate(index,"semester",e.target.value)} disabled={!editingId}><option value="">Program-wide default</option>{semesters.filter(s=>String(s.academicSession?._id||s.academicSession)===String(editingId)&&String(s.program?._id||s.program)===String(x.program?._id||x.program)&&s.active!==false).map(s=><option key={s._id} value={s.name}>{s.name}</option>)}</select>{!editingId&&<small className="muted">Create session first, then add semester calendars.</small>}</td>
           <td><input type="date" value={x.startDate||""} onChange={e=>updateProgramDate(index,"startDate",e.target.value)}/></td>
           <td><input type="date" value={x.endDate||""} onChange={e=>updateProgramDate(index,"endDate",e.target.value)}/></td>
           <td><button type="button" className="secondary" onClick={()=>removeCalendarRow(index)} disabled={(form.programDates||[]).filter(row=>String(row.program?._id||row.program)===String(x.program?._id||x.program)).length<=1}>Remove</button></td>

@@ -8,6 +8,7 @@ export default function MasterDataSettings({data,setData,reload,setMessage,sessi
   const [query,setQuery]=useState("");
   const items=[
     {name:"Programs",key:"programs",icon:BookOpen,desc:"Academic programs, departments and duration."},
+    {name:"Semesters",key:"semesters",icon:BookOpen,desc:"Semesters linked to an academic session and program."},
     {name:"Faculty",key:"faculty",icon:Users,desc:"Faculty workload and working-day settings."},
     {name:"Subjects",key:"subjects",icon:BookOpen,desc:"Subjects, faculty mapping and weekly load."},
     {name:"Sections",key:"sections",icon:Users,desc:"Program sections and daily class limits."},
@@ -16,7 +17,7 @@ export default function MasterDataSettings({data,setData,reload,setMessage,sessi
     {name:"Availability",key:"availability",icon:Activity,desc:"Faculty availability by day and period."}
   ];
   const selected=items.find(x=>x.name===section)||items[0];
-  const counts={programs:data.programs?.length||0,faculty:data.faculty?.length||0,subjects:data.subjects?.length||0,sections:data.sections?.length||0,rooms:data.rooms?.length||0,timeslots:(data.timeslots||[]).filter(x=>!x.isBreak).length};
+  const counts={programs:data.programs?.length||0,faculty:data.faculty?.length||0,subjects:data.subjects?.length||0,sections:data.sections?.length||0,semesters:data.semesters?.length||0,rooms:data.rooms?.length||0,timeslots:(data.timeslots||[]).filter(x=>!x.isBreak).length};
   const total=Object.values(counts).reduce((a,b)=>a+b,0);
   const filteredItems=items.filter(x=>`${x.name} ${x.desc}`.toLowerCase().includes(query.toLowerCase()));
   function select(name){setSection(name);setQuery("");}
@@ -31,7 +32,7 @@ export default function MasterDataSettings({data,setData,reload,setMessage,sessi
     </section>
 
     <section className="master-overview-grid">
-      {items.slice(0,6).map(({name,key,icon:Icon})=><button key={name} className={`master-overview-card ${section===name?"active":""}`} onClick={()=>select(name)}>
+      {items.slice(0,7).map(({name,key,icon:Icon})=><button key={name} className={`master-overview-card ${section===name?"active":""}`} onClick={()=>select(name)}>
         <span className="master-overview-icon"><Icon size={18}/></span>
         <span className="master-overview-copy"><b>{name}</b><small>{counts[key]} record{counts[key]===1?"":"s"}</small></span>
         <span className="master-overview-arrow">›</span>
