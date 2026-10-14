@@ -33,6 +33,15 @@ export function timeSlotInputIssue(slot) {
   return "";
 }
 
+function scopePriority(slot) {
+  // Keep this ordering aligned with resolveTimeSlotsForSection: a scoped
+  // schedule replaces its broader fallback schedule instead of conflicting
+  // with the fallback's reused period numbers or clock times.
+  return (idOf(slot?.academicSession) ? 100 : 0)
+    + (idOf(slot?.program) ? 10 : 0)
+    + (String(slot?.semester ?? "").trim() ? 1 : 0);
+}
+
 function scopesCanOverlap(a, b) {
   const aSession = idOf(a?.academicSession);
   const bSession = idOf(b?.academicSession);
@@ -57,6 +66,10 @@ export function timeSlotConflictIssue(candidate, existingSlots = [], exceptId = 
     if (exceptId && idOf(existing?._id) === String(exceptId)) continue;
     if (String(existing?.day ?? "").trim() !== String(candidate?.day ?? "").trim()) continue;
     if (!scopesCanOverlap(candidate, existing)) continue;
+    // If one record is a broader fallback, the effective-scope resolver will
+    // choose the more specific set for any affected section. Only compare
+    // collisions within the same scope level.
+    if (scopePriority(candidate) !== scopePriority(existing)) continue;
 
     if (Number(existing?.order) === Number(candidate?.order)) {
       return "Period order " + candidate.order + " is already used on " + candidate.day + " in this timetable scope."; 
