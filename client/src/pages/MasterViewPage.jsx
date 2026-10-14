@@ -17,7 +17,9 @@ export default function MasterView({type,data,setData,reload,sessions=[],setMess
   }
 
   function edit(record){
-    if(key==="timeslots"){
+    if(key==="semesters"){
+      setForm({...record,academicSession:record.academicSession?._id||record.academicSession||"",program:record.program?._id||record.program||""});
+    }else if(key==="timeslots"){
       setForm({
         ...record,
         academicSession:record.academicSession?._id||record.academicSession||"",
@@ -46,6 +48,8 @@ export default function MasterView({type,data,setData,reload,sessions=[],setMess
   async function save(){
     let body={...form};
 
+    if(key==="semesters") body={academicSession:body.academicSession,program:body.program,name:String(body.name||"").trim(),order:Number(body.order||1),active:body.active!==false};
+
     if(key==="programs") body={
       name:body.name,code:body.code,department:body.department,
       durationYears:Number(body.durationYears||4),active:true
@@ -60,7 +64,9 @@ export default function MasterView({type,data,setData,reload,sessions=[],setMess
     };
 
     if(key==="sections") body={
-      program:body.program,semester:body.semester,name:body.name,
+      academicSession:body.academicSession,programId:body.programId,
+      program:(data.programs||[]).find(p=>refId(p)===String(body.programId))?.name||body.program||"",
+      semester:body.semester,name:body.name,
       maxClassesPerDay:Number(body.maxClassesPerDay||5)
     };
 
@@ -142,6 +148,14 @@ export default function MasterView({type,data,setData,reload,sessions=[],setMess
         <Input label="Duration (Years)" type="number" value={form.durationYears||4} onChange={v=>setForm({...form,durationYears:v})}/>
       </>}
 
+      {key==="semesters" && <>
+        <Select label="Academic Session" value={form.academicSession||""} options={[["","Select academic session"],...(sessions||[]).map(s=>[s._id,s.name])]} onChange={v=>setForm({...form,academicSession:v,program:""})}/>
+        <Select label="Program" value={form.program||""} options={[["","Select program"],...(data.programs||[]).filter(p=>p.active!==false&&(sessions||[]).find(s=>refId(s)===String(form.academicSession))?.programDates?.some(d=>refId(d.program)===refId(p))).map(p=>[p._id,p.name])]} onChange={v=>setForm({...form,program:v})} />
+        <Input label="Semester Name" value={form.name||""} placeholder="e.g. Semester I" onChange={v=>setForm({...form,name:v})}/>
+        <Input label="Display Order" type="number" value={form.order||1} onChange={v=>setForm({...form,order:v})}/>
+        <div className="message success wide">Semester master records are unique to the selected Academic Session + Program. Configure the program under Academic Sessions first.</div>
+      </>}
+
       {key==="faculty" && <>
         <Input label="Faculty Name" value={form.name} onChange={v=>setForm({...form,name:v})}/>
         <Input label="Code" value={form.code} onChange={v=>setForm({...form,code:v})}/>
@@ -186,9 +200,10 @@ export default function MasterView({type,data,setData,reload,sessions=[],setMess
       </>}
 
       {key==="sections" && <>
-        <Input label="Program" value={form.program} onChange={v=>setForm({...form,program:v})}/>
-        <Input label="Semester" value={form.semester} onChange={v=>setForm({...form,semester:v})}/>
-        <Input label="Section" value={form.name} onChange={v=>setForm({...form,name:v})}/>
+        <Select label="Academic Session" value={form.academicSession||""} options={[["","Select academic session"],...(sessions||[]).map(s=>[s._id,s.name])]} onChange={v=>setForm({...form,academicSession:v,programId:"",semester:""})}/>
+        <Select label="Program" value={form.programId||""} options={[["","Select program"],...(data.programs||[]).filter(p=>p.active!==false&&(sessions||[]).find(s=>refId(s)===String(form.academicSession))?.programDates?.some(d=>refId(d.program)===refId(p))).map(p=>[p._id,p.name])]} onChange={v=>setForm({...form,programId:v,semester:""})}/>
+        <Select label="Semester" value={form.semester||""} options={[["","Select semester"],...(data.semesters||[]).filter(s=>refId(s.academicSession)===String(form.academicSession)&&refId(s.program)===String(form.programId)&&s.active!==false).map(s=>[s.name,s.name])]} onChange={v=>setForm({...form,semester:v})}/>
+        <Input label="Section" value={form.name||""} onChange={v=>setForm({...form,name:v})}/>
         <Input label="Max Classes / Day" type="number" value={form.maxClassesPerDay||5} onChange={v=>setForm({...form,maxClassesPerDay:v})}/>
       </>}
 
@@ -200,8 +215,8 @@ export default function MasterView({type,data,setData,reload,sessions=[],setMess
 
       {key==="timeslots" && <>
         <Select label="Academic Session" value={form.academicSession||""} options={[["","All sessions (shared default)"],...(sessions||[]).map(s=>[s._id,s.name])]} onChange={v=>setForm({...form,academicSession:v})}/>
-        <Select label="Program" value={form.program||""} options={[["","All programs (shared default)"],...(data.programs||[]).filter(p=>p.active!==false).map(p=>[p._id,p.name])]} onChange={v=>setForm({...form,program:v,semester:v?form.semester||"":""})}/>
-        <Input label="Semester (optional)" value={form.semester||""} placeholder="e.g. Semester I" onChange={v=>setForm({...form,semester:v})}/>
+        <Select label="Program" value={form.program||""} options={[["","All programs (shared default)"],...(data.programs||[]).filter(p=>p.active!==false&&(sessions||[]).find(s=>refId(s)===String(form.academicSession))?.programDates?.some(d=>refId(d.program)===refId(p))).map(p=>[p._id,p.name])]} onChange={v=>setForm({...form,program:v,semester:""})}/>
+        <Select label="Semester (optional)" value={form.semester||""} options={[["","All semesters (program default)"],...(data.semesters||[]).filter(s=>refId(s.academicSession)===String(form.academicSession)&&refId(s.program)===String(form.program)&&s.active!==false).map(s=>[s.name,s.name])]} onChange={v=>setForm({...form,semester:v})}/>
         <Select label="Day" value={form.day||"Monday"} options={days.map(d=>[d,d])} onChange={v=>setForm({...form,day:v})}/>
         <Input label="Start Time" type="time" value={form.startTime||""} onChange={v=>setForm({...form,startTime:v})}/>
         <Input label="End Time" type="time" value={form.endTime||""} onChange={v=>setForm({...form,endTime:v})}/>
@@ -234,12 +249,17 @@ export default function MasterView({type,data,setData,reload,sessions=[],setMess
               {key==="programs"?<BookOpen size={19}/>:key==="faculty"?<Users size={19}/>:key==="subjects"?<BookOpen size={19}/>:key==="sections"?<Users size={19}/>:key==="rooms"?<DoorOpen size={19}/>:<Clock3 size={19}/>} 
             </div>
             <div className="master-card-title">
-              <h3>{key==="programs"?x.name:key==="faculty"?x.name:key==="subjects"?x.name:key==="sections"?x.name:key==="rooms"?x.name:`${x.startTime||""} – ${x.endTime||""}`}</h3>
-              <span>{key==="programs"?x.code||"Program":key==="faculty"?x.code||"Faculty":key==="subjects"?x.code||"Subject":key==="sections"?`${x.program||""} · ${x.semester||""}`:key==="rooms"?x.type||"Room":x.day||"Time Slot"}</span>
+              <h3>{key==="programs"?x.name:key==="semesters"?x.name:key==="faculty"?x.name:key==="subjects"?x.name:key==="sections"?x.name:key==="rooms"?x.name:`${x.startTime||""} – ${x.endTime||""}`}</h3>
+              <span>{key==="programs"?x.code||"Program":key==="semesters"?`${x.program?.name||"Program"} · ${x.academicSession?.name||"Session"}`:key==="faculty"?x.code||"Faculty":key==="subjects"?x.code||"Subject":key==="sections"?`${x.program||""} · ${x.semester||""}`:key==="rooms"?x.type||"Room":x.day||"Time Slot"}</span>
             </div>
             <span className="master-status">Active</span>
           </div>
           <div className="master-card-details">
+            {key==="semesters" && <>
+              <div><small>Academic Session</small><strong>{x.academicSession?.name||(sessions||[]).find(s=>refId(s)===refId(x.academicSession))?.name||"—"}</strong></div>
+              <div><small>Program</small><strong>{x.program?.name||(data.programs||[]).find(p=>refId(p)===refId(x.program))?.name||"—"}</strong></div>
+              <div><small>Order</small><strong>{x.order||1}</strong></div>
+            </>}
             {key==="programs" && <>
               <div><small>Department</small><strong>{x.department||"—"}</strong></div>
               <div><small>Duration</small><strong>{x.durationYears||"—"} years</strong></div>
@@ -257,6 +277,7 @@ export default function MasterView({type,data,setData,reload,sessions=[],setMess
               <div><small>Room Type</small><strong>{x.roomType||"—"}</strong></div>
             </>}
             {key==="sections" && <>
+              <div><small>Academic Session</small><strong>{(sessions||[]).find(s=>refId(s)===refId(x.academicSession))?.name||"—"}</strong></div>
               <div><small>Program</small><strong>{x.program||"—"}</strong></div>
               <div><small>Semester</small><strong>{x.semester||"—"}</strong></div>
               <div><small>Max Classes / Day</small><strong>{x.maxClassesPerDay||"—"}</strong></div>
