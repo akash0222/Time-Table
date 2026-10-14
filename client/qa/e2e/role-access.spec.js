@@ -374,14 +374,14 @@ test("profile dropdown is in the global header and supports password change and 
   await page.getByRole("menuitem",{name:"Change Password"}).click();
   const dialog=page.getByRole("dialog",{name:"Change Password"});
   await expect(dialog).toBeVisible();
-  await dialog.getByLabel("Current password").fill(password);
-  await dialog.getByLabel("New password").fill("new-secure-password-2026");
-  await dialog.getByLabel("Confirm new password").fill("different-password-2026");
+  await dialog.getByLabel("Current password",{exact:true}).fill(password);
+  await dialog.getByLabel("New password",{exact:true}).fill("new-secure-password-2026");
+  await dialog.getByLabel("Confirm new password",{exact:true}).fill("different-password-2026");
   await dialog.getByRole("button",{name:"Update Password"}).click();
   await expect(page.getByText("New password and confirmation do not match.")).toBeVisible();
   await expect(dialog).toBeVisible();
 
-  await dialog.getByLabel("Confirm new password").fill("new-secure-password-2026");
+  await dialog.getByLabel("Confirm new password",{exact:true}).fill("new-secure-password-2026");
   await dialog.getByRole("button",{name:"Update Password"}).click();
   await expect(page.getByText("Password changed successfully.")).toBeVisible();
   await expect(dialog).toHaveCount(0);
