@@ -1,5 +1,5 @@
 import { validateTimetable } from "./timetable/validator.js";
-import { timeSlotMatchesSection } from "./timetable/academicCalendar.js";
+import { resolveTimeSlotsForSection } from "./timetable/academicCalendar.js";
 
 function idOf(v) {
   if (v === null || v === undefined) return "";
@@ -371,7 +371,7 @@ export function generateTimetable({
 
   const candidatesByTask=tasks.map(task=>{
     const section=sMap.get(idOf(task.subject.section));
-    const subjectSlots=usableSlots.filter(slot=>timeSlotMatchesSection(slot,section,programs,academicSessionId));
+    const subjectSlots=resolveTimeSlotsForSection(usableSlots,section,programs,academicSessionId).filter(slot=>!slot.isBreak);
     return {
       task,
       blocks:buildBlocks(subjectSlots,Number(task.subject.duration||1))
@@ -448,13 +448,14 @@ export function generateTimetable({
     });
 
     function canPlaceConsecutive(fid,sid,block,day){
+      const section = sMap.get(sid);
       const candidateInterval={
         startTime:block[0]?.startTime,
         endTime:block.at(-1)?.endTime,
         duration:block.length
       };
       const relevant=[...fixedEntries,...entries].filter(e=>
-        e.day===day&&calendarWindowsOverlap(e,sec)
+        e.day===day&&calendarWindowsOverlap(e,section)
       );
       const facultyItems=relevant.filter(e=>idOf(e.faculty)===fid).concat(candidateInterval);
       const sectionItems=relevant.filter(e=>idOf(e.section)===sid).concat(candidateInterval);

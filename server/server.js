@@ -43,7 +43,7 @@ import { subjectWeeklyLimitIssue } from "./services/subjectSessionConstraints.js
 import { timeSlotInputIssue, timeSlotConflictIssue } from "./services/timeSlotValidation.js";
 import { normalizeProgramDates, programDateInputIssue } from "./services/programDateValidation.js";
 import { workflowNoteRequired } from "./services/timetableWorkflow.js";
-import { timeSlotMatchesSection, resolveProgramCalendar } from "./services/timetable/academicCalendar.js";
+import { resolveTimeSlotsForSection, resolveProgramCalendar } from "./services/timetable/academicCalendar.js";
 
 const app = express();
 globalThis.__APP_STARTED_AT = Date.now();
@@ -1327,7 +1327,7 @@ app.get("/api/timetable/readiness", requireAuth, allowRoles("ADMIN","SCHEDULER")
     if(!usableSlots.length) push("ERROR","Time Slots","No usable non-break Monday-Saturday time slots are configured.");
 
     for(const section of sections){
-      const scopedSlots=usableSlots.filter(slot=>timeSlotMatchesSection(slot,section,programs,sessionId));
+      const scopedSlots=resolveTimeSlotsForSection(usableSlots,section,programs,sessionId);
       if(!scopedSlots.length){
         push("ERROR","Time Slots",`No time slots are configured for ${section.program||"Program"} · ${section.semester||"Semester"} · ${section.name||"Section"} in this academic session.`);
       }
@@ -1361,7 +1361,7 @@ app.get("/api/timetable/readiness", requireAuth, allowRoles("ADMIN","SCHEDULER")
       const type=String(sub.roomType||"Classroom");
       roomNeeds.set(type,(roomNeeds.get(type)||0)+weekly);
       if(weekly<1) push("ERROR","Weekly Load",`${sub.name||"Unnamed subject"} has zero classes per week.`);
-      const scopedSlots=usableSlots.filter(slot=>timeSlotMatchesSection(slot,sec,programs,sessionId));
+      const scopedSlots=resolveTimeSlotsForSection(usableSlots,sec,programs,sessionId);
       if(Number(sub.duration||1)>scopedSlots.length) push("ERROR","Duration",`${sub.name||"Unnamed subject"} requires ${sub.duration} consecutive periods, but its program/semester timetable has fewer usable periods.`);
     }
 
@@ -1379,7 +1379,7 @@ app.get("/api/timetable/readiness", requireAuth, allowRoles("ADMIN","SCHEDULER")
     for(const [sid,load] of sectionLoad){
       const sec=sectionMap.get(sid); if(!sec) continue;
       const maxPerDay=Math.max(1,Number(sec.maxClassesPerDay||1));
-      const sectionDays=[...new Set(usableSlots.filter(slot=>timeSlotMatchesSection(slot,sec,programs,sessionId)).map(slot=>String(slot.day)))];
+      const sectionDays=[...new Set(resolveTimeSlotsForSection(usableSlots,sec,programs,sessionId).map(slot=>String(slot.day)))];
       const capacity=sectionDays.length*maxPerDay;
       if(load>capacity) push("ERROR","Section Workload",`${sec.program||"Program"} · ${sec.semester||""} · ${sec.name||"Section"} requires ${load} periods but has an estimated weekly capacity of ${capacity}.`);
     }
@@ -1395,7 +1395,7 @@ app.get("/api/timetable/readiness", requireAuth, allowRoles("ADMIN","SCHEDULER")
       if(!f) continue;
       const unavailable=new Set(Array.isArray(f.unavailableSlots)?f.unavailableSlots:[]);
       const section=sectionMap.get(String(sub.section||""));
-      const scopedSlots=usableSlots.filter(slot=>timeSlotMatchesSection(slot,section,programs,sessionId));
+      const scopedSlots=resolveTimeSlotsForSection(usableSlots,section,programs,sessionId);
       const scopedDays=[...new Set(scopedSlots.map(slot=>String(slot.day)))];
       const availDays=new Set(Array.isArray(f.availableDays)&&f.availableDays.length?f.availableDays:scopedDays);
       const possible=scopedSlots.filter(slot=>availDays.has(String(slot.day))&&!unavailable.has(`${slot.day}|${slot.startTime}-${slot.endTime}`));

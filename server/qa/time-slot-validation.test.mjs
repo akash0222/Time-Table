@@ -30,6 +30,8 @@ assert.match(timeSlotConflictIssue({day:"Monday",startTime:"10:00",endTime:"11:0
 assert.equal(timeSlotConflictIssue({day:"Monday",startTime:"10:00",endTime:"11:00",order:2},[shared]), "");
 assert.equal(timeSlotConflictIssue({day:"Tuesday",startTime:"09:00",endTime:"10:00",order:1},[shared]), "");
 assert.match(timeSlotConflictIssue({day:"Monday",startTime:"09:30",endTime:"10:30",order:2,program:programA,semester:"Semester I"},[ent]), /overlaps/);
+assert.equal(timeSlotConflictIssue({day:"Monday",startTime:"09:30",endTime:"10:30",order:1,program:programA,semester:"Semester I"},[shared]), "");
+assert.match(timeSlotConflictIssue({...ent,startTime:"09:30",endTime:"10:30"},[ent]), /order 1/);
 assert.equal(timeSlotConflictIssue({day:"Monday",startTime:"09:30",endTime:"10:30",order:1,program:programB,semester:"Semester I"},[ent]), "");
 assert.equal(timeSlotConflictIssue({day:"Monday",startTime:"09:30",endTime:"10:30",order:1,program:programA,semester:"Semester III"},[ent]), "");
 assert.equal(timeSlotConflictIssue({day:"Monday",startTime:"09:30",endTime:"10:30",order:2,academicSession:sessionA},[{...shared,academicSession:sessionB}]), "");

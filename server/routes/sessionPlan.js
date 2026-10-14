@@ -13,7 +13,7 @@ import {generateBestTimetable} from '../services/generator.js';
 import {allowRoles} from '../middleware/auth.js';
 import {subjectTarget, subjectEligibleWeeks, requiredSessionCount} from '../services/sessionPlanTargets.js';
 import {createCurrentSessionPlan} from '../services/sessionPlanVersioning.js';
-import {timeSlotMatchesSection, resolveProgramCalendar} from '../services/timetable/academicCalendar.js';
+import {resolveTimeSlotsForSection, resolveProgramCalendar} from '../services/timetable/academicCalendar.js';
 
 const router=Router();
 const pad=n=>String(n).padStart(2,'0');
@@ -102,8 +102,8 @@ function buildAllocation(subjects,weeks,slots,seed=0,{sections=[],programs=[],ac
     const start=subject._programStartDate ? String(subject._programStartDate).slice(0,10) : null;
     const end=subject._programEndDate ? String(subject._programEndDate).slice(0,10) : null;
     const section = sectionMap.get(idOf(subject.section));
-    const activeSlots = (slots||[]).filter(s=>!s.isBreak && String(s.day)!=="Sunday"
-      && timeSlotMatchesSection(s,section,programs,academicSessionId));
+    const activeSlots = resolveTimeSlotsForSection(slots||[],section,programs,academicSessionId)
+      .filter(s=>!s.isBreak && String(s.day)!=="Sunday");
     const slotsPerDay = new Map();
     for(const slot of activeSlots){
       const day=String(slot.day||"");
