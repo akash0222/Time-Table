@@ -807,3 +807,16 @@
     margin:0;padding:0;border:1px solid #e2e8f0;border-radius:10px;background:#fff;color:#334155;box-shadow:none;
   }
 }
+
+
+/* Final precedence for the new sidebar brand toggle and collapsed module labels. */
+.app .erp-sidebar .sidebar-brand-row>.sidebar-toggle{display:grid!important}
+.app.sidebar-collapsed .erp-sidebar .sidebar-brand-row>.sidebar-toggle{display:grid!important}
+.app.sidebar-collapsed .erp-sidebar .sidebar-brand-row .brand>span{display:none!important}
+.app.sidebar-collapsed .erp-sidebar .sidebar-nav.module-nav .nav-module-entry>button.nav-module-button>span,
+.app.sidebar-collapsed .erp-sidebar .sidebar-nav.module-nav .nav-module-entry>button.nav-module-button>svg.nav-module-chevron{display:none!important}
+.app.sidebar-collapsed .erp-sidebar .sidebar-nav.module-nav .nav-module-entry>button.nav-module-button{justify-content:center!important;padding:11px 6px!important;gap:0!important}
+.app.sidebar-collapsed.mobile-nav-open .erp-sidebar .sidebar-brand-row .brand>span{display:block!important}
+.app.sidebar-collapsed.mobile-nav-open .erp-sidebar .sidebar-nav.module-nav .nav-module-entry>button.nav-module-button>span{display:block!important}
+.app.sidebar-collapsed.mobile-nav-open .erp-sidebar .sidebar-nav.module-nav .nav-module-entry>button.nav-module-button>svg.nav-module-chevron{display:block!important}
+.app.sidebar-collapsed.mobile-nav-open .erp-sidebar .sidebar-nav.module-nav .nav-module-entry>button.nav-module-button{justify-content:flex-start!important;padding:10px 12px!important;gap:12px!important}
