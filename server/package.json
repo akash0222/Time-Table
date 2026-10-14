@@ -3,7 +3,7 @@
   "version": "1.1.0",
   "type": "module",
   "scripts": {
-    "start": "node scripts/reset-production-once.mjs && node server.js",
+    "start": "node server.js",
     "dev": "nodemon server.js",
     "qa": "node qa/smoke.mjs",
     "test:qa": "node qa/smoke.mjs",
@@ -29,8 +29,7 @@
     "test:regression:session-plan-targets": "node qa/session-plan-targets.test.mjs",
     "test:regression:subject-program-mapping": "node qa/subject-program-mapping.test.mjs",
     "test:regression:session-plan-versioning": "node qa/session-plan-versioning.test.mjs",
-    "test:regression:subject-session-constraints": "node qa/subject-session-constraints.test.mjs",
-    "reset:production-once": "node scripts/reset-production-once.mjs"
+    "test:regression:subject-session-constraints": "node qa/subject-session-constraints.test.mjs"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
