@@ -445,7 +445,7 @@ export default function App(){
           </label>)}
           {!(data.programs||[]).some(p=>p.active!==false)&&<p>No active programs found. Add or activate a program first.</p>}
         </div>
-        <p style={{fontSize:13,opacity:.75}}>Only sections mapped to the selected programs will be generated. Other programs' existing timetable entries will be preserved.</p>
+        <p style={{fontSize:13,opacity:.75}}>Only sections mapped to the selected programs will be generated. Before saving, the generator reserves existing classes from other programs and checks faculty, room, section, daily-load, and consecutive-period conflicts. Existing programs are preserved; if a conflict-free timetable cannot be completed, nothing is saved.</p>
         <div className="modal-footer" style={{display:"flex",justifyContent:"flex-end",gap:8}}>
           <button type="button" className="secondary" onClick={()=>setShowGenerationDialog(false)}>Cancel</button>
           <button type="button" className="primary" disabled={loading||!selectedProgramIds.length} onClick={()=>generate(selectedProgramIds)}><WandSparkles size={16}/> Generate selected ({selectedProgramIds.length})</button>
