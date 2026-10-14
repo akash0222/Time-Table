@@ -468,7 +468,8 @@ app.put("/api/academic-structure/sections/:id", requireAuth, async (req, res) =>
     const programChanged = String(nextProgramId || "") !== String(row.programId || "")
       || (!nextProgramId && currentLegacyProgram !== nextLegacyProgram);
     const sessionChanged = String(nextSessionId || "") !== String(row.academicSession || "");
-    if (programChanged || sessionChanged) {
+    const semesterChanged = nextSemester !== String(row.semester || "").trim();
+    if (programChanged || sessionChanged || semesterChanged) {
       const [studentCount, subjectCount] = await Promise.all([
         Student.countDocuments({ section: row._id }),
         Subject.countDocuments({ section: row._id })
@@ -635,13 +636,14 @@ function crud(path, Model) {
         const programChanged = String(nextProgramId || "") !== String(row.programId || "")
           || (!nextProgramId && nextProgramText.toLowerCase() !== String(row.program || "").trim().toLowerCase());
         const sessionChanged = String(nextSessionId || "") !== String(row.academicSession || "");
-        if (programChanged || sessionChanged) {
+        const semesterChanged = nextSemester !== String(row.semester || "").trim();
+        if (programChanged || sessionChanged || semesterChanged) {
           const [studentCount, subjectCount] = await Promise.all([
             Student.countDocuments({section:row._id}),
             Subject.countDocuments({section:row._id})
           ]);
           if (studentCount || subjectCount) return res.status(409).json({
-            message:`This section has linked records (${studentCount} student record(s), ${subjectCount} subject mapping(s)). Create a target section and use promotion/mapping workflows rather than changing its program or academic session in place.`
+            message:`This section has linked records (${studentCount} student record(s), ${subjectCount} subject mapping(s)). Create a target section and use student promotion/mapping workflows rather than changing its program, semester or academic session in place.`
           });
         }
         const duplicateFilter = {_id:{$ne:row._id},academicSession:nextSessionId,semester:nextSemester,name:nextName};
