@@ -1,0 +1,65 @@
+import { isValidObjectId } from "mongoose";
+
+export const TIMETABLE_DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+
+export function timeToMinutes(value) {
+  const match = String(value ?? "").trim().match(/^(\d{1,2}):(\d{2})$/);
+  if (!match) return NaN;
+  const hours = Number(match[1]);
+  const minutes = Number(match[2]);
+  if (hours < 0 || hours > 23 || minutes < 0 || minutes > 59) return NaN;
+  return hours * 60 + minutes;
+}
+
+function idOf(value) {
+  if (value == null || value === "") return "";
+  if (typeof value === "object" && value._id !== undefined) return String(value._id);
+  return String(value);
+}
+
+export function timeSlotInputIssue(slot) {
+  const day = String(slot?.day ?? "").trim();
+  if (!TIMETABLE_DAYS.includes(day)) return "Day must be a valid weekday (Monday through Sunday).";
+  const start = timeToMinutes(slot?.startTime);
+  const end = timeToMinutes(slot?.endTime);
+  if (!Number.isFinite(start) || !Number.isFinite(end)) return "Start Time and End Time must use a valid 24-hour time, such as 09:00."; 
+  if (end <= start) return "End Time must be later than Start Time."; 
+  const order = Number(slot?.order);
+  if (!Number.isInteger(order) || order < 1 || order > 100) return "Period order must be an integer between 1 and 100."; 
+  if (slot?.program && !isValidObjectId(idOf(slot.program))) return "Program selection is invalid."; 
+  return "";
+}
+
+function scopesCanOverlap(a, b) {
+  const aProgram = idOf(a?.program);
+  const bProgram = idOf(b?.program);
+  // Shared slots collide with every program-specific slot; different specific programs can run in parallel.
+  return !aProgram || !bProgram || aProgram === bProgram;
+}
+
+export function timeSlotConflictIssue(candidate, existingSlots = [], exceptId = "") {
+  const candidateStart = timeToMinutes(candidate?.startTime);
+  const candidateEnd = timeToMinutes(candidate?.endTime);
+  for (const existing of existingSlots) {
+    if (exceptId && idOf(existing?._id) === String(exceptId)) continue;
+    if (String(existing?.day ?? "").trim() !== String(candidate?.day ?? "").trim()) continue;
+    if (!scopesCanOverlap(candidate, existing)) continue;
+
+    if (Number(existing?.order) === Number(candidate?.order)) {
+      return "Period order " + candidate.order + " is already used on " + candidate.day + " in this timetable scope."; 
+    }
+    const existingStart = timeToMinutes(existing?.startTime);
+    const existingEnd = timeToMinutes(existing?.endTime);
+    if (!Number.isFinite(existingStart) || !Number.isFinite(existingEnd) || existingEnd <= existingStart) {
+      return "An existing time slot on " + candidate.day + " has invalid clock times. Correct it before adding another slot."; 
+    }
+    if (candidateStart < existingEnd && existingStart < candidateEnd) {
+      return "Time slot overlaps an existing slot on " + candidate.day + " (" + existing.startTime + "-" + existing.endTime + ")."; 
+    }
+  }
+  return "";
+}
+
+export function timeSlotScopesCanOverlap(a, b) {
+  return scopesCanOverlap(a, b);
+}
