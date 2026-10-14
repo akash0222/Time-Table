@@ -37,6 +37,7 @@ import User from "./models/User.js";
 import ShareLink from "./models/ShareLink.js";
 import Student from "./models/Student.js";
 import { filterTimetableEntriesForUser } from "./services/timetableAccess.js";
+import { subjectProgramMatchesSection } from "./services/subjectProgramMapping.js";
 
 const app = express();
 globalThis.__APP_STARTED_AT = Date.now();
@@ -191,15 +192,6 @@ function normalizeProgramDates(programDates){
   }));
 }
 
-function subjectProgramMatchesSection(section, program){
-  if(!section||!program)return true;
-  const sectionProgramId=String(section.programId?._id??section.programId??"").trim();
-  if(sectionProgramId)return sectionProgramId===String(program._id);
-  const legacyProgram=String(section.program||"").trim().toLowerCase();
-  if(!legacyProgram)return true;
-  return legacyProgram===String(program.name||"").trim().toLowerCase()
-    || legacyProgram===String(program.code||"").trim().toLowerCase();
-}
 
 app.get("/api/sessions", requireAuth, async (_req,res)=>{
   try{
