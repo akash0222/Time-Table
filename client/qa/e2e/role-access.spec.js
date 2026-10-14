@@ -121,6 +121,11 @@ async function installRoleApiMocks(page, role) {
       return json({ token: "role-test-token-" + role, user });
     }
     if (path === "/auth/me" && method === "GET") return json({ user });
+    if (path === "/auth/change-password" && method === "POST") {
+      if (body.currentPassword !== password) return json({ message: "Current password is incorrect." }, 400);
+      if (String(body.newPassword || "").length < 10) return json({ message: "New password must contain at least 10 characters." }, 400);
+      return json({ ok: true, message: "Password changed successfully." });
+    }
     if (path === "/programs" && method === "GET") return json([program]);
     if (path === "/faculty" && method === "GET") return json([facultyRecord]);
     if (path === "/sections" && method === "GET") return json([assignedSection]);
@@ -304,7 +309,7 @@ test("ERP navigation uses a fixed-width module sidebar with flyout submenus", as
   const sidebar=page.locator(".erp-sidebar");
   const app=page.locator(".app");
   await expect(sidebar).toHaveCSS("width", "258px");
-  await expect(page.getByRole("button", { name: "Collapse navigation" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Collapse navigation" })).toBeVisible();
   await expect(page.locator(".nav-module-button")).toHaveCount(8);
 
   const academic=page.locator('.nav-module-button[data-nav-module="Academic Setup"]');
@@ -330,6 +335,60 @@ test("ERP navigation uses a fixed-width module sidebar with flyout submenus", as
   await expect(group).toHaveClass(/has-current/);
   await group.click();
   await expect(page.locator('.nav-flyout-panel [data-nav="Program & Section Mapping"]')).toHaveClass(/active/);
+});
+
+test("desktop sidebar collapses to an icon rail and expands without losing module navigation", async ({ page }) => {
+  await installRoleApiMocks(page, "ADMIN");
+  await page.setViewportSize({width:1440,height:900});
+  const sidebar=page.locator(".erp-sidebar");
+  const app=page.locator(".app");
+  const collapse=page.getByRole("button",{name:"Collapse navigation"});
+  await expect(sidebar).toHaveCSS("width","258px");
+  await collapse.click();
+  await expect(app).toHaveClass(/sidebar-collapsed/);
+  await expect(sidebar).toHaveCSS("width","76px");
+  const academic=page.locator('.nav-module-button[data-nav-module="Academic Setup"]');
+  await expect(academic).toBeVisible();
+  await expect(academic.locator("span")).toBeHidden();
+  await academic.hover();
+  await expect(page.locator(".nav-flyout-panel")).toBeVisible();
+  await expect(page.locator(".nav-flyout-panel")).toHaveCSS("left","86px");
+  await expect(page.locator('.nav-flyout-panel [data-nav="Academic Sessions"]')).toBeVisible();
+  await page.locator(".nav-flyout-header").getByRole("button",{name:"Close submenu"}).click();
+  await page.getByRole("button",{name:"Expand navigation"}).click();
+  await expect(app).not.toHaveClass(/sidebar-collapsed/);
+  await expect(sidebar).toHaveCSS("width","258px");
+  await expect(page.locator('.nav-module-button[data-nav-module="Academic Setup"] span')).toBeVisible();
+});
+
+test("profile dropdown is in the global header and supports password change and logout", async ({ page }) => {
+  await installRoleApiMocks(page, "ADMIN");
+  await expect(page.locator(".app-topbar")).toBeVisible();
+  const profile=page.getByRole("button",{name:/ADMIN Test User ADMIN/});
+  await expect(profile).toBeVisible();
+  await profile.click();
+  await expect(page.getByRole("menu",{name:"Profile menu"})).toBeVisible();
+  await expect(page.getByText("admin",{exact:true})).toBeVisible();
+  await expect(page.getByRole("menu").getByText("ADMIN",{exact:true})).toBeVisible();
+
+  await page.getByRole("menuitem",{name:"Change Password"}).click();
+  const dialog=page.getByRole("dialog",{name:"Change Password"});
+  await expect(dialog).toBeVisible();
+  await dialog.getByLabel("Current password").fill(password);
+  await dialog.getByLabel("New password").fill("new-secure-password-2026");
+  await dialog.getByLabel("Confirm new password").fill("different-password-2026");
+  await dialog.getByRole("button",{name:"Update Password"}).click();
+  await expect(page.getByText("New password and confirmation do not match.")).toBeVisible();
+  await expect(dialog).toBeVisible();
+
+  await dialog.getByLabel("Confirm new password").fill("new-secure-password-2026");
+  await dialog.getByRole("button",{name:"Update Password"}).click();
+  await expect(page.getByText("Password changed successfully.")).toBeVisible();
+  await expect(dialog).toHaveCount(0);
+
+  await page.getByRole("button",{name:/ADMIN Test User ADMIN/}).click();
+  await page.getByRole("menuitem",{name:"Logout"}).click();
+  await expect(page.getByRole("button",{name:"Sign In"})).toBeVisible();
 });
 
 test("desktop navigation sidebar resizes with the pointer and keyboard and remembers its width", async ({ page }) => {
