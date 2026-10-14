@@ -409,6 +409,19 @@ export default function App(){
         </button>
       </div>
       <div className="workspace-label">ACADEMIC WORKSPACE</div>
+      <button
+        type="button"
+        className="sidebar-session-context"
+        onClick={()=>navigateToNavPage("Academic Sessions","Academic Setup")}
+        title={activeSession?("Active academic session: "+activeSession.name):"Configure academic session"}
+      >
+        <span className="sidebar-session-dot" aria-hidden="true"/>
+        <span className="sidebar-session-copy">
+          <small>ACTIVE SESSION</small>
+          <strong>{activeSession?.name||"No active session"}</strong>
+        </span>
+        <ChevronRight size={15} aria-hidden="true"/>
+      </button>
       <div className="nav-search" role="search">
         <Search size={16} aria-hidden="true"/>
         <input
