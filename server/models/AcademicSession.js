@@ -2,6 +2,9 @@ import mongoose from "mongoose";
 
 const programDateSchema = new mongoose.Schema({
   program: { type: mongoose.Schema.Types.ObjectId, ref: "Program", required: true },
+  // Blank semester is the program-wide default date window. Semester-specific
+  // records override it for that exact Section.semester.
+  semester: { type: String, trim: true, default: "", maxlength: 80 },
   startDate: { type: Date, required: true },
   endDate: { type: Date, required: true }
 }, { _id: true });
