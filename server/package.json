@@ -30,7 +30,8 @@
     "test:regression:subject-program-mapping": "node qa/subject-program-mapping.test.mjs",
     "test:regression:session-plan-versioning": "node qa/session-plan-versioning.test.mjs",
     "test:regression:subject-session-constraints": "node qa/subject-session-constraints.test.mjs",
-    "test:integration:full-workflow": "node qa/full-workflow-integration.mjs"
+    "test:integration:full-workflow": "node qa/full-workflow-integration.mjs",
+    "test:regression:time-slot-validation": "node qa/time-slot-validation.test.mjs"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
