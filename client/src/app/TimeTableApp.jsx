@@ -13,6 +13,15 @@ function buildNavigationTree(group) {
   return group.items.map(item => ({ ...item, routeAllowed: true, children: [] }));
 }
 
+const SIDEBAR_MIN_WIDTH = 210;
+const SIDEBAR_MAX_WIDTH = 420;
+const SIDEBAR_DEFAULT_WIDTH = 258;
+
+function clampSidebarWidth(value) {
+  const width = Number(value);
+  return Math.min(SIDEBAR_MAX_WIDTH, Math.max(SIDEBAR_MIN_WIDTH, Number.isFinite(width) && width > 0 ? width : SIDEBAR_DEFAULT_WIDTH));
+}
+
 const Attendance = lazy(() => import("../pages/AttendancePage.jsx"));
 const Students = lazy(() => import("../pages/StudentsPage.jsx"));
 const StudentMapping = lazy(() => import("../pages/StudentMappingPage.jsx"));
@@ -91,6 +100,11 @@ export default function App(){
     document.title=tab==="Dashboard" ? "Time Table" : `${tab} | Time Table`;
   },[tab,auth?.role]);
   const [mobileNavOpen,setMobileNavOpen]=useState(false);
+  const [sidebarWidth,setSidebarWidth]=useState(()=>{
+    try{return clampSidebarWidth(localStorage.getItem("tt_sidebar_width")||SIDEBAR_DEFAULT_WIDTH);}
+    catch{return SIDEBAR_DEFAULT_WIDTH;}
+  });
+  const sidebarResizeRef=useRef(null);
   const [navQuery,setNavQuery]=useState("");
   const navSearchRef=useRef(null);
   const [activeNavGroup,setActiveNavGroup]=useState(null);
@@ -281,6 +295,48 @@ export default function App(){
     setMobileNavOpen(false);
   }
 
+  function persistSidebarWidth(width){
+    try{localStorage.setItem("tt_sidebar_width",String(clampSidebarWidth(width)));}catch{}
+  }
+
+  function startSidebarResize(event){
+    if(window.matchMedia("(max-width: 1000px)").matches)return;
+    event.preventDefault();
+    sidebarResizeRef.current={pointerId:event.pointerId,startX:event.clientX,startWidth:sidebarWidth};
+    try{event.currentTarget.setPointerCapture(event.pointerId);}catch{}
+  }
+
+  function moveSidebarResize(event){
+    const drag=sidebarResizeRef.current;
+    if(!drag||drag.pointerId!==event.pointerId)return;
+    const next=clampSidebarWidth(drag.startWidth+(event.clientX-drag.startX));
+    setSidebarWidth(next);
+    persistSidebarWidth(next);
+  }
+
+  function stopSidebarResize(event){
+    const drag=sidebarResizeRef.current;
+    if(!drag||drag.pointerId!==event.pointerId)return;
+    sidebarResizeRef.current=null;
+    persistSidebarWidth(sidebarWidth);
+    try{
+      if(event.currentTarget.hasPointerCapture(event.pointerId))event.currentTarget.releasePointerCapture(event.pointerId);
+    }catch{}
+  }
+
+  function handleSidebarResizeKeyDown(event){
+    let next=sidebarWidth;
+    if(event.key==="ArrowLeft")next=sidebarWidth-10;
+    else if(event.key==="ArrowRight")next=sidebarWidth+10;
+    else if(event.key==="Home")next=SIDEBAR_MIN_WIDTH;
+    else if(event.key==="End")next=SIDEBAR_MAX_WIDTH;
+    else return;
+    event.preventDefault();
+    next=clampSidebarWidth(next);
+    setSidebarWidth(next);
+    persistSidebarWidth(next);
+  }
+
   function positionFlyout(event){
     const rect=event.currentTarget.getBoundingClientRect();
     const isPhone=window.matchMedia("(max-width: 700px)").matches;
@@ -427,7 +483,10 @@ export default function App(){
 
 
 
-  return <div className={`app ${mobileNavOpen ? "mobile-nav-open" : ""} ${activeNavGroup ? "nav-flyout-open" : ""}`}>
+  return <div
+    className={`app ${mobileNavOpen ? "mobile-nav-open" : ""} ${activeNavGroup ? "nav-flyout-open" : ""}`}
+    style={{"--sidebar-width":`${sidebarWidth}px`}}
+  >
     <aside className="erp-sidebar">
       <div className="brand">
         <CalendarDays size={22}/>
@@ -494,6 +553,22 @@ export default function App(){
         <div style={{padding:"10px 4px",fontSize:12,color:"#64748b"}}>{auth.name} · {auth.role}</div>
         <button className="secondary full" onClick={()=>{localStorage.removeItem("tt_token");localStorage.removeItem("tt_user");window.location.reload()}}>Logout</button>
       </div>
+      <div
+        className="sidebar-resize-handle"
+        role="separator"
+        aria-orientation="vertical"
+        aria-label="Resize navigation sidebar"
+        aria-valuemin={SIDEBAR_MIN_WIDTH}
+        aria-valuemax={SIDEBAR_MAX_WIDTH}
+        aria-valuenow={sidebarWidth}
+        aria-valuetext={`${sidebarWidth} pixels wide`}
+        tabIndex={0}
+        onPointerDown={startSidebarResize}
+        onPointerMove={moveSidebarResize}
+        onPointerUp={stopSidebarResize}
+        onPointerCancel={stopSidebarResize}
+        onKeyDown={handleSidebarResizeKeyDown}
+      />
     </aside>
     {activeNavGroup&&(()=>{
       // Build the flyout from the full role-scoped navigation tree. The main
