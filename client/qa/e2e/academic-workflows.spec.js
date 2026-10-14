@@ -650,6 +650,7 @@ test("generation is stopped when pre-generation readiness reports blockers", asy
   });
 
   await page.getByRole("button", { name: /Generate Timetable/ }).first().click();
+  await page.getByRole("button", { name: /Generate selected/ }).click();
   await expect(page.getByRole("heading", { name: "Generation Readiness", exact: true })).toBeVisible();
   await expect(page.getByText(/Generation blocked: 1 setup error/)).toBeVisible();
   await expect(page.getByText("No active subject mappings are configured for this academic session.")).toBeVisible();
@@ -675,6 +676,7 @@ test("generation proceeds when readiness is valid and keeps warning-only finding
   });
 
   await page.getByRole("button", { name: /Generate Timetable/ }).first().click();
+  await page.getByRole("button", { name: /Generate selected/ }).click();
   await expect(page.getByRole("heading", { name: "Section-wise Timetable", exact: true })).toBeVisible();
   await expect(page.getByText("Mathematics", { exact: true }).first()).toBeVisible();
 });
@@ -683,6 +685,7 @@ test("admin can generate and submit a timetable for review", async ({ page }) =>
   const activeSession = makeActiveSession();
   await signIn(page, { sessions: [activeSession], includeSchedulingData: true });
   await page.getByRole("button", { name: /Generate Timetable/ }).first().click();
+  await page.getByRole("button", { name: /Generate selected/ }).click();
   await expect(page.getByRole("heading", { name: "Section-wise Timetable", exact: true })).toBeVisible();
   await expect(page.getByText("Mathematics", { exact: true }).first()).toBeVisible();
   await page.getByRole("button", { name: /Submit for Review/ }).click();
