@@ -100,12 +100,16 @@ export default function AllProgramTimetables({timetable,data,activeSession}){
   },[filtered]);
 
   const cellEntries=(program,semester,day,slot)=>{
-    const order=Number(slot.order||0);
     return filtered.filter(e=>{
       if(e.__program!==program||e.__semester!==semester||e.day!==day) return false;
       const start=Number(e.order||0);
       const duration=Math.max(1,Number(e.duration||1));
-      return order>=start&&order<start+duration;
+      const rowOrder=Number(slot.order||0);
+      const startsHere=String(e.startTime||"")===String(slot.startTime||"");
+      const endsHere=String(e.endTime||"")===String(slot.endTime||"");
+      if(duration===1) return startsHere&&endsHere;
+      if(startsHere||endsHere) return true;
+      return rowOrder>=start&&rowOrder<start+duration;
     });
   };
 
@@ -208,11 +212,13 @@ export default function AllProgramTimetables({timetable,data,activeSession}){
         const {program,semester}=group;
         const programEntries=filtered.filter(e=>e.__program===program&&e.__semester===semester);
         const groupSection=programEntries[0]?.__section;
-        const periodSlots=resolveEffectiveTimeSlots(data?.timeslots||[],groupSection,programs,activeSession?._id||"");
+        const scopedPeriodSlots=resolveEffectiveTimeSlots(data?.timeslots||[],groupSection,programs,activeSession?._id||"");
+        const periodSlots=[...new Map(scopedPeriodSlots.map(slot=>[`${slot.startTime}-${slot.endTime}`,slot])).values()]
+          .sort((a,b)=>Number(a.order||0)-Number(b.order||0)||String(a.startTime||"").localeCompare(String(b.startTime||"")));
         const sectionNames=[...new Set(programEntries.map(e=>e.__sectionName).filter(Boolean))].sort();
         return <section className="panel all-program-card" key={group.key}>
           <div className="panel-head all-program-card-head">
-            <div><h3><GraduationCap size={18}/> {program}{semester?` · Semester ${semester}`:""}</h3>
+            <div><h3><GraduationCap size={18}/> {program}{semester?` · ${/^semester\\b/i.test(semester)?semester:`Semester ${semester}`}`:""}</h3>
               <p>{sectionNames.length} section{sectionNames.length===1?"":"s"} · {programEntries.length} scheduled class{programEntries.length===1?"":"es"}</p>
             </div>
             <div className="program-section-chips">{sectionNames.map(name=><span key={name}>{name}</span>)}</div>
