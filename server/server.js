@@ -1459,7 +1459,7 @@ app.post("/api/timetable/generate", requireAuth, allowRoles("ADMIN", "SCHEDULER"
 
     if(!subjects.length)return res.status(400).json({message:"No active subjects found for the selected program(s) and academic session."});
     const holidayDays=new Set(["Sunday",...(Array.isArray(settings?.holidayDays)?settings.holidayDays:[])]);
-    const usableSlots=slots.filter(slot=>!slot.isBreak&&!holidayDays.has(String(slot.day)));
+    const usableSlots=slots.filter(slot=>!slot.isBreak&&!holidayDays.has(String(slot.day))&&(!String(slot.academicSession||"")||String(slot.academicSession)===String(academicSessionId||"")));
     if(!usableSlots.length)return res.status(400).json({message:`No usable time slots found after excluding holidays (${[...holidayDays].join(", ")}). Add Time Slots for working days first.`});
     if(!faculty.length)return res.status(400).json({message:"No faculty found. Add or import Faculty first."});
     if(!sections.length)return res.status(400).json({message:"No sections found. Add or import Sections first."});
@@ -1498,11 +1498,12 @@ app.post("/api/timetable/generate", requireAuth, allowRoles("ADMIN", "SCHEDULER"
       faculty,subjects:validSubjects,sections,rooms,slots:usableSlots,programs,
       settings:settings||{},reservedEntries,runs:generationRuns,totalMaxMillis:generationTimeLimitMs,
       perRunMillis:Math.max(750,Math.floor(generationTimeLimitMs/generationRuns)),
-      attemptsPerRun:env.schedulerGenerationAttempts
+      attemptsPerRun:env.schedulerGenerationAttempts,
+      academicSessionId
     });
     const requiredSessions=validSubjects.reduce((n,subject)=>n+Number(subject.classesPerWeek||0),0);
     console.log("Timetable generation:",{programs:requestedProgramIds.length?selectedPrograms.map(p=>p.name):["ALL"],requestedSessions:requiredSessions,generatedSessions:result.entries?.length||0,warnings:result.warnings||[]});
-    const validation=validateTimetable({entries:result.entries||[],faculty,sections,subjects:validSubjects,rooms,slots:usableSlots,programs,settings:settings||{},holidayDays:settings?.holidayDays||["Sunday"]});
+    const validation=validateTimetable({entries:result.entries||[],faculty,sections,subjects:validSubjects,rooms,slots:usableSlots,programs,settings:settings||{},academicSessionId,holidayDays:settings?.holidayDays||["Sunday"]});
     if(!(result.entries?.length))return res.status(422).json({message:"No timetable entries could be generated.",warnings:result.warnings||[],diagnostics:invalidSubjects.slice(0,50)});
     if(result.entries.length<requiredSessions)return res.status(422).json({message:`Timetable generation is incomplete: ${result.entries.length}/${requiredSessions} required weekly sessions were scheduled. Nothing was saved.`,warnings:result.warnings||[],validation});
     if(!validation.valid)return res.status(422).json({message:"Generated timetable failed hard-constraint validation. Nothing was saved.",warnings:result.warnings||[],validation});
@@ -1520,7 +1521,7 @@ app.post("/api/timetable/generate", requireAuth, allowRoles("ADMIN", "SCHEDULER"
     });
     const mergedValidation=requestedProgramIds.length?validateTimetable({
       entries:mergedEntries,faculty,sections:allSections,subjects:allValidSubjects,rooms,slots:usableSlots,programs,
-      settings:settings||{},holidayDays:settings?.holidayDays||["Sunday"]
+      settings:settings||{},academicSessionId,holidayDays:settings?.holidayDays||["Sunday"]
     }):validation;
     if(requestedProgramIds.length&&!mergedValidation.valid){
       return res.status(422).json({message:"The selected program timetable conflicts with existing entries from other programs. Nothing was saved.",warnings:result.warnings||[],validation:mergedValidation});
@@ -2536,9 +2537,22 @@ function populatedTimetableQuery(query){
 
 function entryOverlaps(a,b){
   if(String(a.day)!==String(b.day)) return false;
-  const ao=Number(a.order||0), bo=Number(b.order||0);
-  const ad=Math.max(1,Number(a.duration||1)), bd=Math.max(1,Number(b.duration||1));
-  return ao < bo+bd && bo < ao+ad;
+  const clockMinutes=value=>{
+    const match=String(value??"").trim().match(/^(\d{1,2}):(\d{2})$/);
+    if(!match)return NaN;
+    const hour=Number(match[1]),minute=Number(match[2]);
+    if(hour<0||hour>23||minute<0||minute>59)return NaN;
+    return hour*60+minute;
+  };
+  const aStart=clockMinutes(a.startTime),aEnd=clockMinutes(a.endTime);
+  const bStart=clockMinutes(b.startTime),bEnd=clockMinutes(b.endTime);
+  if([aStart,aEnd,bStart,bEnd].every(Number.isFinite)){
+    // Period order is local to a program/semester schedule, not globally comparable.
+    return aStart<bEnd&&bStart<aEnd;
+  }
+  const ao=Number(a.order||0),bo=Number(b.order||0);
+  const ad=Math.max(1,Number(a.duration||1)),bd=Math.max(1,Number(b.duration||1));
+  return ao<bo+bd&&bo<ao+ad;
 }
 
 function timetableConflicts(entries){
@@ -2640,6 +2654,7 @@ async function validateStoredTimetable(timetable){
     slots,
     programs,
     settings,
+    academicSessionId,
     holidayDays:settings.holidayDays||["Sunday"],
     holidayDates:academicSession?.holidayDates||[]
   });
