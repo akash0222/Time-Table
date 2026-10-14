@@ -85,7 +85,7 @@ const reservedFacultyClass = {
   faculty: "qa-faculty-1",
   section: "other-program-section",
   subject: "other-program-subject",
-  room: "qa-room-1"
+  room: "another-program-room"
 };
 const blockedByExistingProgram = generateBestTimetable({
   faculty,
@@ -113,7 +113,47 @@ assert.equal(
   0,
   "Generation must not double-book a faculty member already teaching for another program."
 );
-console.log("PASS  Existing program entries reserve faculty/room/section time during generation");
+
+const secondFaculty = {
+  _id: "qa-faculty-2",
+  name: "QA Faculty 2",
+  maxWorkingDays: 5,
+  maxClassesPerDay: 4,
+  availableDays: ["Monday"],
+  unavailableSlots: []
+};
+const reservedRoomClass = {
+  ...reservedFacultyClass,
+  faculty: "qa-faculty-2",
+  room: "qa-room-1"
+};
+const blockedByExistingRoom = generateBestTimetable({
+  faculty: [...faculty, secondFaculty],
+  subjects,
+  sections,
+  rooms,
+  slots,
+  programs: [],
+  settings: {
+    maxConsecutiveFaculty: 2,
+    maxConsecutiveSection: 3,
+    avoidSameSubjectSameDay: true,
+    distributeSubjectAcrossDays: true,
+    avoidFirstLastPeriod: false,
+    holidayDays: ["Sunday"]
+  },
+  reservedEntries: [reservedRoomClass],
+  runs: 1,
+  totalMaxMillis: 1000,
+  perRunMillis: 750,
+  attemptsPerRun: 10
+});
+assert.equal(
+  blockedByExistingRoom.entries.length,
+  0,
+  "Generation must not double-book a room already reserved by another program."
+);
+console.log("PASS  Existing program faculty and room reservations block conflicting placements");
 
 console.log("PASS  Generated candidate passes hard-constraint validation");
 console.log("PASS  Validation statistics contain zero hard errors");
