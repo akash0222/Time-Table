@@ -521,3 +521,44 @@
 @media(prefers-reduced-motion:reduce){
   .generation-modal-panel *{transition:none!important}
 }
+
+
+/* Navigation menu overrides: this stylesheet loads after styles.css. */
+.app .erp-sidebar{position:relative;z-index:1200;flex:0 0 258px;width:258px;min-width:258px;max-width:258px;overflow:hidden}
+.app .erp-sidebar .sidebar-nav.module-nav{display:flex;flex:1 1 auto;min-height:0;flex-direction:column;gap:4px;overflow-x:hidden;overflow-y:auto;padding:8px 0 14px}
+.app .erp-sidebar .sidebar-nav.module-nav .nav-module-entry{display:block;width:100%;min-width:0}
+.app .erp-sidebar .sidebar-nav.module-nav .nav-module-entry>button.nav-module-button{
+  appearance:none!important;-webkit-appearance:none!important;display:flex!important;align-items:center!important;justify-content:flex-start!important;gap:12px!important;
+  box-sizing:border-box!important;width:100%!important;min-height:44px!important;margin:0!important;padding:10px 12px!important;
+  border:1px solid transparent!important;border-radius:10px!important;background:transparent!important;color:#cbd5e1!important;box-shadow:none!important;
+  font:600 13px/1.35 Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif!important;text-align:left!important;text-transform:none!important;letter-spacing:normal!important;white-space:normal!important;cursor:pointer!important;
+}
+.app .erp-sidebar .sidebar-nav.module-nav .nav-module-entry>button.nav-module-button:hover,
+.app .erp-sidebar .sidebar-nav.module-nav .nav-module-entry>button.nav-module-button:focus-visible{border-color:rgba(148,163,184,.18)!important;background:rgba(148,163,184,.12)!important;color:#fff!important;outline:none!important}
+.app .erp-sidebar .sidebar-nav.module-nav .nav-module-entry>button.nav-module-button.has-current{border-color:rgba(96,165,250,.35)!important;background:#1e40af!important;color:#fff!important}
+.app .erp-sidebar .sidebar-nav.module-nav .nav-module-entry>button.nav-module-button.is-open{border-color:rgba(96,165,250,.35)!important;background:rgba(37,99,235,.22)!important;color:#fff!important}
+.app .erp-sidebar .sidebar-nav.module-nav .nav-module-entry>button.nav-module-button>svg{display:block!important;visibility:visible!important;opacity:1!important;width:18px!important;height:18px!important;flex:0 0 18px!important;color:#93c5fd!important}
+.app .erp-sidebar .sidebar-nav.module-nav .nav-module-entry>button.nav-module-button>span{display:block!important;flex:1 1 auto!important;min-width:0!important;margin:0!important;padding:0!important;overflow-wrap:anywhere;color:inherit!important;background:transparent!important;font:inherit!important;text-transform:none!important;letter-spacing:normal!important}
+.app .erp-sidebar .sidebar-nav.module-nav .nav-module-entry>button.nav-module-button>svg.nav-module-chevron{width:15px!important;height:15px!important;flex:0 0 15px!important;margin-left:auto!important}
+.app .nav-flyout-backdrop{position:fixed;inset:0;z-index:1190;pointer-events:auto;background:rgba(15,23,42,.10)}
+.app .nav-flyout-panel{position:fixed;z-index:1210;left:268px;display:flex;flex-direction:column;width:270px;max-width:calc(100vw - 285px);max-height:calc(100dvh - 36px);margin:0;padding:0;overflow:hidden;border:1px solid #e2e8f0;border-radius:12px;background:#fff;color:#334155;box-shadow:0 18px 50px rgba(15,23,42,.22)}
+.app .nav-flyout-panel>header.nav-flyout-header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0!important;padding:14px 15px 12px!important;border-bottom:1px solid #e2e8f0;background:#fff;color:#475569;font:800 14px/1.4 Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;text-transform:none;letter-spacing:normal}
+.app .nav-flyout-panel .nav-flyout-header button{appearance:none!important;display:grid!important;place-items:center!important;width:28px!important;height:28px!important;min-height:28px!important;margin:0!important;padding:0!important;border:0!important;border-radius:7px!important;background:transparent!important;color:#64748b!important;box-shadow:none!important}
+.app .nav-flyout-panel .nav-flyout-search{display:flex;align-items:center;gap:8px;margin:10px 12px 8px;padding:8px 10px;border:1px solid #e2e8f0;border-radius:8px;background:#f8fafc;color:#94a3b8}
+.app .nav-flyout-panel .nav-flyout-search input{display:block!important;width:100%!important;min-width:0!important;margin:0!important;padding:0!important;border:0!important;outline:0!important;background:transparent!important;color:#334155!important;box-shadow:none!important;font:400 12px/1.4 Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif!important}
+.app .nav-flyout-panel button.nav-flyout-item{appearance:none!important;-webkit-appearance:none!important;display:flex!important;align-items:center!important;justify-content:flex-start!important;gap:10px!important;box-sizing:border-box!important;width:100%!important;min-height:39px!important;margin:0!important;padding:9px 10px!important;border:0!important;border-radius:8px!important;background:transparent!important;color:#475569!important;box-shadow:none!important;font:500 13px/1.35 Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif!important;text-align:left!important;text-transform:none!important;letter-spacing:normal!important;white-space:normal!important;cursor:pointer!important}
+.app .nav-flyout-panel button.nav-flyout-item:hover{background:#f1f5f9!important;color:#0f172a!important}
+.app .nav-flyout-panel button.nav-flyout-item.active{background:#e8f2ff!important;color:#1d4ed8!important;font-weight:700!important}
+.app .nav-flyout-panel .nav-flyout-items{overflow-y:auto;min-height:0;padding:0 7px 9px}
+@media(min-width:1001px){.app .erp-sidebar .brand>span,.app .erp-sidebar .workspace-label,.app .erp-sidebar .sidebar-session-copy,.app .erp-sidebar .nav-module-button>span,.app .erp-sidebar .side-bottom>div{display:block!important}.app .erp-sidebar .sidebar-toggle{display:none!important}.app .nav-flyout-panel{left:268px}}
+@media(max-width:1000px){
+  .app .erp-sidebar{position:fixed;top:0;bottom:0;left:0;z-index:1200;width:min(286px,88vw)!important;min-width:0!important;max-width:88vw!important;flex:0 0 min(286px,88vw)!important;height:100vh;height:100dvh;padding:18px 14px;overflow:hidden;visibility:hidden;pointer-events:none;transform:translateX(-105%);transition:transform .22s ease,visibility .22s ease,box-shadow .22s ease}
+  .app.mobile-nav-open .erp-sidebar{visibility:visible;pointer-events:auto;transform:translateX(0);box-shadow:14px 0 42px rgba(15,23,42,.22)}
+  .app:not(.mobile-nav-open) .erp-sidebar .brand>span,.app:not(.mobile-nav-open) .erp-sidebar .workspace-label,.app:not(.mobile-nav-open) .erp-sidebar .sidebar-session-copy,.app:not(.mobile-nav-open) .erp-sidebar .nav-module-button>span,.app:not(.mobile-nav-open) .erp-sidebar .side-bottom>div{display:none!important}
+  .app:not(.mobile-nav-open) .erp-sidebar .nav-module-button{justify-content:center!important;padding:11px 8px!important}
+  .app:not(.mobile-nav-open) .erp-sidebar .nav-module-button>span,.app:not(.mobile-nav-open) .erp-sidebar .nav-module-chevron{display:none!important}
+  .app .nav-flyout-backdrop{background:rgba(15,23,42,.12)}
+  .app .nav-flyout-panel{left:calc(min(286px,88vw) + 8px);width:calc(100vw - min(286px,88vw) - 20px);max-width:none;max-height:calc(100dvh - 24px)}
+  .app.mobile-nav-open .mobile-nav-trigger{display:none!important}
+}
+@media(prefers-reduced-motion:reduce){.app .erp-sidebar,.app .nav-flyout-panel{transition:none!important;animation:none!important}}
