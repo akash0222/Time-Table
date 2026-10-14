@@ -627,6 +627,14 @@ function crud(path, Model) {
           const program = await Program.findById(body.program).lean();
           if (!program) return res.status(404).json({ message: "Program not found." });
         }
+        if (body.semester && body.program && body.academicSession) {
+          const session = await AcademicSession.findById(body.academicSession).lean();
+          if (!(session?.programDates || []).some(row => String(row.program) === String(body.program))) {
+            return res.status(400).json({message:"The selected Program is not linked to this Academic Session."});
+          }
+          const semester = await Semester.findOne({academicSession:body.academicSession,program:body.program,name:body.semester,active:true}).lean();
+          if (!semester) return res.status(400).json({message:"Select a Semester configured for this Academic Session and Program."});
+        }
         const conflict = timeSlotConflictIssue(body, await TimeSlot.find({ day: String(body.day).trim() }).lean());
         if (conflict) return res.status(409).json({ message: conflict });
       }
