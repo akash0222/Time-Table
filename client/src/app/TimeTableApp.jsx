@@ -243,6 +243,17 @@ export default function App(){
     return ()=>window.removeEventListener("keydown",closeOnEscape);
   },[mobileNavOpen]);
   useEffect(()=>{localStorage.setItem("tt_nav_collapsed_groups",JSON.stringify(collapsedNavGroups));},[collapsedNavGroups]);
+  useEffect(()=>{
+    if(!showGenerationDialog)return;
+    const closeDialogOnEscape=event=>{
+      if(event.key==="Escape"){
+        event.preventDefault();
+        setShowGenerationDialog(false);
+      }
+    };
+    window.addEventListener("keydown",closeDialogOnEscape);
+    return ()=>window.removeEventListener("keydown",closeDialogOnEscape);
+  },[showGenerationDialog]);
 
   // Deep links always reveal the one top-level group containing the current page.
   useEffect(()=>{
