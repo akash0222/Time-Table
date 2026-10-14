@@ -383,6 +383,23 @@ test("admin can open and refresh a direct module URL", async ({ page }) => {
   await expect(page).toHaveURL(/\/academic-sessions$/);
 });
 
+test("clears stale academic structure when backend records disappear while the tab is open", async ({ page }) => {
+  const programs = [{ ...sampleProgram }];
+  const sections = [{ ...sampleSection }];
+  await signIn(page, { programs, sections });
+  await page.locator('[data-nav="Academic Structure"]').click();
+  await expect(page.getByText("Program → Semester → Section", { exact: true })).toBeVisible();
+  await expect(page.getByText("MBA", { exact: true }).first()).toBeVisible();
+
+  // Simulate the records being cleared while the tab remains open.
+  programs.splice(0, programs.length);
+  sections.splice(0, sections.length);
+  await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+
+  await expect(page.getByText("Create an active Program first.", { exact: true })).toBeVisible({ timeout: 8000 });
+  await expect(page.getByText("MBA", { exact: true })).toHaveCount(0);
+});
+
 test("admin can create an academic session with program-wise dates", async ({ page }) => {
   await signIn(page);
   await page.locator('[data-nav="Academic Sessions"]').click();
