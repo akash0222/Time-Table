@@ -19,6 +19,15 @@ export default function StudentMapping({data,sessions=[],activeSession,reload,se
   const students=(data.students||[]).filter(s=>sessionMatches(s.section)).filter(s=>!sourceSection||refId(s.section)===sourceSection).filter(s=>!q||`${s.name} ${s.admissionNo} ${s.rollNo}`.toLowerCase().includes(q.toLowerCase()));
   const targetOptions=sections.filter(s=>sessionMatches(s)&&refId(s)!==sourceSection);
   useEffect(()=>{setSelected([])},[sourceProgram,sourceSemester,sourceSection]);
+  useEffect(()=>{
+    const sessionRows=Array.isArray(sessions)?sessions:[];
+    if(sessionId&&!sessionRows.some(item=>String(item._id)===String(sessionId))){
+      const activeId=activeSession?._id&&sessionRows.some(item=>String(item._id)===String(activeSession._id))
+        ?String(activeSession._id):"";
+      setSessionId(activeId);
+      setSourceProgram("");setSourceSemester("");setSourceSection("");setTargetSection("");setSelected([]);
+    }
+  },[sessions,activeSession?._id]);
   const programs=data.programs||[];
   const semesters=[...new Set(sections.filter(s=>!sourceProgram||String(s.programId?._id||s.programId||'')===sourceProgram||s.program===sourceProgram).map(s=>s.semester))];
   async function mapStudents(){
