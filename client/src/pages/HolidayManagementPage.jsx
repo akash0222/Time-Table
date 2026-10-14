@@ -50,6 +50,20 @@ export default function HolidayManagement({sessions = [], activeSession, role, s
     if (activeSession?._id && !sessionId) setSessionId(activeSession._id);
   }, [activeSession?._id]);
 
+  useEffect(() => {
+    const sessionRows = Array.isArray(sessions) ? sessions : [];
+    if (sessionId && !sessionRows.some(item => String(item._id) === String(sessionId))) {
+      const activeId = activeSession?._id && sessionRows.some(item => String(item._id) === String(activeSession._id))
+        ? String(activeSession._id) : "";
+      setSessionId(activeId);
+      setImportPreview(null);
+      setUploadFile(null);
+      setEditingHolidayDate("");
+      setEditingHolidayName("");
+      setEditingHolidayDescription("");
+    }
+  }, [sessions, activeSession?._id]);
+
   async function loadSession(id = sessionId) {
     if (!id) {
       setSession(null);
