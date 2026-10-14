@@ -104,6 +104,8 @@ export default function App(){
   const [latest,setLatest]=useState(null);
   const [message,setMessage]=useState("");
   const [loading,setLoading]=useState(false);
+  const [showGenerationDialog,setShowGenerationDialog]=useState(false);
+  const [selectedProgramIds,setSelectedProgramIds]=useState([]);
   const [settings,setSettings]=useState({maxConsecutiveFaculty:2,maxConsecutiveSection:3,avoidSameSubjectSameDay:true,distributeSubjectAcrossDays:true,avoidFirstLastPeriod:false,holidayDays:["Sunday"],generationRuns:8,generationTimeLimitMs:30000});
   const [timetableStatus,setTimetableStatus]=useState("DRAFT");
   const [activeSession,setActiveSession]=useState(null);
@@ -276,7 +278,8 @@ export default function App(){
 
   if(!auth) return <Suspense fallback={<PageLoading label="sign in" />}><Login onLogin={u=>setAuth(u)} /></Suspense>;
 
-  async function generate(){
+  async function generate(programIds=selectedProgramIds){
+    setShowGenerationDialog(false);
     setLoading(true);
     setMessage("");
     try {
@@ -303,16 +306,20 @@ export default function App(){
         return;
       }
       const preflightErrors=Number(preflight.summary.errors||0);
-      if(preflight.status==="NOT_READY"||preflightErrors>0){
+      if((preflight.status==="NOT_READY"||preflightErrors>0) && (!programIds?.length || programIds.length===(data.programs||[]).filter(p=>p.active!==false).length)){
         setTab("Generation Readiness");
         setMessage(`Generation blocked: ${preflightErrors||1} setup error(s) must be resolved first. Review the findings in Generation Readiness.`);
         return;
       }
 
       const currentSessionId=refId(activeSession);
+      const selectedPrograms=new Set((programIds||[]).map(String));
+      const selectedProgramRecords=(data.programs||[]).filter(program=>selectedPrograms.has(String(program._id)));
+      const selectedProgramNames=new Set(selectedProgramRecords.flatMap(program=>[program.name,program.code].filter(Boolean).map(value=>String(value).trim().toLowerCase())));
+      const isSelectedSection=sec=>!selectedPrograms.size || selectedPrograms.has(refId(sec.programId)) || selectedProgramNames.has(String(sec.program||"").trim().toLowerCase());
       const currentSectionIds=new Set(
         (data.sections||[])
-          .filter(sec=>!currentSessionId || refId(sec.academicSession)===currentSessionId)
+          .filter(sec=>(!currentSessionId || refId(sec.academicSession)===currentSessionId) && isSelectedSection(sec))
           .map(sec=>String(sec._id))
       );
       const currentSubjects=(data.subjects||[]).filter(subject=>{
@@ -331,14 +338,14 @@ export default function App(){
         return;
       }
 
-      const r=await axios.post(`${API}/timetable/generate`,{academicSessionId:activeSession?._id,generationRuns:Number(settings.generationRuns||8),generationTimeLimitMs:Number(settings.generationTimeLimitMs||30000)});
+      const r=await axios.post(`${API}/timetable/generate`,{academicSessionId:activeSession?._id,programIds:programIds||[],generationRuns:Number(settings.generationRuns||8),generationTimeLimitMs:Number(settings.generationTimeLimitMs||30000)});
       setLatest(r.data);
       setTab("Timetable");
       const count=r.data.entries?.length||0;
       const warnings=Array.isArray(r.data.warnings)?r.data.warnings:[];
       setMessage(
         count>0
-          ? `Generated ${count} timetable entries using the best candidate from ${r.data.optimization?.runsCompleted||1} generation run(s).${warnings.length?" "+warnings[0]:""}`
+          ? `Generated ${count} timetable entries${programIds?.length?` for ${(data.programs||[]).filter(p=>programIds.includes(String(p._id))).map(p=>p.name).join(", ")}`:""} using the best candidate from ${r.data.optimization?.runsCompleted||1} generation run(s).${warnings.length?" "+warnings[0]:""}`
           : `Generated 0 timetable entries. ${warnings.join(" ")||"No valid placement was found. Check your Faculty, Section, Room, Availability and Time Slot settings."}`
       );
       await load();
@@ -416,11 +423,35 @@ export default function App(){
         {normalizedNavQuery&&!visibleNavGroups.length&&<div className="nav-search-empty" role="status">No pages match “{navQuery.trim()}”.</div>}
       </nav>
       <div className="side-bottom">
-        {(["ADMIN","SCHEDULER"].includes(auth.role)) && <button className="primary full" onClick={generate} disabled={loading}><WandSparkles size={17}/> Generate Timetable</button>}
+        {(["ADMIN","SCHEDULER"].includes(auth.role)) && <button className="primary full" onClick={()=>{setSelectedProgramIds((data.programs||[]).filter(p=>p.active!==false).map(p=>String(p._id)));setShowGenerationDialog(true);}} disabled={loading}><WandSparkles size={17}/> Generate Timetable</button>}
         <div style={{padding:"10px 4px",fontSize:12,color:"#64748b"}}>{auth.name} · {auth.role}</div>
         <button className="secondary full" onClick={()=>{localStorage.removeItem("tt_token");localStorage.removeItem("tt_user");window.location.reload()}}>Logout</button>
       </div>
     </aside>
+    {showGenerationDialog&&<div className="modal-backdrop" role="presentation" onClick={event=>{if(event.target===event.currentTarget)setShowGenerationDialog(false);}}>
+      <section className="modal-panel" role="dialog" aria-modal="true" aria-labelledby="generate-program-title">
+        <div className="modal-header">
+          <div><h2 id="generate-program-title">Generate Timetable</h2><p>Select the program(s) to generate for {activeSession?.name||"the active academic session"}.</p></div>
+          <button type="button" className="icon-button" onClick={()=>setShowGenerationDialog(false)} aria-label="Close dialog"><X size={18}/></button>
+        </div>
+        <div className="modal-actions" style={{display:"flex",gap:8,marginBottom:12}}>
+          <button type="button" className="secondary" onClick={()=>setSelectedProgramIds((data.programs||[]).filter(p=>p.active!==false).map(p=>String(p._id)))}>Select all</button>
+          <button type="button" className="secondary" onClick={()=>setSelectedProgramIds([])}>Clear selection</button>
+        </div>
+        <div style={{display:"grid",gap:8,maxHeight:300,overflowY:"auto",marginBottom:18}}>
+          {(data.programs||[]).filter(p=>p.active!==false).map(program=><label key={program._id} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 12px",border:"1px solid var(--border, #dbe2ea)",borderRadius:10,cursor:"pointer"}}>
+            <input type="checkbox" checked={selectedProgramIds.includes(String(program._id))} onChange={event=>setSelectedProgramIds(previous=>event.target.checked?[...new Set([...previous,String(program._id)])]:previous.filter(id=>id!==String(program._id)))}/>
+            <span><strong>{program.name}</strong>{program.code&&<small style={{display:"block",opacity:.7}}>{program.code}</small>}</span>
+          </label>)}
+          {!(data.programs||[]).some(p=>p.active!==false)&&<p>No active programs found. Add or activate a program first.</p>}
+        </div>
+        <p style={{fontSize:13,opacity:.75}}>Only sections mapped to the selected programs will be generated. Other programs' existing timetable entries will be preserved.</p>
+        <div className="modal-footer" style={{display:"flex",justifyContent:"flex-end",gap:8}}>
+          <button type="button" className="secondary" onClick={()=>setShowGenerationDialog(false)}>Cancel</button>
+          <button type="button" className="primary" disabled={loading||!selectedProgramIds.length} onClick={()=>generate(selectedProgramIds)}><WandSparkles size={16}/> Generate selected ({selectedProgramIds.length})</button>
+        </div>
+      </section>
+    </div>}
     {mobileNavOpen&&<button type="button" className="sidebar-backdrop" aria-label="Close navigation" onClick={()=>setMobileNavOpen(false)}/>}
     <main className="erp-main">
       <button
@@ -448,7 +479,7 @@ export default function App(){
       {tab==="Holiday Management" && <HolidayManagement sessions={sessions} activeSession={activeSession} role={auth.role} setMessage={setMessage}/> }
       {tab==="Templates & Clone" && <TimetableTemplates sessions={sessions} activeSession={activeSession} setLatest={setLatest} setMessage={setMessage}/>}
       {tab==="Public Sharing" && <PublicSharing data={data} setMessage={setMessage}/>}
-      {tab==="Dashboard" && <Dashboard cards={cards} generate={generate} loading={loading} latest={latest} role={auth.role} onNavigate={navigateFromDashboard} activeSession={activeSession}/>}
+      {tab==="Dashboard" && <Dashboard cards={cards} generate={()=>{setSelectedProgramIds((data.programs||[]).filter(p=>p.active!==false).map(p=>String(p._id)));setShowGenerationDialog(true);}} loading={loading} latest={latest} role={auth.role} onNavigate={navigateFromDashboard} activeSession={activeSession}/>}
       {tab==="My Timetable" && <PersonalTimetable auth={auth} data={data}/> }
       {tab==="Calendar View" && <CalendarView timetable={latest} data={data} role={auth.role} onMoved={load} setMessage={setMessage}/>}
       {tab==="Faculty Portal" && <FacultyPortal activeSession={activeSession}/>}
