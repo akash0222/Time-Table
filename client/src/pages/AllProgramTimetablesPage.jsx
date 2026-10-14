@@ -204,8 +204,11 @@ export default function AllProgramTimetables({timetable,data,activeSession}){
       <p>Clear the filters or generate a timetable containing the selected program or section.</p>
     </section> :
     <div className="all-program-list">
-      {visibleGroups.map(group=>{\n        const {program,semester}=group;
-        const programEntries=filtered.filter(e=>e.__program===program&&e.__semester===semester);\n        const groupSection=programEntries[0]?.__section;\n        const periodSlots=resolveEffectiveTimeSlots(data?.timeslots||[],groupSection,programs,activeSession?._id||"");
+      {visibleGroups.map(group=>{
+        const {program,semester}=group;
+        const programEntries=filtered.filter(e=>e.__program===program&&e.__semester===semester);
+        const groupSection=programEntries[0]?.__section;
+        const periodSlots=resolveEffectiveTimeSlots(data?.timeslots||[],groupSection,programs,activeSession?._id||"");
         const sectionNames=[...new Set(programEntries.map(e=>e.__sectionName).filter(Boolean))].sort();
         return <section className="panel all-program-card" key={group.key}>
           <div className="panel-head all-program-card-head">
