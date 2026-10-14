@@ -43,6 +43,7 @@ import { subjectWeeklyLimitIssue } from "./services/subjectSessionConstraints.js
 import { timeSlotInputIssue, timeSlotConflictIssue } from "./services/timeSlotValidation.js";
 import { normalizeProgramDates, programDateInputIssue } from "./services/programDateValidation.js";
 import { workflowNoteRequired } from "./services/timetableWorkflow.js";
+import { timeSlotMatchesSection, resolveProgramCalendar } from "./services/timetable/academicCalendar.js";
 
 const app = express();
 globalThis.__APP_STARTED_AT = Date.now();
@@ -220,7 +221,7 @@ app.post("/api/sessions", requireAuth, async (req,res)=>{
     if(!body.name?.trim())return res.status(400).json({message:"Academic session name is required."});
     const dateIssue=programDateInputIssue(programDates);
     if(dateIssue)return res.status(400).json({message:dateIssue});
-    const programIds=programDates.map(item=>item.program);
+    const programIds=[...new Set(programDates.map(item=>item.program))];
     const validPrograms=await Program.find({_id:{$in:programIds},active:{$ne:false}}).select("_id").lean();
     if(validPrograms.length!==programIds.length)return res.status(400).json({message:"One or more program calendars reference a missing or inactive program."});
     const dates=programDates.map(x=>({start:new Date(x.startDate),end:new Date(x.endDate)}));
@@ -246,7 +247,7 @@ app.put("/api/sessions/:id", requireAuth, async (req,res)=>{
       const programDates=normalizeProgramDates(body.programDates);
       const dateIssue=programDateInputIssue(programDates);
       if(dateIssue)return res.status(400).json({message:dateIssue});
-      const programIds=programDates.map(item=>item.program);
+      const programIds=[...new Set(programDates.map(item=>item.program))];
       const validPrograms=await Program.find({_id:{$in:programIds},active:{$ne:false}}).select("_id").lean();
       if(validPrograms.length!==programIds.length)return res.status(400).json({message:"One or more program calendars reference a missing or inactive program."});
       const dates=programDates.map(x=>({start:new Date(x.startDate),end:new Date(x.endDate)}));
@@ -602,9 +603,15 @@ function crud(path, Model) {
       }
 
       if (path === "timeslots") {
+        if (body.academicSession === "") body.academicSession = null;
         if (body.program === "") body.program = null;
+        body.semester = String(body.semester || "").trim();
         const slotIssue = timeSlotInputIssue(body);
         if (slotIssue) return res.status(400).json({ message: slotIssue });
+        if (body.academicSession) {
+          const session = await AcademicSession.findById(body.academicSession).lean();
+          if (!session) return res.status(404).json({ message: "Academic Session not found." });
+        }
         if (body.program) {
           const program = await Program.findById(body.program).lean();
           if (!program) return res.status(404).json({ message: "Program not found." });
@@ -711,10 +718,16 @@ function crud(path, Model) {
       if (path === "timeslots") {
         const row = await TimeSlot.findById(req.params.id).lean();
         if (!row) return res.status(404).json({ message: "Record not found" });
+        if (body.academicSession === "") body.academicSession = null;
         if (body.program === "") body.program = null;
+        if (body.semester !== undefined) body.semester = String(body.semester || "").trim();
         const candidate = { ...row, ...body };
         const slotIssue = timeSlotInputIssue(candidate);
         if (slotIssue) return res.status(400).json({ message: slotIssue });
+        if (candidate.academicSession) {
+          const session = await AcademicSession.findById(candidate.academicSession).lean();
+          if (!session) return res.status(404).json({ message: "Academic Session not found." });
+        }
         if (candidate.program) {
           const program = await Program.findById(candidate.program).lean();
           if (!program) return res.status(404).json({ message: "Program not found." });
