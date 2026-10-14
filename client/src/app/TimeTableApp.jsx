@@ -428,8 +428,8 @@ export default function App(){
         <button className="secondary full" onClick={()=>{localStorage.removeItem("tt_token");localStorage.removeItem("tt_user");window.location.reload()}}>Logout</button>
       </div>
     </aside>
-    {showGenerationDialog&&<div className="modal-backdrop" role="presentation" onClick={event=>{if(event.target===event.currentTarget)setShowGenerationDialog(false);}}>
-      <section className="modal-panel" role="dialog" aria-modal="true" aria-labelledby="generate-program-title">
+    {showGenerationDialog&&<div className="modal-backdrop generation-modal-backdrop" role="presentation" onClick={event=>{if(event.target===event.currentTarget)setShowGenerationDialog(false);}}>
+      <section className="modal-panel generation-modal-panel" role="dialog" aria-modal="true" aria-labelledby="generate-program-title">
         <div className="modal-header">
           <div><h2 id="generate-program-title">Generate Timetable</h2><p>Select the program(s) to generate for {activeSession?.name||"the active academic session"}.</p></div>
           <button type="button" className="icon-button" onClick={()=>setShowGenerationDialog(false)} aria-label="Close dialog"><X size={18}/></button>
