@@ -582,3 +582,15 @@
     max-height:80dvh!important;
   }
 }
+
+
+/* The flyout is nested inside its backdrop stacking context. On mobile that
+   context must sit above the drawer so submenu buttons receive touch/clicks. */
+@media(max-width:1000px){
+  .app.mobile-nav-open .nav-flyout-backdrop{
+    z-index:1205!important;
+  }
+  .app.mobile-nav-open .nav-flyout-panel{
+    z-index:1210!important;
+  }
+}
