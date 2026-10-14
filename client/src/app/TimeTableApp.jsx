@@ -284,7 +284,11 @@ export default function App(){
   }
 
   function showNavGroup(event,group){
-    if(group.items.length<=1)return;
+    if(group.items.length<=1){
+      setActiveNavGroup(null);
+      setFlyoutSearch("");
+      return;
+    }
     positionFlyout(event);
     setActiveNavGroup(group.label);
   }
@@ -517,7 +521,7 @@ export default function App(){
         </div>
       </section>
     </div>}
-    {mobileNavOpen&&<button type="button" className="sidebar-backdrop" aria-label="Close navigation" onClick={()=>setMobileNavOpen(false)}/>}
+    {mobileNavOpen&&<button type="button" className="sidebar-backdrop" aria-label="Close navigation" onClick={()=>{setMobileNavOpen(false);setActiveNavGroup(null);setFlyoutSearch("");}}/>}
     <main className="erp-main">
       <button
         type="button"
