@@ -9,20 +9,17 @@ export default function AcademicStructure({sessions=[],activeSession,programs=[]
   const [loading,setLoading]=useState(false);
   const [editing,setEditing]=useState(null);
   const [form,setForm]=useState({programId:"",semester:"",name:"",maxClassesPerDay:6,capacity:0});
-  // Reconcile the locally selected session with live sessions. After a reset,
-  // the previously selected session ID may no longer exist; clear it instead of
-  // sending stale IDs on new section writes. Preserve an explicit valid selection.
+  // Keep the original default-to-active-session behavior, but don't let a
+  // selected ID survive after that session disappears from the server.
+  useEffect(()=>{if(activeSession?._id&&!sessionId)setSessionId(activeSession._id)},[activeSession?._id]);
   useEffect(()=>{
     const sessionRows=Array.isArray(sessions)?sessions:[];
-    const selectedExists=!!sessionId&&sessionRows.some(item=>String(item._id)===String(sessionId));
-    if(sessionId&&!selectedExists){
-      setSessionId(activeSession?._id?String(activeSession._id):"");
-      return;
+    if(sessionId&&!sessionRows.some(item=>String(item._id)===String(sessionId))){
+      const activeId=activeSession?._id&&sessionRows.some(item=>String(item._id)===String(activeSession._id))
+        ?String(activeSession._id):"";
+      setSessionId(activeId);
     }
-    if(!sessionId&&activeSession?._id){
-      setSessionId(String(activeSession._id));
-    }
-  },[sessions,activeSession?._id,sessionId]);
+  },[sessions,activeSession?._id]);
   async function loadStructure(){
     setLoading(true);
     try{const r=await axios.get(`${API}/academic-structure${sessionId?`?sessionId=${sessionId}`:""}`);setStructure(r.data||{programs:[],sections:[]});}
