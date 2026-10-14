@@ -21,7 +21,10 @@ const timetableSchema = new mongoose.Schema({
     section: { type: mongoose.Schema.Types.ObjectId, ref: "Section" },
     subject: { type: mongoose.Schema.Types.ObjectId, ref: "Subject" },
     faculty: { type: mongoose.Schema.Types.ObjectId, ref: "Faculty" },
-    room: { type: mongoose.Schema.Types.ObjectId, ref: "Room" }
+    room: { type: mongoose.Schema.Types.ObjectId, ref: "Room" },
+    // Calendar window for this program/semester's repeating weekly timetable.
+    calendarStartDate: { type: String, default: "" },
+    calendarEndDate: { type: String, default: "" }
   }],
   score: Number,
   optimizationScore: { type: Number, default: null },
