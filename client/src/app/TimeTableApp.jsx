@@ -296,7 +296,9 @@ export default function App(){
       return;
     }
     positionFlyout(event);
-    setActiveNavGroup(previous=>previous===group.label?null:group.label);
+    // Hover/focus may have already opened this group before the click event.
+    // Selecting the module should keep its submenu open, not immediately toggle it closed.
+    setActiveNavGroup(group.label);
     setFlyoutSearch("");
   }
 
