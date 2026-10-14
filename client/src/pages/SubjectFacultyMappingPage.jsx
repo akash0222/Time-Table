@@ -16,7 +16,7 @@ export default function SubjectFacultyMapping({data,sessions,activeSession,reloa
   const [loading,setLoading]=useState(false);
   const [saving,setSaving]=useState(false);
   const [editingId,setEditingId]=useState(null);
-  const [form,setForm]=useState({name:"",code:"",faculty:"",section:"",subjectType:"CORE",classesPerWeek:3,totalSessions:0,maxClassesPerWeek:1,duration:1,roomType:"Classroom",active:true});
+  const [form,setForm]=useState({name:"",code:"",faculty:"",section:"",subjectType:"CORE",classesPerWeek:3,totalSessions:0,maxClassesPerWeek:3,duration:1,roomType:"Classroom",active:true});
 
   useEffect(()=>{ if(!sessionId&&activeSession?._id) setSessionId(activeSession._id); },[activeSession?._id]);
   const sessionSections=(data.sections||[]).filter(s=>!sessionId||refId(s.academicSession)===String(sessionId));
@@ -38,10 +38,17 @@ export default function SubjectFacultyMapping({data,sessions,activeSession,reloa
   }
   useEffect(()=>{loadMappings();},[sessionId,sectionId,facultyId,programId]);
 
-  function resetForm(){setEditingId(null);setForm({name:"",code:"",faculty:facultyId||"",section:sectionId||"",subjectType:"CORE",classesPerWeek:3,totalSessions:0,maxClassesPerWeek:1,duration:1,roomType:"Classroom",active:true});}
+  function resetForm(){setEditingId(null);setForm({name:"",code:"",faculty:facultyId||"",section:sectionId||"",subjectType:"CORE",classesPerWeek:3,totalSessions:0,maxClassesPerWeek:3,duration:1,roomType:"Classroom",active:true});}
   function edit(row){setEditingId(row._id);setForm({name:row.name||"",code:row.code||"",faculty:refId(row.faculty),section:refId(row.section),subjectType:row.subjectType||"CORE",classesPerWeek:row.classesPerWeek||1,totalSessions:row.totalSessions||0,maxClassesPerWeek:row.maxClassesPerWeek||row.classesPerWeek||1,duration:row.duration||1,roomType:row.roomType||"Classroom",active:row.active!==false});window.scrollTo({top:0,behavior:"smooth"});}
   async function save(){
     if(!sessionId||!form.section||!form.faculty||!form.name.trim()){setMessage("Select Academic Session, Section, Faculty and enter Subject Name.");return;}
+    const weeklyTarget=Math.max(1,Number(form.classesPerWeek||1));
+    const totalTarget=Math.max(0,Number(form.totalSessions||0));
+    const weeklyLimit=Number(form.maxClassesPerWeek||0);
+    if(totalTarget===0&&weeklyLimit<weeklyTarget){
+      setMessage(`Max Classes / Week must be at least Classes / Week when Total Sessions is 0 (currently ${weeklyLimit} vs ${weeklyTarget}). Increase the weekly maximum or enter an explicit Total Sessions target.`);
+      return;
+    }
     setSaving(true);
     try{
       const body={...form,academicSession:sessionId,programId:(data.sections||[]).find(s=>refId(s)===String(form.section))?.programId?._id||((data.sections||[]).find(s=>refId(s)===String(form.section))?.programId||null),classesPerWeek:Number(form.classesPerWeek||1),totalSessions:Number(form.totalSessions||0),maxClassesPerWeek:Number(form.maxClassesPerWeek||form.classesPerWeek||1),duration:Number(form.duration||1)};
@@ -83,7 +90,12 @@ export default function SubjectFacultyMapping({data,sessions,activeSession,reloa
         <Select label="Section" value={form.section} options={filteredSections.map(x=>[x._id,`${x.program||""} · Sem ${x.semester} · ${x.name}`])} onChange={v=>setForm({...form,section:v})}/>
         <Select label="Faculty" value={form.faculty} options={faculties.map(x=>[x._id,`${x.name}${x.code?` (${x.code})`:""}`])} onChange={v=>setForm({...form,faculty:v})}/>
         <Select label="Subject Type" value={form.subjectType} options={[["CORE","Core"],["ELECTIVE","Elective"],["PRACTICAL","Practical"],["LAB","Lab"]]} onChange={v=>setForm({...form,subjectType:v})}/>
-        <Input label="Classes / Week" type="number" value={form.classesPerWeek} onChange={v=>setForm({...form,classesPerWeek:v})}/>
+        <Input label="Classes / Week" type="number" value={form.classesPerWeek} onChange={v=>setForm(current=>{
+          const nextWeekly=Math.max(1,Number(v||1));
+          const next={...current,classesPerWeek:v};
+          if(Number(current.totalSessions||0)===0&&Number(current.maxClassesPerWeek||0)<nextWeekly)next.maxClassesPerWeek=String(nextWeekly);
+          return next;
+        })}/>
         <Input label="Max Classes / Week" type="number" value={form.maxClassesPerWeek} onChange={v=>setForm({...form,maxClassesPerWeek:v})}/>
         <Input label="Duration (Periods)" type="number" value={form.duration} onChange={v=>setForm({...form,duration:v})}/>
         <Select label="Room Requirement" value={form.roomType} options={[["Classroom","Classroom"],["Lab","Lab"],["Any","Any"]]} onChange={v=>setForm({...form,roomType:v})}/>
