@@ -670,6 +670,14 @@ function crud(path, Model) {
         const nextProgramText = String(nextProgram?.name || (body.program !== undefined ? body.program : row.program) || "").trim();
         const nextSemester = String(body.semester !== undefined ? body.semester : row.semester || "").trim();
         const nextName = String(body.name !== undefined ? body.name : row.name || "").trim();
+        if (nextProgramId && nextSessionId) {
+          const session = await AcademicSession.findById(nextSessionId).lean();
+          if (!session || !(session.programDates || []).some(item => String(item.program) === String(nextProgramId))) {
+            return res.status(400).json({message:"Link this Program to the selected Academic Session first in Academic Sessions."});
+          }
+          const semesterMaster = await Semester.findOne({academicSession:nextSessionId,program:nextProgramId,name:nextSemester,active:true}).lean();
+          if (!semesterMaster) return res.status(400).json({message:"Select a semester configured for this Academic Session and Program in Master Data Settings → Semesters."});
+        }
         const programChanged = String(nextProgramId || "") !== String(row.programId || "")
           || (!nextProgramId && nextProgramText.toLowerCase() !== String(row.program || "").trim().toLowerCase());
         const sessionChanged = String(nextSessionId || "") !== String(row.academicSession || "");
@@ -751,6 +759,14 @@ function crud(path, Model) {
           const program = await Program.findById(candidate.program).lean();
           if (!program) return res.status(404).json({ message: "Program not found." });
         }
+        if (candidate.semester && candidate.program && candidate.academicSession) {
+          const session = await AcademicSession.findById(candidate.academicSession).lean();
+          if (!(session?.programDates || []).some(item => String(item.program) === String(candidate.program))) {
+            return res.status(400).json({message:"The selected Program is not linked to this Academic Session."});
+          }
+          const semester = await Semester.findOne({academicSession:candidate.academicSession,program:candidate.program,name:candidate.semester,active:true}).lean();
+          if (!semester) return res.status(400).json({message:"Select a Semester configured for this Academic Session and Program."});
+        }
         const conflict = timeSlotConflictIssue(
           candidate,
           await TimeSlot.find({ day: String(candidate.day).trim() }).lean(),
@@ -799,6 +815,7 @@ function crud(path, Model) {
           [Section, {programId:id}, "section(s)"],
           [Subject, {programId:id}, "subject mapping(s)"],
           [TimeSlot, {program:id}, "time-slot mapping(s)"],
+          [Semester, {program:id}, "semester master record(s)"],
           [AcademicSession, {"programDates.program":id}, "academic-session program date(s)"]
         ]
       };
