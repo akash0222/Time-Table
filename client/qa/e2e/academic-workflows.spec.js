@@ -730,19 +730,21 @@ test("Generate Timetable program selector is centered, scrollable, and accessibl
   expect(geometry.right).toBeLessThanOrEqual(geometry.viewportWidth);
   expect(geometry.height).toBeLessThanOrEqual(geometry.viewportHeight);
 
+  await dialog.getByRole("button",{name:"Close dialog"}).click();
+  await expect(dialog).toHaveCount(0);
+
+  // Reopen at desktop size before switching to the compact viewport; the
+  // desktop sidebar is intentionally hidden on mobile.
+  await openButton.click();
+  const mobileDialog=page.getByRole("dialog",{name:/Generate Timetable/});
+  await expect(mobileDialog).toBeVisible();
   await page.setViewportSize({width:390,height:700});
-  await expect(dialog).toBeVisible();
-  const mobile=await dialog.boundingBox();
+  await expect(mobileDialog).toBeVisible();
+  const mobile=await mobileDialog.boundingBox();
   expect(mobile).not.toBeNull();
   expect(mobile.x).toBeGreaterThanOrEqual(0);
   expect(mobile.x+mobile.width).toBeLessThanOrEqual(390);
   expect(mobile.height).toBeLessThanOrEqual(700);
   await page.keyboard.press("Escape");
-  await expect(dialog).toHaveCount(0);
-
-  await openButton.click();
-  const reopened=page.getByRole("dialog",{name:/Generate Timetable/});
-  await expect(reopened).toBeVisible();
-  await reopened.getByRole("button",{name:"Close dialog"}).click();
-  await expect(reopened).toHaveCount(0);
+  await expect(mobileDialog).toHaveCount(0);
 });
