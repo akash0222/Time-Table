@@ -390,3 +390,134 @@
   .holiday-row-actions{width:100%;justify-content:flex-end}
   .holiday-date-row.is-editing .holiday-date-main{width:100%}
 }
+
+
+/* Generate Timetable program picker: keep the selector above page content. */
+.generation-modal-backdrop{
+  position:fixed;
+  inset:0;
+  z-index:3000;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:clamp(12px,3vw,28px);
+  overflow-y:auto;
+  background:rgba(15,23,42,.58);
+  backdrop-filter:blur(3px);
+  -webkit-backdrop-filter:blur(3px);
+}
+.generation-modal-panel{
+  position:relative;
+  isolation:isolate;
+  width:min(680px,100%);
+  max-width:680px;
+  max-height:min( min(820px, calc(100dvh - 32px)), 92vh);
+  overflow:auto;
+  box-sizing:border-box;
+  margin:auto;
+  padding:clamp(18px,3vw,28px);
+  border:1px solid #e2e8f0;
+  border-radius:18px;
+  background:#fff;
+  color:#172b4d;
+  box-shadow:0 28px 90px rgba(15,23,42,.28);
+}
+.generation-modal-panel .modal-header{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:18px;
+  margin:0 0 22px;
+}
+.generation-modal-panel .modal-header>div{min-width:0;flex:1}
+.generation-modal-panel .modal-header h2{
+  margin:0;
+  color:#14213d;
+  font-size:clamp(21px,2.5vw,27px);
+  line-height:1.25;
+  overflow-wrap:anywhere;
+}
+.generation-modal-panel .modal-header p{
+  margin:8px 0 0;
+  color:#64748b;
+  font-size:14px;
+  line-height:1.55;
+}
+.generation-modal-panel .icon-button{
+  flex:0 0 38px;
+  width:38px;
+  height:38px;
+  display:grid;
+  place-items:center;
+  border:1px solid #dbe3ef;
+  border-radius:10px;
+  background:#f8fafc;
+  color:#334155;
+  cursor:pointer;
+}
+.generation-modal-panel .icon-button:hover{background:#eef2f7}
+.generation-modal-panel .modal-actions{flex-wrap:wrap}
+.generation-modal-panel .modal-program-list{
+  display:grid;
+  gap:9px;
+  max-height:min(34vh,300px);
+  overflow-y:auto;
+  overscroll-behavior:contain;
+  margin:0 0 18px;
+  padding:2px 3px 2px 0;
+}
+.generation-modal-panel .modal-program-option{
+  display:flex;
+  align-items:center;
+  gap:12px;
+  min-width:0;
+  padding:13px 14px;
+  border:1px solid #dbe3ef;
+  border-radius:12px;
+  background:#fff;
+  cursor:pointer;
+  transition:border-color .15s ease,background .15s ease;
+}
+.generation-modal-panel .modal-program-option:hover{
+  border-color:#93b4fa;
+  background:#f8fbff;
+}
+.generation-modal-panel .modal-program-option input{
+  width:17px;
+  height:17px;
+  flex:0 0 17px;
+  accent-color:#2563eb;
+}
+.generation-modal-panel .modal-program-option>span{min-width:0;overflow-wrap:anywhere}
+.generation-modal-panel .modal-program-option strong{display:block;line-height:1.4}
+.generation-modal-panel .modal-program-option small{display:block;margin-top:3px;color:#64748b}
+.generation-modal-panel .generation-conflict-note{
+  margin:0 0 22px;
+  padding:12px 14px;
+  border:1px solid #dbeafe;
+  border-radius:11px;
+  background:#f8fbff;
+  color:#475569;
+  font-size:12px;
+  line-height:1.65;
+}
+.generation-modal-panel .modal-footer{
+  display:flex;
+  justify-content:flex-end;
+  gap:10px;
+  flex-wrap:wrap;
+  padding-top:15px;
+  border-top:1px solid #edf2f7;
+}
+.generation-modal-panel .modal-footer button{min-height:42px}
+@media(max-width:600px){
+  .generation-modal-backdrop{align-items:flex-start;padding:12px}
+  .generation-modal-panel{max-height:calc(100dvh - 24px);max-height:calc(100vh - 24px);border-radius:14px;padding:17px}
+  .generation-modal-panel .modal-header{gap:10px;margin-bottom:18px}
+  .generation-modal-panel .modal-header p{font-size:13px}
+  .generation-modal-panel .modal-footer{display:grid;grid-template-columns:1fr}
+  .generation-modal-panel .modal-footer button{width:100%;justify-content:center}
+}
+@media(prefers-reduced-motion:reduce){
+  .generation-modal-panel *{transition:none!important}
+}
