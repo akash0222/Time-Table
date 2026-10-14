@@ -100,7 +100,7 @@ export default function App(){
   });
 
 
-  const [data,setData]=useState({faculty:[],subjects:[],sections:[],rooms:[],timeslots:[],programs:[],students:[]});
+  const [data,setData]=useState({faculty:[],subjects:[],sections:[],rooms:[],timeslots:[],programs:[],semesters:[],students:[]});
   const [latest,setLatest]=useState(null);
   const [message,setMessage]=useState("");
   const [loading,setLoading]=useState(false);
