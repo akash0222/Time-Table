@@ -738,7 +738,11 @@ test("Generate Timetable program selector is centered, scrollable, and accessibl
   expect(mobile.x+mobile.width).toBeLessThanOrEqual(390);
   expect(mobile.height).toBeLessThanOrEqual(700);
   await page.keyboard.press("Escape");
-  // The dialog remains dismissible via its explicit close control on compact layouts.
-  await dialog.getByRole("button",{name:"Close dialog"}).click();
   await expect(dialog).toHaveCount(0);
+
+  await openButton.click();
+  const reopened=page.getByRole("dialog",{name:/Generate Timetable/});
+  await expect(reopened).toBeVisible();
+  await reopened.getByRole("button",{name:"Close dialog"}).click();
+  await expect(reopened).toHaveCount(0);
 });
