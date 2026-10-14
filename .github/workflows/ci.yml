@@ -96,6 +96,78 @@ jobs:
         working-directory: server
         run: npm run test:timetable-access
 
+  full-workflow-integration:
+    name: Full timetable workflow on disposable MongoDB
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    services:
+      mongodb:
+        image: mongo:7
+        ports:
+          - 27017:27017
+        options: >-
+          --health-cmd "mongosh --quiet --eval 'db.adminCommand({ ping: 1 }).ok' || exit 1"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+      - name: Install server dependencies
+        working-directory: server
+        run: npm ci
+      - name: Exercise full workflow in a disposable database
+        working-directory: server
+        env:
+          NODE_ENV: test
+          PORT: "5001"
+          MONGO_URI: mongodb://127.0.0.1:27017/timetable_qa_${{ github.run_id }}_${{ github.run_attempt }}
+          JWT_SECRET: qa-only-secret-not-for-production-1234567890
+          DEFAULT_ADMIN_PASSWORD: DisposableQA-Only-Password-123!
+          QA_BASE_URL: http://127.0.0.1:5001
+          QA_ADMIN_USERNAME: admin
+          QA_ADMIN_PASSWORD: DisposableQA-Only-Password-123!
+          CORS_ORIGINS: http://localhost:5173
+        run: |
+          set -euo pipefail
+          npm start > "$RUNNER_TEMP/timetable-api.log" 2>&1 &
+          server_pid=$!
+          cleanup() {
+            kill "$server_pid" 2>/dev/null || true
+            wait "$server_pid" 2>/dev/null || true
+            echo "----- Disposable test backend log -----"
+            cat "$RUNNER_TEMP/timetable-api.log" || true
+          }
+          trap cleanup EXIT
+
+          ready=false
+          for attempt in $(seq 1 45); do
+            if curl --silent --fail http://127.0.0.1:5001/api/readiness > "$RUNNER_TEMP/readiness.json"; then
+              ready=true
+              break
+            fi
+            if ! kill -0 "$server_pid" 2>/dev/null; then
+              echo "Backend exited before it became ready."
+              cat "$RUNNER_TEMP/timetable-api.log"
+              exit 1
+            fi
+            sleep 2
+          done
+
+          if [ "$ready" != "true" ]; then
+            echo "Backend did not become ready in the allotted time."
+            cat "$RUNNER_TEMP/timetable-api.log"
+            exit 1
+          fi
+
+          node qa/smoke.mjs
+          npm run test:integration:full-workflow
   production-smoke:
     name: Production read-only smoke test
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
