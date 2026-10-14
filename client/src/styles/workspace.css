@@ -820,3 +820,7 @@
 .app.sidebar-collapsed.mobile-nav-open .erp-sidebar .sidebar-nav.module-nav .nav-module-entry>button.nav-module-button>span{display:block!important}
 .app.sidebar-collapsed.mobile-nav-open .erp-sidebar .sidebar-nav.module-nav .nav-module-entry>button.nav-module-button>svg.nav-module-chevron{display:block!important}
 .app.sidebar-collapsed.mobile-nav-open .erp-sidebar .sidebar-nav.module-nav .nav-module-entry>button.nav-module-button{justify-content:flex-start!important;padding:10px 12px!important;gap:12px!important}
+
+@media(max-width:1000px){
+  .app .erp-main>.app-topbar .mobile-nav-trigger span{display:none!important}
+}
