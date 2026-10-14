@@ -110,8 +110,8 @@ jobs:
           node --input-type=module <<'NODE'
           import assert from "node:assert/strict";
 
-          const appUrl = process.env.APP_URL.replace(/\\/$/, "");
-          const apiUrl = process.env.API_URL.replace(/\\/$/, "");
+          const appUrl = process.env.APP_URL.replace(/\/$/, "");
+          const apiUrl = process.env.API_URL.replace(/\/$/, "");
 
           const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 
