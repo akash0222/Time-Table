@@ -972,8 +972,22 @@ app.get("/api/timetable/readiness", requireAuth, allowRoles("ADMIN","SCHEDULER")
     const session=await AcademicSession.findById(sessionId).lean();
     if(!session) return res.status(404).json({message:"Academic session not found."});
 
-    const sections = await Section.find({ academicSession: sessionId }).lean();
-    const sectionIds = sections.map(s => s._id);
+    const requestedProgramIds=String(req.query.programIds||"").split(",").map(value=>value.trim()).filter(Boolean);
+    if(requestedProgramIds.some(id=>!mongoose.isValidObjectId(id))) return res.status(400).json({message:"One or more selected program IDs are invalid."});
+    const [allSections, programs]=await Promise.all([
+      Section.find({ academicSession: sessionId }).lean(),
+      Program.find({active:{$ne:false}}).lean()
+    ]);
+    const programMap=new Map(programs.map(program=>[String(program._id),program]));
+    const selectedPrograms=requestedProgramIds.map(id=>programMap.get(id));
+    if(requestedProgramIds.length&&selectedPrograms.some(program=>!program)) return res.status(400).json({message:"One or more selected programs do not exist or are inactive."});
+    const selectedProgramNames=new Set(selectedPrograms.flatMap(program=>[program.name,program.code].filter(Boolean).map(value=>String(value).trim().toLowerCase())));
+    const sections=allSections.filter(section=>{
+      if(!requestedProgramIds.length)return true;
+      const programId=String(section.programId?._id||section.programId||"");
+      return requestedProgramIds.includes(programId)||selectedProgramNames.has(String(section.program||"").trim().toLowerCase());
+    });
+    const sectionIds=sections.map(section=>section._id);
     const [subjects, faculty, rooms, slots]=await Promise.all([
       Subject.find({
         $and: [
@@ -1073,6 +1087,7 @@ app.get("/api/timetable/readiness", requireAuth, allowRoles("ADMIN","SCHEDULER")
     const status=issues.length?"NOT_READY":warnings.length?"READY_WITH_WARNINGS":"READY";
     res.json({
       session:{_id:session._id,name:session.name,active:session.active},
+      scope:{programIds:requestedProgramIds,programNames:selectedPrograms.map(program=>program.name)},
       status,
       summary:{sections:sections.length,subjects:subjects.length,faculty:faculty.length,rooms:rooms.length,usableSlots:usableSlots.length,workingDays:days.length,requiredSessions,invalidSubjects,errors:issues.length,warnings:warnings.length},
       issues:[...issues,...warnings],
