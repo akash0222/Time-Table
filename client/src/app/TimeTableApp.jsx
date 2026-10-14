@@ -90,11 +90,9 @@ export default function App(){
     }
     document.title=tab==="Dashboard" ? "Time Table" : `${tab} | Time Table`;
   },[tab,auth?.role]);
-  const [sidebarCollapsed,setSidebarCollapsed]=useState(false);
   const [mobileNavOpen,setMobileNavOpen]=useState(false);
   const [navQuery,setNavQuery]=useState("");
   const navSearchRef=useRef(null);
-  const [focusNavSearchOnExpand,setFocusNavSearchOnExpand]=useState(false);
   const [activeNavGroup,setActiveNavGroup]=useState(null);
   const [flyoutTop,setFlyoutTop]=useState(190);
   const [flyoutSearch,setFlyoutSearch]=useState("");
@@ -228,28 +226,13 @@ export default function App(){
     })();
   },[auth?.username,activeSession?._id]);
 
-  // The desktop sidebar stays fixed-width; navigation submodules open in a flyout.
-  useEffect(()=>{
-    const mobileViewport=window.matchMedia("(max-width: 1000px)").matches;
-    if(!sidebarCollapsed&&focusNavSearchOnExpand&&(!mobileViewport||mobileNavOpen)){
-      navSearchRef.current?.focus();
-      setFocusNavSearchOnExpand(false);
-    }
-  },[sidebarCollapsed,focusNavSearchOnExpand,mobileNavOpen]);
+  // The navigation stays fixed-width on desktop; only mobile uses the drawer.
   useEffect(()=>{
     const onKeyboardShortcut=event=>{
       if((event.ctrlKey||event.metaKey)&&event.key.toLowerCase()==="k"){
         event.preventDefault();
-        if(window.matchMedia("(max-width: 1000px)").matches){
-          setFocusNavSearchOnExpand(true);
-          setSidebarCollapsed(false);
-          setMobileNavOpen(true);
-        }else if(sidebarCollapsed){
-          setFocusNavSearchOnExpand(true);
-          setSidebarCollapsed(false);
-        }else{
-          navSearchRef.current?.focus();
-        }
+        if(window.matchMedia("(max-width: 1000px)").matches)setMobileNavOpen(true);
+        requestAnimationFrame(()=>navSearchRef.current?.focus());
       }else if(event.key==="Escape"&&document.activeElement===navSearchRef.current){
         if(navQuery.trim())setNavQuery("");
         navSearchRef.current?.blur();
@@ -257,13 +240,15 @@ export default function App(){
     };
     window.addEventListener("keydown",onKeyboardShortcut);
     return ()=>window.removeEventListener("keydown",onKeyboardShortcut);
-  },[sidebarCollapsed,navQuery]);
+  },[navQuery]);
+
   useEffect(()=>{
     if(!mobileNavOpen)return;
-    const closeOnEscape=event=>{if(event.key==="Escape")setMobileNavOpen(false);};
+    const closeOnEscape=event=>{if(event.key==="Escape"){setMobileNavOpen(false);setActiveNavGroup(null);}};
     window.addEventListener("keydown",closeOnEscape);
     return ()=>window.removeEventListener("keydown",closeOnEscape);
   },[mobileNavOpen]);
+
   useEffect(()=>{
     if(!showGenerationDialog)return;
     const closeDialogOnEscape=event=>{
@@ -293,10 +278,14 @@ export default function App(){
     setMobileNavOpen(false);
   }
 
+  function positionFlyout(event){
+    const rect=event.currentTarget.getBoundingClientRect();
+    setFlyoutTop(Math.max(104,Math.min(rect.top,window.innerHeight-360)));
+  }
+
   function showNavGroup(event,group){
     if(group.items.length<=1)return;
-    const rect=event.currentTarget.getBoundingClientRect();
-    setFlyoutTop(Math.max(90,Math.min(rect.top,window.innerHeight-420)));
+    positionFlyout(event);
     setActiveNavGroup(group.label);
   }
 
@@ -306,8 +295,7 @@ export default function App(){
       setActiveNavGroup(null);
       return;
     }
-    const rect=event.currentTarget.getBoundingClientRect();
-    setFlyoutTop(Math.max(90,Math.min(rect.top,window.innerHeight-420)));
+    positionFlyout(event);
     setActiveNavGroup(previous=>previous===group.label?null:group.label);
     setFlyoutSearch("");
   }
@@ -338,7 +326,7 @@ export default function App(){
     setMessage("");
     try {
       if(!activeSession?._id){
-        setTab("Academic Sessions");
+        navigateToNavPage("Academic Sessions","Academic Setup");
         setMessage("Generation was not started. Set an active academic session first.");
         return;
       }
@@ -454,7 +442,7 @@ export default function App(){
           aria-describedby="nav-search-shortcut"
         />
         <kbd id="nav-search-shortcut" className="nav-search-shortcut">Ctrl K</kbd>
-        <button type="button" className="nav-search-collapsed-trigger" aria-label="Search pages" title="Search pages (Ctrl+K)" onClick={()=>{setFocusNavSearchOnExpand(true);setSidebarCollapsed(false);}}><Search size={17}/></button>
+        <button type="button" className="nav-search-collapsed-trigger" aria-label="Search pages" title="Search pages (Ctrl+K)" onClick={()=>navSearchRef.current?.focus()}><Search size={17}/></button>
       </div>
       <nav className="sidebar-nav module-nav" aria-label="Main navigation">
         {visibleNavGroups.map(group=>{
@@ -491,7 +479,7 @@ export default function App(){
       if(!group)return null;
       const items=group.items.filter(item=>!flyoutSearch||item.name.toLowerCase().includes(flyoutSearch.toLowerCase()));
       return <div className="nav-flyout-backdrop" onMouseDown={event=>{if(event.target===event.currentTarget)setActiveNavGroup(null);}}>
-        <section className="nav-flyout-panel" role="dialog" aria-label={group.label+" submenu"} style={{top:flyoutTop}} onMouseLeave={()=>setActiveNavGroup(null)}>
+        <section className="nav-flyout-panel" role="dialog" aria-label={group.label+" submenu"} style={{top:flyoutTop}}>
           <header className="nav-flyout-header"><strong>{group.label}</strong><button type="button" onClick={()=>setActiveNavGroup(null)} aria-label="Close submenu"><X size={16}/></button></header>
           <div className="nav-flyout-search"><Search size={15}/><input value={flyoutSearch} onChange={event=>setFlyoutSearch(event.target.value)} placeholder="Search submodules..." aria-label="Search submodules"/></div>
           <div className="nav-flyout-items">
