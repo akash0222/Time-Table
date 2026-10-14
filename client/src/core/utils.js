@@ -47,7 +47,7 @@ export function resolveEffectiveTimeSlots(slots=[],section,programs=[],academicS
   for(const scope of scopes){
     const rows=candidates.filter(scope);
     if(rows.length)return rows.sort((a,b)=>Number(a.order||0)-Number(b.order||0)||
-      String(a.startTime||"").localeCompare(String(b.startTime||""));
+      String(a.startTime||"").localeCompare(String(b.startTime||"")));
   }
   return [];
 }
