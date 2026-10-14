@@ -332,6 +332,46 @@ test("ERP navigation uses a fixed-width module sidebar with flyout submenus", as
   await expect(page.locator('.nav-flyout-panel [data-nav="Program & Section Mapping"]')).toHaveClass(/active/);
 });
 
+test("desktop navigation sidebar resizes with the pointer and keyboard and remembers its width", async ({ page }) => {
+  await installRoleApiMocks(page, "ADMIN");
+  await page.setViewportSize({width:1440,height:900});
+
+  const sidebar=page.locator(".erp-sidebar");
+  const handle=page.getByRole("separator",{name:"Resize navigation sidebar"});
+  await expect(sidebar).toHaveCSS("width","258px");
+  await expect(handle).toBeVisible();
+
+  const bounds=await handle.boundingBox();
+  expect(bounds).not.toBeNull();
+  const centerY=bounds.y+bounds.height/2;
+  await page.mouse.move(bounds.x+bounds.width/2,centerY);
+  await page.mouse.down();
+  await page.mouse.move(bounds.x+bounds.width/2+55,centerY,{steps:8});
+  await page.mouse.up();
+  await expect(sidebar).toHaveCSS("width","313px");
+  await expect(handle).toHaveAttribute("aria-valuenow","313");
+
+  await page.locator('.nav-module-button[data-nav-module="Academic Setup"]').click();
+  await expect(page.locator(".nav-flyout-panel")).toBeVisible();
+  await expect(page.locator(".nav-flyout-panel")).toHaveCSS("left","323px");
+  await page.locator(".nav-flyout-header").getByRole("button",{name:"Close submenu"}).click();
+
+  await page.reload();
+  await expect(page.getByRole("heading",{name:"Class distribution"})).toBeVisible();
+  await expect(sidebar).toHaveCSS("width","313px");
+
+  await handle.focus();
+  await page.keyboard.press("ArrowRight");
+  await expect(sidebar).toHaveCSS("width","323px");
+  await page.keyboard.press("End");
+  await expect(sidebar).toHaveCSS("width","420px");
+  await page.keyboard.press("ArrowRight");
+  await expect(sidebar).toHaveCSS("width","420px");
+  await page.keyboard.press("Home");
+  await expect(sidebar).toHaveCSS("width","210px");
+  await expect(handle).toHaveAttribute("aria-valuenow","210");
+});
+
 test("module flyouts contain role-visible submodules and no browser-default buttons", async ({ page }) => {
   await installRoleApiMocks(page, "ADMIN");
   const expected = {
