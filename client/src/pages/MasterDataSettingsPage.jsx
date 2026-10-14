@@ -1,9 +1,12 @@
+import axios from "axios";
+import {API} from "../core/api";
 import React, {useState} from "react";
 import AvailabilityMatrix from "./AvailabilityMatrixPage.jsx";
 import MasterView from "./MasterViewPage.jsx";
 import {Users, BookOpen, DoorOpen, Clock3, Activity, Search} from "lucide-react";
 
 export default function MasterDataSettings({data,setData,reload,setMessage,sessions=[]}){
+  const [seeding,setSeeding]=useState(false);
   const [section,setSection]=useState("Programs");
   const [query,setQuery]=useState("");
   const items=[
@@ -26,7 +29,18 @@ export default function MasterDataSettings({data,setData,reload,setMessage,sessi
       <div>
         
         <h2>Master Data Settings</h2>
-        
+        <p>Configure academic masters, then load clearly labelled sample records for testing.</p>
+        <button type="button" className="secondary" disabled={seeding} onClick={async()=>{
+          if(!window.confirm("Load demo records for 2026-27? Existing records will be preserved. Demo programs, faculty, rooms, sections, subjects, students and time slots will be added if missing.")) return;
+          setSeeding(true);
+          try {
+            const response=await axios.post(`${API}/demo/seed`);
+            setMessage(`${response.data.message} Added: ${Object.entries(response.data.counts||{}).map(([k,v])=>`${k} ${v}`).join(", ")}.`);
+            await reload?.();
+          } catch(error) {
+            setMessage(error.response?.data?.message||"Unable to load demo data. Sign in with an administrator account and check the backend.");
+          } finally { setSeeding(false); }
+        }}>{seeding?"Loading demo data…":"Load Demo Data"}</button>
       </div>
       <div className="master-settings-total"><strong>{total}</strong><span>configured records</span></div>
     </section>
