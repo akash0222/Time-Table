@@ -276,13 +276,6 @@ export default function App(){
     return ()=>window.removeEventListener("keydown",closeDialogOnEscape);
   },[showGenerationDialog]);
 
-  // Keep the flyout aligned to the selected module; deep links select their owning module.
-  useEffect(()=>{
-    if(!auth)return;
-    const group=navGroupsForRole(auth.role).find(candidate=>candidate.items.some(item=>item.name===tab));
-    if(group)setActiveNavGroup(group.label);
-  },[tab,auth?.role]);
-
   useEffect(()=>{
     if(!activeNavGroup)return;
     const close=event=>{
@@ -296,7 +289,7 @@ export default function App(){
     setTab(page);
     setNavQuery("");
     setFlyoutSearch("");
-    setActiveNavGroup(groupLabel||null);
+    setActiveNavGroup(null);
     setMobileNavOpen(false);
   }
 
