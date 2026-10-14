@@ -86,6 +86,10 @@ export default function AcademicSessions({sessions,programs,semesters=[],activeS
         setMessage("A program/semester End Date cannot be before its Start Date.");
         return false;
       }
+      if(row.startDate<form.sessionStartDate || row.endDate>form.sessionEndDate){
+        setMessage("Overall session dates must include every program/semester calendar date range. Expand the overall dates or adjust this calendar row.");
+        return false;
+      }
     }
     return true;
   }
@@ -95,9 +99,13 @@ export default function AcademicSessions({sessions,programs,semesters=[],activeS
     if(!form.sessionStartDate||!form.sessionEndDate||form.sessionEndDate<form.sessionStartDate)return setMessage("Overall session End Date must be on or after the Start Date.");
     if(!validateProgramDates())return;
     const dates=form.programDates.filter(x=>x.startDate&&x.endDate);
-    const start=dates.map(x=>x.startDate).sort()[0];
-    const end=dates.map(x=>x.endDate).sort().slice(-1)[0];
-    const body={name:sessionNameForYear(form.startYear),description:form.description||"",programDates:dates,startDate:start||form.sessionStartDate,endDate:end||form.sessionEndDate};
+    const body={
+      name:sessionNameForYear(form.startYear),
+      description:form.description||"",
+      programDates:dates,
+      startDate:form.sessionStartDate,
+      endDate:form.sessionEndDate
+    };
     setSaving(true);
     try{
       if(editingId) await axios.put(`${API}/sessions/${editingId}`,body);
