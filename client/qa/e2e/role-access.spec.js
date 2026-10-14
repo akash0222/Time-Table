@@ -229,7 +229,7 @@ test("Scheduler can run timetable workflows but cannot administer users", async 
   await expect(page.locator('.nav-flyout-panel [data-nav="User Management"]')).toHaveCount(0);
 
   await openSubmodule(page, "Academic Setup", "Academic Sessions");
-  await expect(page.getByRole("heading", { name: "Academic Sessions", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Create Academic Session", exact: true })).toBeVisible();
 
   await page.goto("/user-management");
   await expect(page).toHaveURL(/\/dashboard$/);
@@ -372,7 +372,7 @@ test("mobile navigation drawer opens and its flyout navigates without collapsing
   await sidebar.locator('.nav-module-button[data-nav-module="Academic Setup"]').click();
   await expect(page.locator(".nav-flyout-panel")).toBeVisible();
   await page.locator('.nav-flyout-panel [data-nav="Academic Sessions"]').click();
-  await expect(page.getByRole("heading", {name:"Academic Sessions", exact:true})).toBeVisible();
+  await expect(page.getByRole("heading", {name:"Create Academic Session", exact:true})).toBeVisible();
   await expect(page).toHaveURL(/\/academic-sessions$/);
   await expect(sidebar).toBeHidden();
 
