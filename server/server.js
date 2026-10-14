@@ -801,6 +801,12 @@ app.post("/api/subject-mappings", requireAuth, async (req, res) => {
     const programId = program?._id || section.programId || null;
     const exists = await Subject.findOne({ academicSession: session._id, section: section._id, code: String(b.code || "").trim() || undefined, name: String(b.name).trim() });
     if (exists) return res.status(409).json({ message: "This subject is already mapped to the selected section and academic session." });
+    const classesPerWeek = Math.max(1, Number(b.classesPerWeek || 1));
+    const totalSessions = Math.max(0, Number(b.totalSessions || 0));
+    const maxClassesPerWeek = Number(b.maxClassesPerWeek || classesPerWeek);
+    if (totalSessions === 0 && maxClassesPerWeek < classesPerWeek) {
+      return res.status(400).json({ message: "Max Classes / Week must be at least Classes / Week when Total Sessions is 0." });
+    }
     const row = await Subject.create({
       academicSession: session._id,
       programId,
@@ -808,9 +814,9 @@ app.post("/api/subject-mappings", requireAuth, async (req, res) => {
       active: b.active !== false,
       name: String(b.name).trim(), code: String(b.code || "").trim(),
       faculty: faculty._id, section: section._id,
-      classesPerWeek: Number(b.classesPerWeek || 1),
-      totalSessions: Number(b.totalSessions || 0),
-      maxClassesPerWeek: Number(b.maxClassesPerWeek || b.classesPerWeek || 1),
+      classesPerWeek,
+      totalSessions,
+      maxClassesPerWeek,
       duration: Number(b.duration || 1), roomType: b.roomType || "Classroom"
     });
     res.status(201).json(await Subject.findById(row._id).populate("academicSession", "name active").populate("programId", "name code").populate("faculty", "name code").populate("section", "program semester name academicSession").lean());
@@ -835,6 +841,15 @@ app.put("/api/subject-mappings/:id", requireAuth, async (req, res) => {
     if (mappedProgram && !subjectProgramMatchesSection(section, mappedProgram)) {
       return res.status(400).json({ message: "Selected program does not match the selected section. Choose the section's program or correct the section mapping first." });
     }
+    const nextClassesPerWeek = b.classesPerWeek !== undefined ? Number(b.classesPerWeek) : Number(row.classesPerWeek || 1);
+    const nextTotalSessions = b.totalSessions !== undefined ? Number(b.totalSessions || 0) : Number(row.totalSessions || 0);
+    const nextMaxClassesPerWeek = b.maxClassesPerWeek !== undefined
+      ? Number(b.maxClassesPerWeek || 0)
+      : Number(row.maxClassesPerWeek || b.classesPerWeek || row.classesPerWeek || 1);
+    const effectiveWeeklyMax = nextMaxClassesPerWeek > 0 ? nextMaxClassesPerWeek : nextClassesPerWeek;
+    if (nextTotalSessions === 0 && effectiveWeeklyMax < nextClassesPerWeek) {
+      return res.status(400).json({ message: "Max Classes / Week must be at least Classes / Week when Total Sessions is 0." });
+    }
     Object.assign(row, {
       academicSession: session._id,
       programId,
@@ -844,9 +859,9 @@ app.put("/api/subject-mappings/:id", requireAuth, async (req, res) => {
       code: b.code !== undefined ? String(b.code || "").trim() : row.code,
       faculty: faculty._id,
       section: section._id,
-      classesPerWeek: b.classesPerWeek !== undefined ? Number(b.classesPerWeek) : Number(row.classesPerWeek || 1),
-      totalSessions: b.totalSessions !== undefined ? Number(b.totalSessions || 0) : Number(row.totalSessions || 0),
-      maxClassesPerWeek: b.maxClassesPerWeek !== undefined ? Number(b.maxClassesPerWeek || 0) : Number(row.maxClassesPerWeek || 0),
+      classesPerWeek: nextClassesPerWeek,
+      totalSessions: nextTotalSessions,
+      maxClassesPerWeek: nextMaxClassesPerWeek,
       duration: b.duration !== undefined ? Number(b.duration) : Number(row.duration || 1),
       roomType: b.roomType !== undefined ? b.roomType : (row.roomType || "Classroom")
     });
