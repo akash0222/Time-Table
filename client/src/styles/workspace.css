@@ -640,3 +640,160 @@
 @media(max-width:1000px){
   .app .sidebar-resize-handle{display:none!important}
 }
+
+
+/* Global application header and profile menu, inspired by the reference ERP shell. */
+.app .erp-sidebar{
+  background:linear-gradient(180deg,#101a2b 0%,#0b1423 100%);
+  color:#e2e8f0;
+}
+.app .sidebar-brand-row{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  min-height:48px;
+  padding:3px 6px 14px 8px;
+  border-bottom:1px solid rgba(148,163,184,.13);
+  margin-bottom:8px;
+}
+.app .sidebar-brand-row .brand{flex:1;min-width:0;padding:6px 0!important;margin:0!important}
+.app .sidebar-brand-row .sidebar-toggle{margin-left:auto;flex:0 0 31px;width:31px;height:31px;padding:0;border:1px solid rgba(148,163,184,.2);border-radius:9px;background:rgba(30,41,59,.65);color:#cbd5e1}
+.app .sidebar-brand-row .sidebar-toggle:hover{background:#263750;color:#fff}
+.app .sidebar-brand-row .sidebar-toggle:focus-visible{outline:2px solid #60a5fa;outline-offset:2px}
+.app.sidebar-collapsed .erp-sidebar{padding-left:10px;padding-right:10px}
+.app.sidebar-collapsed .sidebar-brand-row{justify-content:center;gap:0;padding:3px 0 14px}
+.app.sidebar-collapsed .sidebar-brand-row .brand{flex:0 0 auto;justify-content:center;width:100%;padding:6px 0!important}
+.app.sidebar-collapsed .sidebar-brand-row .brand>span{display:none!important}
+.app.sidebar-collapsed .sidebar-brand-row .sidebar-toggle{margin:7px auto 0;flex:0 0 28px;width:28px;height:28px}
+.app.sidebar-collapsed .workspace-label{display:none!important}
+.app.sidebar-collapsed .sidebar-nav.module-nav .nav-module-button{justify-content:center!important;padding:11px 6px!important;gap:0!important}
+.app.sidebar-collapsed .sidebar-nav.module-nav .nav-module-button>span,
+.app.sidebar-collapsed .sidebar-nav.module-nav .nav-module-button .nav-module-chevron{display:none!important}
+.app.sidebar-collapsed .sidebar-nav.module-nav .nav-module-button>svg:first-child{width:19px!important;height:19px!important;flex:0 0 19px!important}
+.app.sidebar-collapsed .side-bottom .primary span{display:none}
+.app.sidebar-collapsed .side-bottom .primary{justify-content:center!important;padding:12px 5px!important}
+.app.sidebar-collapsed .side-bottom .primary svg{margin:0!important;flex:0 0 auto!important}
+.app.sidebar-collapsed .sidebar-resize-handle{display:none!important}
+.app .erp-main{display:flex;flex-direction:column;min-height:100vh;min-width:0;flex:1 1 auto;width:calc(100% - var(--sidebar-width,258px));padding:0 30px 36px!important;overflow:auto}
+.app .erp-main>.app-topbar{
+  position:sticky;top:0;z-index:1100;
+  display:flex;align-items:center;justify-content:space-between;gap:22px;
+  min-height:82px;width:100%;margin:0 -30px 22px!important;
+  padding:13px 30px!important;
+  border-bottom:1px solid #e5eaf1;
+  background:rgba(255,255,255,.94)!important;
+  box-shadow:0 3px 12px rgba(15,23,42,.025);
+  -webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);
+}
+.app .topbar-leading,.app .topbar-actions{display:flex;align-items:center;min-width:0;gap:14px}
+.app .topbar-leading{flex:1 1 auto}
+.app .topbar-actions{justify-content:flex-end;flex:0 1 auto;gap:18px}
+.app .topbar-session{display:flex;align-items:center;gap:10px;min-width:0;padding:4px 0}
+.app .topbar-session-icon{display:grid;place-items:center;flex:0 0 38px;width:38px;height:38px;border-radius:12px;background:#e8f7f0;color:#079568}
+.app .topbar-session-copy{display:flex;flex-direction:column;gap:4px;min-width:0}
+.app .topbar-session-copy small{font-size:9px;font-weight:850;letter-spacing:1.2px;color:#8190a3;white-space:nowrap}
+.app .topbar-session-copy strong{display:block;max-width:320px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#1e293b;font-size:14px;font-weight:800;line-height:1.3}
+.app .topbar-session-status{width:8px;height:8px;flex:0 0 8px;border-radius:50%;background:#f59e0b;box-shadow:0 0 0 3px #fef3c7}
+.app .topbar-session-status.active{background:#10b981;box-shadow:0 0 0 3px #d1fae5}
+.app .topbar-search{display:flex;align-items:center;gap:9px;width:min(31vw,390px);min-width:190px;margin:0;padding:0 12px;border:1px solid #dbe4ef;border-radius:11px;background:#f9fbfd;color:#8b9bb0;transition:border-color .15s ease,box-shadow .15s ease,background .15s ease}
+.app .topbar-search:focus-within{border-color:#86b7a4;background:#fff;box-shadow:0 0 0 3px rgba(16,185,129,.10)}
+.app .topbar-search .nav-search-input{width:100%;min-width:0;height:41px;padding:0;border:0!important;outline:0!important;background:transparent!important;color:#1e293b!important;box-shadow:none!important;font-size:12px}
+.app .topbar-search .nav-search-shortcut{flex:none;padding:3px 5px;border:1px solid #e2e8f0;border-radius:5px;background:#fff;color:#8491a3;font-size:9px;white-space:nowrap}
+.app .header-profile-wrap{position:relative;flex:0 0 auto}
+.app .header-profile-trigger{
+  appearance:none;display:flex;align-items:center;gap:10px;min-height:48px;
+  max-width:250px;margin:0;padding:5px 9px;border:1px solid transparent;border-radius:12px;
+  background:transparent;color:#334155;box-shadow:none;text-align:left;
+}
+.app .header-profile-trigger:hover,.app .header-profile-trigger[aria-expanded="true"]{border-color:#e2e8f0;background:#f8fafc}
+.app .header-profile-trigger:focus-visible{outline:2px solid #6ee7b7;outline-offset:2px}
+.app .header-profile-avatar{display:grid;place-items:center;flex:0 0 38px;width:38px;height:38px;border-radius:50%;background:#059669;color:#fff;font-size:15px;font-weight:800}
+.app .header-profile-avatar.large{flex-basis:42px;width:42px;height:42px}
+.app .header-profile-trigger-copy{display:flex;flex-direction:column;gap:3px;min-width:0}
+.app .header-profile-trigger-copy strong{overflow:hidden;max-width:145px;text-overflow:ellipsis;white-space:nowrap;color:#243247;font-size:12px;font-weight:800}
+.app .header-profile-trigger-copy small{color:#8a97a8;font-size:10px;font-weight:700;letter-spacing:.35px}
+.app .profile-chevron{flex:0 0 15px;color:#8b98a9;transition:transform .15s ease}
+.app .profile-chevron.open{transform:rotate(180deg)}
+.app .header-profile-menu{
+  position:absolute;top:calc(100% + 10px);right:0;z-index:2200;
+  width:min(300px,calc(100vw - 24px));padding:9px;
+  border:1px solid #e2e8f0;border-radius:15px;background:#fff;
+  box-shadow:0 20px 54px rgba(15,23,42,.20);color:#334155;
+  animation:profile-menu-in .14s ease-out;
+}
+.app .header-profile-summary{display:flex;align-items:center;gap:11px;padding:10px 9px 13px;border-bottom:1px solid #edf1f5}
+.app .header-profile-summary>span:last-child{display:flex;flex-direction:column;gap:4px;min-width:0}
+.app .header-profile-summary strong{font-size:13px;overflow-wrap:anywhere}
+.app .header-profile-summary small{font-size:10px;color:#64748b;font-weight:750;letter-spacing:.5px}
+.app .header-profile-details{display:grid;gap:9px;padding:12px 10px}
+.app .header-profile-details>div{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;font-size:11px}
+.app .header-profile-details span{color:#8a97a8}
+.app .header-profile-details strong{max-width:165px;text-align:right;overflow-wrap:anywhere;color:#334155;font-size:11px}
+.app .header-profile-menu-item{
+  appearance:none;display:flex;align-items:center;gap:10px;width:100%;min-height:40px;
+  margin:3px 0;padding:9px 10px;border:0;border-radius:9px;background:transparent;
+  box-shadow:none;color:#475569;text-align:left;font-size:12px;font-weight:700;
+}
+.app .header-profile-menu-item:hover{background:#f1f5f9;color:#1e293b}
+.app .header-profile-menu-item svg{color:#64748b}
+.app .header-profile-menu-item.logout{margin-top:7px;border-top:1px solid #edf1f5;border-radius:0 0 9px 9px;padding-top:13px;color:#b91c1c}
+.app .header-profile-menu-item.logout svg{color:#dc2626}
+@keyframes profile-menu-in{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:translateY(0)}}
+.app .erp-main>.page-heading{position:static;display:flex;align-items:center;justify-content:space-between;min-height:0;margin:0 0 19px!important;padding:0!important;background:transparent!important;backdrop-filter:none;box-shadow:none}
+.app .erp-main>.page-heading h1{margin:0;color:#172033;font-size:25px;font-weight:800}
+.app .erp-main>.mobile-nav-trigger{display:none}
+.app .password-modal-backdrop{position:fixed;inset:0;z-index:3100;display:flex;align-items:center;justify-content:center;padding:18px;background:rgba(15,23,42,.48);backdrop-filter:blur(3px)}
+.app .password-modal-panel{width:min(470px,100%);max-height:calc(100dvh - 36px);overflow:auto;padding:23px;border:1px solid #e2e8f0;border-radius:16px;background:#fff;box-shadow:0 24px 70px rgba(15,23,42,.26)}
+.app .password-modal-panel .modal-header{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:18px}
+.app .password-modal-panel h2{margin:0;color:#172033;font-size:21px}
+.app .password-modal-panel .modal-header p{margin:6px 0 0;color:#64748b;font-size:12px;line-height:1.5}
+.app .password-change-form{display:flex;flex-direction:column;gap:13px}
+.app .password-change-form label{display:flex;flex-direction:column;gap:6px;color:#334155;font-size:11px;font-weight:800}
+.app .password-change-form input{width:100%;min-height:42px;padding:10px 12px;border:1px solid #d5deeb;border-radius:9px;background:#fff;color:#172033;outline:none;font:500 13px/1.4 Inter,ui-sans-serif,system-ui,sans-serif}
+.app .password-change-form input:focus{border-color:#059669;box-shadow:0 0 0 3px rgba(5,150,105,.10)}
+.app .password-change-actions{display:flex;justify-content:flex-end;gap:9px;flex-wrap:wrap;margin-top:5px;padding-top:14px;border-top:1px solid #edf1f5}
+.app .password-change-actions button{display:inline-flex;align-items:center;justify-content:center;gap:7px;min-height:39px}
+.app .password-change-actions button:disabled{opacity:.6;cursor:not-allowed}
+@media(min-width:1001px){
+  .app .erp-sidebar{flex-basis:var(--sidebar-width,258px)!important;width:var(--sidebar-width,258px)!important;min-width:var(--sidebar-width,258px)!important;max-width:var(--sidebar-width,258px)!important}
+  .app:not(.sidebar-collapsed) .sidebar-brand-row .brand>span{display:block}
+}
+@media(max-width:1000px){
+  .app .erp-main{width:100%;padding:0 16px 26px!important}
+  .app .erp-main>.app-topbar{position:sticky;top:0;min-height:70px;margin:0 -16px 18px!important;padding:10px 16px!important;gap:10px}
+  .app .topbar-leading,.app .topbar-actions{gap:8px}
+  .app .topbar-leading{flex:0 1 auto}
+  .app .topbar-actions{flex:1 1 auto;gap:9px}
+  .app .topbar-session-icon{display:none}
+  .app .topbar-session-copy small{display:none}
+  .app .topbar-session-copy strong{max-width:180px;font-size:12px}
+  .app .topbar-session-status{display:none}
+  .app .topbar-search{min-width:0;width:auto;max-width:210px;flex:1 1 150px;padding:0 9px}
+  .app .topbar-search .nav-search-shortcut{display:none}
+  .app .header-profile-trigger{gap:6px;padding:3px 5px}
+  .app .header-profile-trigger-copy{display:none}
+  .app .header-profile-avatar{width:34px;height:34px;flex-basis:34px}
+  .app .profile-chevron{display:none}
+  .app .erp-sidebar .sidebar-resize-handle{display:none!important}
+  .app .sidebar-brand-row{margin-bottom:8px}
+  .app .erp-sidebar .sidebar-toggle{display:grid!important}
+  .app .erp-main>.mobile-nav-trigger{display:flex;align-items:center;gap:7px}
+  .app .erp-main>.app-topbar .mobile-nav-trigger{display:grid;place-items:center;flex:0 0 38px;width:38px;height:38px;padding:0;border:1px solid #e2e8f0;border-radius:10px;background:#fff;color:#334155}
+  .app.mobile-nav-open .erp-main>.app-topbar .mobile-nav-trigger{display:grid!important;position:relative;left:auto;right:auto}
+}
+@media(max-width:600px){
+  .app .erp-main{padding:0 11px 20px!important}
+  .app .erp-main>.app-topbar{margin:0 -11px 14px!important;padding:9px 10px!important;gap:8px}
+  .app .topbar-leading,.app .topbar-actions{gap:6px}
+  .app .topbar-session-copy strong{max-width:110px;font-size:11px}
+  .app .topbar-search{flex-basis:32px;max-width:none;min-width:32px;width:36px;padding:0 9px}
+  .app .topbar-search .nav-search-input{width:0;opacity:0;transition:width .15s ease,opacity .15s ease}
+  .app .topbar-search:focus-within{position:absolute;left:58px;right:58px;z-index:2205;width:auto;max-width:none;background:#fff}
+  .app .topbar-search:focus-within .nav-search-input{width:100%;opacity:1}
+  .app .topbar-search>svg{flex:0 0 17px}
+  .app .topbar-session{gap:5px}
+  .app .header-profile-menu{right:0}
+  .app .password-modal-panel{padding:18px}
+  .app .erp-main>.app-topbar .mobile-nav-trigger{width:34px;height:34px;flex-basis:34px}
+}
+@media(prefers-reduced-motion:reduce){.app .header-profile-menu,.app .profile-chevron,.app .topbar-search .nav-search-input{animation:none!important;transition:none!important}}
