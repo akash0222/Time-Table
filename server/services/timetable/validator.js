@@ -22,6 +22,15 @@ function maxRun(values) {
   return best;
 }
 
+function timeToMinutes(value) {
+  const match = String(value ?? "").trim().match(/^(\\d{1,2}):(\\d{2})$/);
+  if (!match) return NaN;
+  const hours = Number(match[1]);
+  const minutes = Number(match[2]);
+  if (hours < 0 || hours > 23 || minutes < 0 || minutes > 59) return NaN;
+  return hours * 60 + minutes;
+}
+
 function normalizeRoomType(value) {
   const v = String(value || "Classroom").trim().toLowerCase();
   if (v === "any") return "Any";
@@ -29,16 +38,31 @@ function normalizeRoomType(value) {
   return "Classroom";
 }
 
-function entrySlots(entry, slotMap) {
+function entrySlots(entry, slotMap, section, programs) {
   const duration = Math.max(1, Number(entry.duration || 1));
   const startOrder = Number(entry.order);
   if (!Number.isFinite(startOrder)) return [];
+  const programId = resolveProgramId(section, programs);
   const slots = [];
   for (let i = 0; i < duration; i += 1) {
     const key = `${entry.day}|${startOrder + i}`;
-    const slot = slotMap.get(key);
-    if (!slot) return [];
-    slots.push(slot);
+    let candidates = (slotMap.get(key) || []).filter(slot => {
+      const slotProgramId = idOf(slot.program);
+      // Shared slots work for any program; program-specific slots must belong
+      // to the section's actual program.
+      return !slotProgramId || (programId && slotProgramId === programId);
+    });
+    if (i === 0) {
+      candidates = candidates.filter(slot => String(slot.startTime) === String(entry.startTime));
+    }
+    if (i === duration - 1) {
+      candidates = candidates.filter(slot => String(slot.endTime) === String(entry.endTime));
+    }
+    if (!candidates.length) return [];
+    // Prefer an exact program slot to a shared slot when both have the same
+    // period order; keep a stable fallback for legacy duplicate slot records.
+    candidates.sort((a, b) => Number(Boolean(idOf(b.program))) - Number(Boolean(idOf(a.program))));
+    slots.push(candidates[0]);
   }
   return slots;
 }
@@ -73,7 +97,12 @@ export function validateTimetable({
   const sectionMap = new Map(sections.map(x => [idOf(x), x]));
   const subjectMap = new Map(subjects.map(x => [idOf(x), x]));
   const roomMap = new Map(rooms.map(x => [idOf(x), x]));
-  const slotMap = new Map(slots.filter(x => !x.isBreak).map(x => [`${x.day}|${Number(x.order)}`, x]));
+  const slotMap = new Map();
+  for (const slot of slots.filter(x => !x.isBreak)) {
+    const key = `${slot.day}|${Number(slot.order)}`;
+    if (!slotMap.has(key)) slotMap.set(key, []);
+    slotMap.get(key).push(slot);
+  }
   const holidayDaySet = new Set(["Sunday", ...(holidayDays || []).map(String)]);
   const holidayDateSet = new Set((holidayDates || []).map(String));
 
@@ -86,12 +115,16 @@ export function validateTimetable({
   const subjectDayCounts = new Map();
   const facultyOrdersByDay = new Map();
   const sectionOrdersByDay = new Map();
+  const facultyClockIntervals = new Map();
+  const sectionClockIntervals = new Map();
+  const roomClockIntervals = new Map();
 
   const maxConsecutiveFaculty = Math.max(1, Number(settings.maxConsecutiveFaculty || 2));
   const maxConsecutiveSection = Math.max(1, Number(settings.maxConsecutiveSection || 3));
 
-  const firstOrder = Math.min(...[...slotMap.values()].map(x => Number(x.order)).filter(Number.isFinite));
-  const lastOrder = Math.max(...[...slotMap.values()].map(x => Number(x.order)).filter(Number.isFinite));
+  const allConfiguredSlots = [...slotMap.values()].flat();
+  const firstOrder = Math.min(...allConfiguredSlots.map(x => Number(x.order)).filter(Number.isFinite));
+  const lastOrder = Math.max(...allConfiguredSlots.map(x => Number(x.order)).filter(Number.isFinite));
 
   for (const entry of entries) {
     const facultyId = idOf(entry.faculty);
@@ -109,7 +142,7 @@ export function validateTimetable({
     if (!subject) errors.push(`Entry references missing subject: ${subjectId}`);
     if (!room) errors.push(`Entry references missing room: ${roomId}`);
 
-    const slotsForEntry = entrySlots(entry, slotMap);
+    const slotsForEntry = entrySlots(entry, slotMap, section, programs);
     if (!slotsForEntry.length) {
       errors.push(`Invalid slot block for ${subject?.name || subjectId} on ${entry.day}.`);
       continue;
@@ -122,6 +155,32 @@ export function validateTimetable({
     if (entry.date && holidayDateSet.has(String(entry.date))) {
       errors.push(`Holiday date scheduled: ${entry.date}.`);
     }
+
+    const startMinute = timeToMinutes(slotsForEntry[0].startTime);
+    const endMinute = timeToMinutes(slotsForEntry.at(-1).endTime);
+    if (!Number.isFinite(startMinute) || !Number.isFinite(endMinute) || endMinute <= startMinute) {
+      errors.push(`Invalid clock time range for ${subject?.name || subjectId} on ${entry.day}.`);
+      continue;
+    }
+    const entrySlotKeys = slotsForEntry.map(slotKey);
+    const reserveClockInterval = (map, resourceId, label, resourceName) => {
+      if (!resourceId) return;
+      const key = `${resourceId}|${entry.day}`;
+      const previous = map.get(key) || [];
+      for (const existing of previous) {
+        if (startMinute < existing.end && existing.start < endMinute) {
+          const hasSharedPeriodKey = entrySlotKeys.some(slotKeyValue => existing.slotKeys.includes(slotKeyValue));
+          if (!hasSharedPeriodKey) {
+            errors.push(`${label} time-overlap conflict: ${resourceName || resourceId} on ${entry.day} ${entry.startTime}-${entry.endTime}.`);
+          }
+        }
+      }
+      previous.push({start:startMinute,end:endMinute,slotKeys:entrySlotKeys});
+      map.set(key, previous);
+    };
+    reserveClockInterval(facultyClockIntervals, facultyId, "Faculty", f?.name);
+    reserveClockInterval(sectionClockIntervals, sectionId, "Section", section?.name);
+    reserveClockInterval(roomClockIntervals, roomId, "Room", room?.name);
 
     const unavailable = new Set(Array.isArray(f?.unavailableSlots) ? f.unavailableSlots : []);
     const availableDays = Array.isArray(f?.availableDays) && f.availableDays.length
