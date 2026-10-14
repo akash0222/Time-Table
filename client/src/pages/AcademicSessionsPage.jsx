@@ -27,14 +27,27 @@ export default function AcademicSessions({sessions,programs,semesters=[],activeS
       }
       return {...f,programDates:rows};
     });
-  },[programs?.length,editingId]);
+  },[programs,editingId]);
 
   function dateValue(v){return v?String(v).slice(0,10):""}
   function changeStartYear(value){
     const year=String(value||"").replace(/[^0-9]/g,"").slice(0,4);
     if(!year){setForm(f=>({...f,startYear:"",name:""}));return;}
     const range=dateRangeForYear(year);
-    setForm(f=>({...f,startYear:year,name:sessionNameForYear(year),sessionStartDate:range.startDate,sessionEndDate:range.endDate,programDates:(f.programDates||[]).map(row=>({...row,...range}))}));
+    setForm(f=>({
+      ...f,
+      startYear:year,
+      name:sessionNameForYear(year),
+      sessionStartDate:range.startDate,
+      sessionEndDate:range.endDate,
+      // Only move calendars that still follow the previous overall dates.
+      // Preserve program/semester-specific overrides already entered by the user.
+      programDates:(f.programDates||[]).map(row=>({
+        ...row,
+        startDate:row.startDate===f.sessionStartDate?range.startDate:row.startDate,
+        endDate:row.endDate===f.sessionEndDate?range.endDate:row.endDate
+      }))
+    }));
   }
   function updateGlobalDate(field,value){
     setForm(f=>{
