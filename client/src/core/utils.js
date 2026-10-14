@@ -1,5 +1,5 @@
 export const days = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
-export const apiName = {programs:"Programs",faculty:"Faculty",subjects:"Subjects",sections:"Sections",rooms:"Rooms",timeslots:"Time Slots"};
+export const apiName = {programs:"Programs",semesters:"Semesters",faculty:"Faculty",subjects:"Subjects",sections:"Sections",rooms:"Rooms",timeslots:"Time Slots"};
 
 export function refId(v){return String(v?._id??v??"");}
 
