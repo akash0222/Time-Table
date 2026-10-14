@@ -40,6 +40,7 @@ import Student from "./models/Student.js";
 import { filterTimetableEntriesForUser } from "./services/timetableAccess.js";
 import { subjectProgramMatchesSection } from "./services/subjectProgramMapping.js";
 import { subjectWeeklyLimitIssue } from "./services/subjectSessionConstraints.js";
+import { timeSlotInputIssue, timeSlotConflictIssue } from "./services/timeSlotValidation.js";
 
 const app = express();
 globalThis.__APP_STARTED_AT = Date.now();
@@ -602,6 +603,18 @@ function crud(path, Model) {
         if (weeklyIssue) return res.status(400).json({message:weeklyIssue});
       }
 
+      if (path === "timeslots") {
+        if (body.program === "") body.program = null;
+        const slotIssue = timeSlotInputIssue(body);
+        if (slotIssue) return res.status(400).json({ message: slotIssue });
+        if (body.program) {
+          const program = await Program.findById(body.program).lean();
+          if (!program) return res.status(404).json({ message: "Program not found." });
+        }
+        const conflict = timeSlotConflictIssue(body, await TimeSlot.find({ day: String(body.day).trim() }).lean());
+        if (conflict) return res.status(409).json({ message: conflict });
+      }
+
       res.status(201).json(await Model.create(body));
     } catch(e) { res.status(400).json({message:e.message}); }
   });
@@ -695,6 +708,25 @@ function crud(path, Model) {
           maxClassesPerWeek: body.maxClassesPerWeek ?? row.maxClassesPerWeek
         });
         if (weeklyIssue) return res.status(400).json({message:weeklyIssue});
+      }
+
+      if (path === "timeslots") {
+        const row = await TimeSlot.findById(req.params.id).lean();
+        if (!row) return res.status(404).json({ message: "Record not found" });
+        if (body.program === "") body.program = null;
+        const candidate = { ...row, ...body };
+        const slotIssue = timeSlotInputIssue(candidate);
+        if (slotIssue) return res.status(400).json({ message: slotIssue });
+        if (candidate.program) {
+          const program = await Program.findById(candidate.program).lean();
+          if (!program) return res.status(404).json({ message: "Program not found." });
+        }
+        const conflict = timeSlotConflictIssue(
+          candidate,
+          await TimeSlot.find({ day: String(candidate.day).trim() }).lean(),
+          req.params.id
+        );
+        if (conflict) return res.status(409).json({ message: conflict });
       }
 
       const updated = await Model.findByIdAndUpdate(
