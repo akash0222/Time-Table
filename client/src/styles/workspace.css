@@ -524,7 +524,7 @@
 
 
 /* Navigation menu overrides: this stylesheet loads after styles.css. */
-.app .erp-sidebar{position:relative;z-index:1200;flex:0 0 258px;width:258px;min-width:258px;max-width:258px;overflow:hidden}
+.app .erp-sidebar{position:relative;z-index:1200;flex:0 0 var(--sidebar-width,258px);width:var(--sidebar-width,258px)!important;min-width:var(--sidebar-width,258px)!important;max-width:var(--sidebar-width,258px)!important;overflow:hidden}
 .app .erp-sidebar .sidebar-nav.module-nav{display:flex;flex:1 1 auto;min-height:0;flex-direction:column;gap:4px;overflow-x:hidden;overflow-y:auto;padding:8px 0 14px}
 .app .erp-sidebar .sidebar-nav.module-nav .nav-module-entry{display:block;width:100%;min-width:0}
 .app .erp-sidebar .sidebar-nav.module-nav .nav-module-entry>button.nav-module-button{
@@ -550,7 +550,7 @@
 .app .nav-flyout-panel button.nav-flyout-item:hover{background:#f1f5f9!important;color:#0f172a!important}
 .app .nav-flyout-panel button.nav-flyout-item.active{background:#e8f2ff!important;color:#1d4ed8!important;font-weight:700!important}
 .app .nav-flyout-panel .nav-flyout-items{overflow-y:auto;min-height:0;padding:0 7px 9px}
-@media(min-width:1001px){.app .erp-sidebar .brand>span,.app .erp-sidebar .workspace-label,.app .erp-sidebar .sidebar-session-copy,.app .erp-sidebar .nav-module-button>span,.app .erp-sidebar .side-bottom>div{display:block!important}.app .erp-sidebar .sidebar-toggle{display:none!important}.app .nav-flyout-panel{left:268px}}
+@media(min-width:1001px){.app .erp-sidebar .brand>span,.app .erp-sidebar .workspace-label,.app .erp-sidebar .sidebar-session-copy,.app .erp-sidebar .nav-module-button>span,.app .erp-sidebar .side-bottom>div{display:block!important}.app .erp-sidebar .sidebar-toggle{display:none!important}.app .nav-flyout-panel{left:calc(var(--sidebar-width,258px) + 10px)}}
 @media(max-width:1000px){
   .app .erp-sidebar{position:fixed;top:0;bottom:0;left:0;z-index:1200;width:min(286px,88vw)!important;min-width:0!important;max-width:88vw!important;flex:0 0 min(286px,88vw)!important;height:100vh;height:100dvh;padding:18px 14px;overflow:hidden;visibility:hidden;pointer-events:none;transform:translateX(-105%);transition:transform .22s ease,visibility .22s ease,box-shadow .22s ease}
   .app.mobile-nav-open .erp-sidebar{visibility:visible;pointer-events:auto;transform:translateX(0);box-shadow:14px 0 42px rgba(15,23,42,.22)}
@@ -593,4 +593,50 @@
   .app.mobile-nav-open .nav-flyout-panel{
     z-index:1210!important;
   }
+}
+
+
+/* Desktop-only adjustable navigation width (210–420 px). The resize handle
+   remains keyboard accessible and does not change the mobile drawer width. */
+.app .sidebar-resize-handle{display:none}
+@media(min-width:1001px){
+  .app .sidebar-resize-handle{
+    position:absolute;
+    top:0;
+    right:0;
+    bottom:0;
+    z-index:1230;
+    display:block;
+    width:7px;
+    cursor:col-resize;
+    touch-action:none;
+    user-select:none;
+    outline:none;
+    background:transparent;
+  }
+  .app .sidebar-resize-handle::after{
+    content:"";
+    position:absolute;
+    top:50%;
+    right:2px;
+    width:2px;
+    height:42px;
+    border-radius:99px;
+    background:rgba(148,163,184,.25);
+    transform:translateY(-50%);
+    transition:background .15s ease,height .15s ease;
+  }
+  .app .sidebar-resize-handle:hover::after,
+  .app .sidebar-resize-handle:focus-visible::after,
+  .app .sidebar-resize-handle:active::after{
+    height:64px;
+    background:#60a5fa;
+  }
+  .app .sidebar-resize-handle:focus-visible{
+    box-shadow:inset -2px 0 #60a5fa;
+  }
+  .app:has(.sidebar-resize-handle:active){cursor:col-resize}
+}
+@media(max-width:1000px){
+  .app .sidebar-resize-handle{display:none!important}
 }
