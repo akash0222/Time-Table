@@ -43,7 +43,7 @@ import { filterTimetableEntriesForUser } from "./services/timetableAccess.js";
 import { subjectProgramMatchesSection } from "./services/subjectProgramMapping.js";
 import { subjectWeeklyLimitIssue } from "./services/subjectSessionConstraints.js";
 import { timeSlotInputIssue, timeSlotConflictIssue } from "./services/timeSlotValidation.js";
-import { normalizeProgramDates, programDateInputIssue } from "./services/programDateValidation.js";
+import { normalizeProgramDates, programDateInputIssue, sessionDateBounds, sessionDateBoundsIssue } from "./services/programDateValidation.js";
 import { workflowNoteRequired } from "./services/timetableWorkflow.js";
 import { resolveTimeSlotsForSection, resolveProgramCalendar } from "./services/timetable/academicCalendar.js";
 
@@ -227,9 +227,11 @@ app.post("/api/sessions", requireAuth, async (req,res)=>{
     const programIds=[...new Set(programDates.map(item=>item.program))];
     const validPrograms=await Program.find({_id:{$in:programIds},active:{$ne:false}}).select("_id").lean();
     if(validPrograms.length!==programIds.length)return res.status(400).json({message:"One or more program calendars reference a missing or inactive program."});
-    const dates=programDates.map(x=>({start:new Date(x.startDate),end:new Date(x.endDate)}));
-    const startDate=new Date(Math.min(...dates.map(x=>x.start.valueOf())));
-    const endDate=new Date(Math.max(...dates.map(x=>x.end.valueOf())));
+    const bounds=sessionDateBounds(programDates,body.startDate,body.endDate);
+    const boundsIssue=sessionDateBoundsIssue(programDates,bounds.startDate,bounds.endDate);
+    if(boundsIssue)return res.status(400).json({message:boundsIssue});
+    const startDate=new Date(bounds.startDate+"T00:00:00.000Z");
+    const endDate=new Date(bounds.endDate+"T00:00:00.000Z");
     const row=await AcademicSession.create({
       name:body.name.trim(),description:String(body.description||"").trim(),
       programDates,startDate,endDate,active:false,holidayDates:[]
@@ -253,10 +255,12 @@ app.put("/api/sessions/:id", requireAuth, async (req,res)=>{
       const programIds=[...new Set(programDates.map(item=>item.program))];
       const validPrograms=await Program.find({_id:{$in:programIds},active:{$ne:false}}).select("_id").lean();
       if(validPrograms.length!==programIds.length)return res.status(400).json({message:"One or more program calendars reference a missing or inactive program."});
-      const dates=programDates.map(x=>({start:new Date(x.startDate),end:new Date(x.endDate)}));
+      const bounds=sessionDateBounds(programDates,body.startDate,body.endDate);
+      const boundsIssue=sessionDateBoundsIssue(programDates,bounds.startDate,bounds.endDate);
+      if(boundsIssue)return res.status(400).json({message:boundsIssue});
       row.programDates=programDates;
-      row.startDate=new Date(Math.min(...dates.map(x=>x.start.valueOf())));
-      row.endDate=new Date(Math.max(...dates.map(x=>x.end.valueOf())));
+      row.startDate=new Date(bounds.startDate+"T00:00:00.000Z");
+      row.endDate=new Date(bounds.endDate+"T00:00:00.000Z");
     }
     await row.save();
     res.json(await AcademicSession.findById(row._id).populate("programDates.program","name code").lean());
