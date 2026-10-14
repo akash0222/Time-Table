@@ -85,7 +85,8 @@ try {
     if (collection.name === "users" || collection.name === "system.profile") continue;
     await db.collection(collection.name).deleteMany({});
   }
-  console.log("Cleared existing application records; user accounts were retained.");
+  await db.collection("users").updateMany({}, { $set: { faculty: null, section: null } });
+  console.log("Cleared existing application records; user accounts were retained and faculty/section links reset.");
 
   const programs = await Program.insertMany(programSeeds.map(({ name, code, department, durationYears }) => ({
     name, code, department, durationYears, active: true
