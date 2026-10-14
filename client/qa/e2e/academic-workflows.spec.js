@@ -451,7 +451,7 @@ test("admin can create an academic session with program-wise dates", async ({ pa
   await signIn(page);
   await navigateToPage(page, "Academic Sessions");
   await page.locator("#session-start-year").fill("2028");
-  await page.getByLabel("Description (optional)").fill("Created by automated browser test");
+  await page.locator(".field").filter({ hasText: "Description (optional)" }).locator("input").fill("Created by automated browser test");
   await page.locator("#session-start-date").fill("2028-04-01");
   await page.locator("#session-end-date").fill("2029-03-31");
   await page.getByRole("button", { name: "+ Add Academic Session" }).click();
