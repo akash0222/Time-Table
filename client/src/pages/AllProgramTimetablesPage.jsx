@@ -1,7 +1,7 @@
 import React, {useMemo, useState} from "react";
 import axios from "axios";
 import {API} from "../core/api";
-import {days, refId} from "../core/utils.js";
+import {days, refId, resolveEffectiveTimeSlots} from "../core/utils.js";
 import {CalendarDays, FileSpreadsheet, GraduationCap, Search} from "lucide-react";
 
 export default function AllProgramTimetables({timetable,data,activeSession}){
@@ -13,22 +13,6 @@ export default function AllProgramTimetables({timetable,data,activeSession}){
   const entries=timetable?.entries||[];
   const sections=data?.sections||[];
   const programs=data?.programs||[];
-
-  const periodSlots=useMemo(()=>{
-    const seen=new Set();
-
-    return [...(data?.timeslots||[])]
-      .filter(s=>!s.isBreak)
-      .sort((a,b)=>Number(a.order||0)-Number(b.order||0))
-      .filter(s=>{
-        const key=`${s.startTime}-${s.endTime}`;
-
-        if(seen.has(key)) return false;
-
-        seen.add(key);
-        return true;
-      });
-  },[data?.timeslots]);
 
   const sectionMap=useMemo(()=>{
     const map=new Map();
@@ -103,10 +87,22 @@ export default function AllProgramTimetables({timetable,data,activeSession}){
   const visiblePrograms=useMemo(()=>[...new Set(filtered.map(e=>e.__program))]
     .sort((a,b)=>a.localeCompare(b)),[filtered]);
 
-  const cellEntries=(program,day,slot)=>{
+  const visibleGroups=useMemo(()=>{
+    const groups=new Map();
+    for(const entry of filtered){
+      const program=entry.__program;
+      const semester=entry.__semester||"Unspecified Semester";
+      const key=program+"|"+semester;
+      if(!groups.has(key))groups.set(key,{key,program,semester:entry.__semester||""});
+    }
+    return [...groups.values()].sort((a,b)=>a.program.localeCompare(b.program)||
+      String(a.semester).localeCompare(String(b.semester),undefined,{numeric:true}));
+  },[filtered]);
+
+  const cellEntries=(program,semester,day,slot)=>{
     const order=Number(slot.order||0);
     return filtered.filter(e=>{
-      if(e.__program!==program||e.day!==day) return false;
+      if(e.__program!==program||e.__semester!==semester||e.day!==day) return false;
       const start=Number(e.order||0);
       const duration=Math.max(1,Number(e.duration||1));
       return order>=start&&order<start+duration;
@@ -208,12 +204,12 @@ export default function AllProgramTimetables({timetable,data,activeSession}){
       <p>Clear the filters or generate a timetable containing the selected program or section.</p>
     </section> :
     <div className="all-program-list">
-      {visiblePrograms.map(program=>{
-        const programEntries=filtered.filter(e=>e.__program===program);
+      {visibleGroups.map(group=>{\n        const {program,semester}=group;
+        const programEntries=filtered.filter(e=>e.__program===program&&e.__semester===semester);\n        const groupSection=programEntries[0]?.__section;\n        const periodSlots=resolveEffectiveTimeSlots(data?.timeslots||[],groupSection,programs,activeSession?._id||"");
         const sectionNames=[...new Set(programEntries.map(e=>e.__sectionName).filter(Boolean))].sort();
-        return <section className="panel all-program-card" key={program}>
+        return <section className="panel all-program-card" key={group.key}>
           <div className="panel-head all-program-card-head">
-            <div><h3><GraduationCap size={18}/> {program}</h3>
+            <div><h3><GraduationCap size={18}/> {program}{semester?` · Semester ${semester}`:""}</h3>
               <p>{sectionNames.length} section{sectionNames.length===1?"":"s"} · {programEntries.length} scheduled class{programEntries.length===1?"":"es"}</p>
             </div>
             <div className="program-section-chips">{sectionNames.map(name=><span key={name}>{name}</span>)}</div>
@@ -228,7 +224,7 @@ export default function AllProgramTimetables({timetable,data,activeSession}){
                 return <React.Fragment key={`${program}-${time}`}>
                   <div className="ap-time">{time}</div>
                   {days.map(day=>{
-                    const list=cellEntries(program,day,slot);
+                    const list=cellEntries(program,semester,day,slot);
                     return <div className="ap-cell" key={`${program}-${day}-${time}`}>
                       {list.length ? list.map((e,index)=><div className="ap-entry" key={e._id||`${day}-${time}-${index}`}>
                         <strong>{e.subject?.name||"Subject"}</strong>
