@@ -10,16 +10,26 @@ function slotKey(slot) {
   return `${slot.day}|${slot.startTime}-${slot.endTime}`;
 }
 
-function maxRun(values) {
-  const sorted = [...new Set(values.map(Number).filter(Number.isFinite))].sort((a, b) => a - b);
+function maxClockRun(items) {
+  const rows = (items || [])
+    .map(item => ({
+      start: Number(item.start),
+      end: Number(item.end),
+      duration: Math.max(1, Number(item.duration || 1))
+    }))
+    .filter(item => Number.isFinite(item.start) && Number.isFinite(item.end) && item.end > item.start)
+    .sort((a, b) => a.start - b.start || a.end - b.end);
   let best = 0;
   let run = 0;
-  let prev = null;
-  for (const value of sorted) {
-    if (prev !== null && value === prev + 1) run += 1;
-    else run = 1;
+  let previousEnd = null;
+  for (const item of rows) {
+    if (previousEnd !== null && item.start >= previousEnd && item.start - previousEnd <= 15) {
+      run += item.duration;
+    } else {
+      run = item.duration;
+    }
     best = Math.max(best, run);
-    prev = value;
+    previousEnd = item.end;
   }
   return best;
 }
@@ -112,8 +122,6 @@ export function validateTimetable({
   const sectionDayCounts = new Map();
   const facultyDays = new Map();
   const subjectDayCounts = new Map();
-  const facultyOrdersByDay = new Map();
-  const sectionOrdersByDay = new Map();
   const facultyClockIntervals = new Map();
   const sectionClockIntervals = new Map();
   const roomClockIntervals = new Map();
@@ -178,7 +186,7 @@ export function validateTimetable({
           }
         }
       }
-      previous.push({start:startMinute,end:endMinute,slotKeys:entrySlotKeys,...entryWindow});
+      previous.push({start:startMinute,end:endMinute,duration:Math.max(1,Number(entry.duration||1)),slotKeys:entrySlotKeys,...entryWindow});
       map.set(key, previous);
     };
     reserveClockInterval(facultyClockIntervals, facultyId, "Faculty", f?.name);
@@ -238,13 +246,6 @@ export function validateTimetable({
     if (!facultyDays.has(facultyId)) facultyDays.set(facultyId, new Set());
     facultyDays.get(facultyId).add(entry.day);
 
-    if (!facultyOrdersByDay.has(facultyDayKey)) facultyOrdersByDay.set(facultyDayKey, []);
-    if (!sectionOrdersByDay.has(sectionDayKey)) sectionOrdersByDay.set(sectionDayKey, []);
-
-    const expandedOrders = slotsForEntry.map(x => Number(x.order));
-    facultyOrdersByDay.get(facultyDayKey).push(...expandedOrders);
-    sectionOrdersByDay.get(sectionDayKey).push(...expandedOrders);
-
     if (subjectDayCounts.get(subjectDayKey) > 1 && settings.avoidSameSubjectSameDay !== false) {
       warnings.push(`Subject ${subject?.name || subjectId} repeats on ${entry.day}.`);
     }
@@ -283,21 +284,22 @@ export function validateTimetable({
     }
   }
 
-  for (const [key, orders] of facultyOrdersByDay) {
-    const facultyId = key.split("|")[0];
-    const facultyMember = facultyMap.get(facultyId);
-    if (maxRun(orders) > Number(facultyMember ? maxConsecutiveFaculty : maxConsecutiveFaculty)) {
-      errors.push(`Faculty ${facultyMember?.name || facultyId} exceeds consecutive-class limit.`);
+  const checkClockRunLimits = (resourceIntervals, label, maxAllowed, resourceMap) => {
+    for (const [key, intervals] of resourceIntervals) {
+      const resourceId = key.split("|")[0];
+      const resource = resourceMap.get(resourceId);
+      for (const target of intervals) {
+        // Different program calendars only interact when their date windows overlap.
+        const concurrent = intervals.filter(item => calendarWindowsOverlap(target, item));
+        if (maxClockRun(concurrent) > maxAllowed) {
+          errors.push(`${label} ${resource?.name || resourceId} exceeds consecutive-class limit.`);
+          break;
+        }
+      }
     }
-  }
-
-  for (const [key, orders] of sectionOrdersByDay) {
-    const sectionId = key.split("|")[0];
-    const section = sectionMap.get(sectionId);
-    if (maxRun(orders) > Number(section ? maxConsecutiveSection : maxConsecutiveSection)) {
-      errors.push(`Section ${section?.name || sectionId} exceeds consecutive-class limit.`);
-    }
-  }
+  };
+  checkClockRunLimits(facultyClockIntervals, "Faculty", maxConsecutiveFaculty, facultyMap);
+  checkClockRunLimits(sectionClockIntervals, "Section", maxConsecutiveSection, sectionMap);
 
   return {
     valid: errors.length === 0,
