@@ -45,6 +45,7 @@ import { subjectWeeklyLimitIssue } from "./services/subjectSessionConstraints.js
 import { timeSlotInputIssue, timeSlotConflictIssue } from "./services/timeSlotValidation.js";
 import { normalizeProgramDates, programDateInputIssue, sessionDateBounds, sessionDateBoundsIssue } from "./services/programDateValidation.js";
 import { workflowNoteRequired } from "./services/timetableWorkflow.js";
+import { seedDemoData } from "./services/demoSeed.js";
 import { resolveTimeSlotsForSection, resolveProgramCalendar } from "./services/timetable/academicCalendar.js";
 
 const app = express();
@@ -3876,5 +3877,15 @@ process.on("SIGTERM", () => shutdown("SIGTERM"));
 
 connectDB().then(async () => {
   await ensureDefaultAdmin();
-  server = app.listen(PORT, "0.0.0.0", () => console.log(`Server listening on port ${PORT}`));
+  server = app.listen(PORT, "0.0.0.0", () => {
+    console.log(`Server listening on port ${PORT}`);
+    // Explicitly opt-in, idempotent demo seed. It runs after listen so Render
+    // health checks are not blocked by sample-data insertion. Existing data is
+    // never cleared, and the seed marker prevents repeat inserts on restarts.
+    if (process.env.SEED_DEMO_DATA_ON_START === "true") {
+      seedDemoData({ mongoose })
+        .then(result => console.log("Demo data seed result:", JSON.stringify(result)))
+        .catch(error => console.error("Demo data seed failed:", error?.message || error));
+    }
+  });
 }).catch(err => { console.error("MongoDB connection failed:", err.message); process.exit(1); });
