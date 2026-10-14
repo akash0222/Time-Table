@@ -712,10 +712,6 @@ router.post('/generate',allowRoles('ADMIN','SCHEDULER'),async(req,res)=>{
 
     const result=await generatePlan({session,holidays,faculty,subjects,sections,rooms,slots,settings:effectiveSettings,weeks:allWeeks});
     if(result.error)return res.status(422).json({message:result.error});
-    // Persist submitted holiday changes only after a complete plan was generated.
-    // Failed generation should never mutate the academic session calendar.
-    await AcademicSession.findByIdAndUpdate(session._id,{holidayDates:persistedHolidayDates});
-
     const last=await SessionPlan.findOne({academicSession:session._id}).sort({version:-1}).select('version');
     const version=(last?.version||0)+1;
     const doc=await SessionPlan.create({
@@ -728,6 +724,10 @@ router.post('/generate',allowRoles('ADMIN','SCHEDULER'),async(req,res)=>{
       totalEntries:result.totalScheduled,
       createdBy:req.user?.username||''
     });
+
+    // Only update the source session calendar after the generated plan version
+    // has been created successfully. Generation/DB failures must not mutate it.
+    await AcademicSession.findByIdAndUpdate(session._id,{holidayDates:persistedHolidayDates});
 
     res.status(201).json({id:doc._id,version,weeks:result.planned.length,totalEntries:result.totalScheduled});
   }catch(e){res.status(500).json({message:e.message});}
