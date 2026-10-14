@@ -43,10 +43,9 @@ export default function SubjectFacultyMapping({data,sessions,activeSession,reloa
   async function save(){
     if(!sessionId||!form.section||!form.faculty||!form.name.trim()){setMessage("Select Academic Session, Section, Faculty and enter Subject Name.");return;}
     const weeklyTarget=Math.max(1,Number(form.classesPerWeek||1));
-    const totalTarget=Math.max(0,Number(form.totalSessions||0));
     const weeklyLimit=Number(form.maxClassesPerWeek||0);
     if((weeklyLimit>0?weeklyLimit:weeklyTarget)<weeklyTarget){
-      setMessage(`Max Classes / Week must be at least Classes / Week when Total Sessions is 0 (currently ${weeklyLimit} vs ${weeklyTarget}). Increase the weekly maximum or enter an explicit Total Sessions target.`);
+      setMessage(`Max Classes / Week cannot be lower than Classes / Week (currently ${weeklyLimit} vs ${weeklyTarget}). The weekly timetable must be able to place the configured weekly target.`);
       return;
     }
     setSaving(true);
