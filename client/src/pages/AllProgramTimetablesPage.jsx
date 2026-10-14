@@ -218,7 +218,7 @@ export default function AllProgramTimetables({timetable,data,activeSession}){
         const sectionNames=[...new Set(programEntries.map(e=>e.__sectionName).filter(Boolean))].sort();
         return <section className="panel all-program-card" key={group.key}>
           <div className="panel-head all-program-card-head">
-            <div><h3><GraduationCap size={18}/> {program}{semester?` · ${/^semester\\b/i.test(semester)?semester:`Semester ${semester}`}`:""}</h3>
+            <div><h3><GraduationCap size={18}/> {program}{semester?` · ${/^semester\b/i.test(semester)?semester:`Semester ${semester}`}`:""}</h3>
               <p>{sectionNames.length} section{sectionNames.length===1?"":"s"} · {programEntries.length} scheduled class{programEntries.length===1?"":"es"}</p>
             </div>
             <div className="program-section-chips">{sectionNames.map(name=><span key={name}>{name}</span>)}</div>
