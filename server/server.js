@@ -14,6 +14,7 @@ import TimeSlot from "./models/TimeSlot.js";
 import Program from "./models/Program.js";
 import AcademicSession from "./models/AcademicSession.js";
 import Timetable from "./models/Timetable.js";
+import SessionPlan from "./models/SessionPlan.js";
 import SchedulerSetting from "./models/SchedulerSetting.js";
 import { generateTimetable, generateBestTimetable } from "./services/generator.js";
 import { calculateFacultyWorkloadCapacity } from "./services/facultyWorkload.js";
@@ -461,7 +462,10 @@ app.put("/api/academic-structure/sections/:id", requireAuth, async (req, res) =>
     }
     if (!nextSemester || !nextName) return res.status(400).json({ message: "Semester and Section Name are required." });
 
-    const programChanged = String(nextProgramId || "") !== String(row.programId || "");
+    const currentLegacyProgram = String(row.program || "").trim().toLowerCase();
+    const nextLegacyProgram = String(nextProgram?.name || (body.program !== undefined ? body.program : row.program) || "").trim().toLowerCase();
+    const programChanged = String(nextProgramId || "") !== String(row.programId || "")
+      || (!nextProgramId && currentLegacyProgram !== nextLegacyProgram);
     const sessionChanged = String(nextSessionId || "") !== String(row.academicSession || "");
     if (programChanged || sessionChanged) {
       const [studentCount, subjectCount] = await Promise.all([
@@ -506,10 +510,20 @@ app.put("/api/academic-structure/sections/:id", requireAuth, async (req, res) =>
 app.delete("/api/academic-structure/sections/:id", requireAuth, async (req, res) => {
   if (!["ADMIN", "SCHEDULER"].includes(req.user?.role)) return res.status(403).json({ message: "Only Admin or Scheduler can manage sections." });
   try {
-    const studentCount = await Student.countDocuments({ section: req.params.id, active: { $ne: false } });
-    if (studentCount) return res.status(409).json({ message: `Cannot delete this section because ${studentCount} active student(s) are mapped to it. Move the students first.` });
-    const row = await Section.findByIdAndDelete(req.params.id);
+    const row = await Section.findById(req.params.id).select("_id name");
     if (!row) return res.status(404).json({ message: "Section not found." });
+    const [studentCount, subjectCount, timetableCount, sessionPlanCount] = await Promise.all([
+      Student.countDocuments({ section: row._id }),
+      Subject.countDocuments({ section: row._id }),
+      Timetable.countDocuments({ "entries.section": row._id }),
+      SessionPlan.countDocuments({ "weeks.entries.section": row._id })
+    ]);
+    if (studentCount || subjectCount || timetableCount || sessionPlanCount) {
+      return res.status(409).json({
+        message: `Cannot delete section "${row.name}" while it is referenced by ${studentCount} student record(s), ${subjectCount} subject mapping(s), ${timetableCount} timetable version(s), or ${sessionPlanCount} full-session plan(s). Reassign/archive linked records first.`
+      });
+    }
+    await Section.findByIdAndDelete(row._id);
     res.json({ ok: true });
   } catch (e) { res.status(400).json({ message: e.message }); }
 });
