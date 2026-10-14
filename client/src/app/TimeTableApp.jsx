@@ -4,7 +4,7 @@ import {API, API_CONFIGURATION_ERROR} from "../core/api";
 import {getPageForPath, getPathForPage} from "../core/pageRoutes";
 import {refId} from "../core/utils";
 import {navGroupsForRole} from "../core/navigation.jsx";
-import {CalendarDays, Users, BookOpen, DoorOpen, Clock3, WandSparkles, Check, History, ChevronLeft, ChevronRight, ChevronDown, Menu, X, Search} from "lucide-react";
+import {CalendarDays, Users, BookOpen, DoorOpen, Clock3, WandSparkles, Check, History, ChevronLeft, ChevronRight, ChevronDown, Menu, X, Search, UserRound, KeyRound, LogOut, ShieldCheck} from "lucide-react";
 import Login from "../pages/LoginPage.jsx";
 
 // The eight navigation group headings are the only main modules.
@@ -100,6 +100,14 @@ export default function App(){
     document.title=tab==="Dashboard" ? "Time Table" : `${tab} | Time Table`;
   },[tab,auth?.role]);
   const [mobileNavOpen,setMobileNavOpen]=useState(false);
+  const [sidebarCollapsed,setSidebarCollapsed]=useState(()=>{
+    try{return localStorage.getItem("tt_sidebar_collapsed")==="true";}catch{return false;}
+  });
+  const [profileOpen,setProfileOpen]=useState(false);
+  const [showPasswordModal,setShowPasswordModal]=useState(false);
+  const [passwordSaving,setPasswordSaving]=useState(false);
+  const [passwordForm,setPasswordForm]=useState({currentPassword:"",newPassword:"",confirmPassword:""});
+  const profileMenuRef=useRef(null);
   const [sidebarWidth,setSidebarWidth]=useState(()=>{
     try{return clampSidebarWidth(localStorage.getItem("tt_sidebar_width")||SIDEBAR_DEFAULT_WIDTH);}
     catch{return SIDEBAR_DEFAULT_WIDTH;}
@@ -267,6 +275,25 @@ export default function App(){
   },[mobileNavOpen]);
 
   useEffect(()=>{
+    if(!profileOpen)return;
+    const closeOutside=event=>{if(!profileMenuRef.current?.contains(event.target))setProfileOpen(false);};
+    const closeEscape=event=>{if(event.key==="Escape")setProfileOpen(false);};
+    document.addEventListener("pointerdown",closeOutside);
+    window.addEventListener("keydown",closeEscape);
+    return ()=>{
+      document.removeEventListener("pointerdown",closeOutside);
+      window.removeEventListener("keydown",closeEscape);
+    };
+  },[profileOpen]);
+
+  useEffect(()=>{
+    if(!showPasswordModal)return;
+    const closeEscape=event=>{if(event.key==="Escape"&&!passwordSaving)setShowPasswordModal(false);};
+    window.addEventListener("keydown",closeEscape);
+    return ()=>window.removeEventListener("keydown",closeEscape);
+  },[showPasswordModal,passwordSaving]);
+
+  useEffect(()=>{
     if(!showGenerationDialog)return;
     const closeDialogOnEscape=event=>{
       if(event.key==="Escape"){
@@ -335,6 +362,50 @@ export default function App(){
     next=clampSidebarWidth(next);
     setSidebarWidth(next);
     persistSidebarWidth(next);
+  }
+
+  function toggleSidebar(){
+    if(window.matchMedia("(max-width: 1000px)").matches){
+      setMobileNavOpen(value=>!value);
+      return;
+    }
+    setSidebarCollapsed(current=>{
+      const next=!current;
+      try{localStorage.setItem("tt_sidebar_collapsed",String(next));}catch{}
+      if(next)setActiveNavGroup(null);
+      return next;
+    });
+  }
+
+  async function changePassword(event){
+    event.preventDefault();
+    if(passwordForm.newPassword.length<10){
+      setMessage("New password must contain at least 10 characters.");
+      return;
+    }
+    if(passwordForm.newPassword!==passwordForm.confirmPassword){
+      setMessage("New password and confirmation do not match.");
+      return;
+    }
+    if(passwordForm.currentPassword===passwordForm.newPassword){
+      setMessage("New password must be different from the current password.");
+      return;
+    }
+    setPasswordSaving(true);
+    try{
+      await axios.post(`${API}/auth/change-password`,{
+        currentPassword:passwordForm.currentPassword,
+        newPassword:passwordForm.newPassword
+      });
+      setMessage("Password changed successfully.");
+      setPasswordForm({currentPassword:"",newPassword:"",confirmPassword:""});
+      setShowPasswordModal(false);
+      setProfileOpen(false);
+    }catch(error){
+      setMessage(error.response?.data?.message||"Unable to change password. Check your current password and try again.");
+    }finally{
+      setPasswordSaving(false);
+    }
   }
 
   function positionFlyout(event){
@@ -484,44 +555,37 @@ export default function App(){
 
 
   return <div
-    className={`app ${mobileNavOpen ? "mobile-nav-open" : ""} ${activeNavGroup ? "nav-flyout-open" : ""}`}
-    style={{"--sidebar-width":`${sidebarWidth}px`}}
+    className={`app ${mobileNavOpen ? "mobile-nav-open" : ""} ${sidebarCollapsed ? "sidebar-collapsed" : ""} ${activeNavGroup ? "nav-flyout-open" : ""}`}
+    style={{"--sidebar-width":`${sidebarCollapsed ? 76 : sidebarWidth}px`,"--sidebar-expanded-width":`${sidebarWidth}px`}}
   >
     <aside className="erp-sidebar">
-      <div className="brand">
-        <CalendarDays size={22}/>
-        <span>Time Table</span>
-
+      <div className="sidebar-brand-row">
+        <div className="brand">
+          <CalendarDays size={22}/>
+          <span>Time Table</span>
+        </div>
+        <button
+          type="button"
+          className="sidebar-toggle"
+          onClick={()=>{
+            if(window.matchMedia("(max-width: 1000px)").matches){
+              setMobileNavOpen(false);
+              setActiveNavGroup(null);
+              return;
+            }
+            setSidebarCollapsed(current=>{
+              const next=!current;
+              try{localStorage.setItem("tt_sidebar_collapsed",String(next));}catch{}
+              if(next)setActiveNavGroup(null);
+              return next;
+            });
+          }}
+          aria-label={mobileNavOpen?"Close navigation":sidebarCollapsed?"Expand navigation":"Collapse navigation"}
+          title={mobileNavOpen?"Close navigation":sidebarCollapsed?"Expand navigation":"Collapse navigation"}
+          aria-expanded={!sidebarCollapsed}
+        >{mobileNavOpen?<X size={17}/>:sidebarCollapsed?<ChevronRight size={17}/>:<ChevronLeft size={17}/>}</button>
       </div>
       <div className="workspace-label">ACADEMIC WORKSPACE</div>
-      <button
-        type="button"
-        className="sidebar-session-context"
-        onClick={()=>navigateToNavPage("Academic Sessions","Academic Setup")}
-        title={activeSession?("Active academic session: "+activeSession.name):"Configure academic session"}
-      >
-        <span className="sidebar-session-dot" aria-hidden="true"/>
-        <span className="sidebar-session-copy">
-          <small>ACTIVE SESSION</small>
-          <strong>{activeSession?.name||"No active session"}</strong>
-        </span>
-        <ChevronRight size={15} aria-hidden="true"/>
-      </button>
-      <div className="nav-search" role="search">
-        <Search size={16} aria-hidden="true"/>
-        <input
-          ref={navSearchRef}
-          className="nav-search-input"
-          type="search"
-          value={navQuery}
-          onChange={event=>setNavQuery(event.target.value)}
-          placeholder="Search pages…"
-          aria-label="Search pages"
-          aria-describedby="nav-search-shortcut"
-        />
-        <kbd id="nav-search-shortcut" className="nav-search-shortcut">Ctrl K</kbd>
-        <button type="button" className="nav-search-collapsed-trigger" aria-label="Search pages" title="Search pages (Ctrl+K)" onClick={()=>navSearchRef.current?.focus()}><Search size={17}/></button>
-      </div>
       <nav className="sidebar-nav module-nav" aria-label="Main navigation">
         {visibleNavGroups.map(group=>{
           const active=activeNavGroup===group.label;
@@ -550,8 +614,6 @@ export default function App(){
       </nav>
       <div className="side-bottom">
         {(["ADMIN","SCHEDULER"].includes(auth.role)) && <button className="primary full" onClick={()=>{setSelectedProgramIds((data.programs||[]).filter(p=>p.active!==false).map(p=>String(p._id)));setShowGenerationDialog(true);}} disabled={loading}><WandSparkles size={17}/> Generate Timetable</button>}
-        <div style={{padding:"10px 4px",fontSize:12,color:"#64748b"}}>{auth.name} · {auth.role}</div>
-        <button className="secondary full" onClick={()=>{localStorage.removeItem("tt_token");localStorage.removeItem("tt_user");window.location.reload()}}>Logout</button>
       </div>
       <div
         className="sidebar-resize-handle"
@@ -593,6 +655,23 @@ export default function App(){
         </section>
       </div>;
     })()}
+    {showPasswordModal&&<div className="modal-backdrop password-modal-backdrop" role="presentation" onClick={event=>{if(event.target===event.currentTarget&&!passwordSaving)setShowPasswordModal(false);}}>
+      <section className="modal-panel password-modal-panel" role="dialog" aria-modal="true" aria-labelledby="change-password-title">
+        <div className="modal-header">
+          <div><h2 id="change-password-title">Change Password</h2><p>Choose a new password with at least 10 characters.</p></div>
+          <button type="button" className="icon-button" onClick={()=>setShowPasswordModal(false)} aria-label="Close Change Password" disabled={passwordSaving}><X size={18}/></button>
+        </div>
+        <form className="password-change-form" onSubmit={changePassword}>
+          <label>Current password<input type="password" autoComplete="current-password" required value={passwordForm.currentPassword} onChange={event=>setPasswordForm(form=>({...form,currentPassword:event.target.value}))}/></label>
+          <label>New password<input type="password" autoComplete="new-password" minLength={10} required value={passwordForm.newPassword} onChange={event=>setPasswordForm(form=>({...form,newPassword:event.target.value}))}/></label>
+          <label>Confirm new password<input type="password" autoComplete="new-password" minLength={10} required value={passwordForm.confirmPassword} onChange={event=>setPasswordForm(form=>({...form,confirmPassword:event.target.value}))}/></label>
+          <div className="password-change-actions">
+            <button type="button" className="secondary" onClick={()=>setShowPasswordModal(false)} disabled={passwordSaving}>Cancel</button>
+            <button type="submit" className="primary" disabled={passwordSaving}><KeyRound size={15}/>{passwordSaving?"Updating...":"Update Password"}</button>
+          </div>
+        </form>
+      </section>
+    </div>}
     {showGenerationDialog&&<div className="modal-backdrop generation-modal-backdrop" role="presentation" onClick={event=>{if(event.target===event.currentTarget)setShowGenerationDialog(false);}}>
       <section className="modal-panel generation-modal-panel" role="dialog" aria-modal="true" aria-labelledby="generate-program-title">
         <div className="modal-header">
@@ -619,14 +698,74 @@ export default function App(){
     </div>}
     {mobileNavOpen&&<button type="button" className="sidebar-backdrop" aria-label="Close navigation" onClick={()=>{setMobileNavOpen(false);setActiveNavGroup(null);setFlyoutSearch("");}}/>}
     <main className="erp-main">
-      <button
-        type="button"
-        className="mobile-nav-trigger"
-        aria-label={mobileNavOpen?"Close navigation":"Open navigation"}
-        aria-expanded={mobileNavOpen}
-        onClick={()=>setMobileNavOpen(value=>!value)}
-      >{mobileNavOpen?<X size={18}/>:<Menu size={18}/>}<span>Menu</span></button>
-      {tab==="Dashboard"&&<header><div><h1>{tab}</h1></div></header>}
+      <header className="app-topbar">
+        <div className="topbar-leading">
+          <button
+            type="button"
+            className="mobile-nav-trigger"
+            aria-label={mobileNavOpen?"Close navigation":"Open navigation"}
+            aria-expanded={mobileNavOpen}
+            onClick={()=>setMobileNavOpen(value=>{const next=!value;if(next)setProfileOpen(false);return next;})}
+          >{mobileNavOpen?<X size={18}/>:<Menu size={18}/>}<span>Menu</span></button>
+          <div className="topbar-session">
+            <span className="topbar-session-icon"><CalendarDays size={19}/></span>
+            <span className="topbar-session-copy">
+              <small>ACADEMIC SESSION</small>
+              <strong>{activeSession?.name||"No active session"}</strong>
+            </span>
+            <span className={activeSession?"topbar-session-status active":"topbar-session-status"} aria-label={activeSession?"Active session":"No active session"}/>
+          </div>
+        </div>
+        <div className="topbar-actions">
+          <div className="nav-search topbar-search" role="search">
+            <Search size={17} aria-hidden="true"/>
+            <input
+              ref={navSearchRef}
+              className="nav-search-input"
+              type="search"
+              value={navQuery}
+              onChange={event=>setNavQuery(event.target.value)}
+              placeholder="Search pages..."
+              aria-label="Search pages"
+              aria-describedby="nav-search-shortcut"
+            />
+            <kbd id="nav-search-shortcut" className="nav-search-shortcut">Ctrl K</kbd>
+          </div>
+          <div className="header-profile-wrap" ref={profileMenuRef}>
+            <button
+              type="button"
+              className="header-profile-trigger"
+              aria-haspopup="menu"
+              aria-expanded={profileOpen}
+              onClick={()=>{setProfileOpen(value=>!value);setActiveNavGroup(null);}}
+            >
+              <span className="header-profile-avatar">{String(auth.name||auth.username||"U").trim().charAt(0).toUpperCase()}</span>
+              <span className="header-profile-trigger-copy">
+                <strong>{auth.name||auth.username||"User"}</strong>
+                <small>{String(auth.role||"USER").replace(/_/g," ")}</small>
+              </span>
+              <ChevronDown size={15} className={profileOpen?"profile-chevron open":"profile-chevron"}/>
+            </button>
+            {profileOpen&&<div className="header-profile-menu" role="menu" aria-label="Profile menu">
+              <div className="header-profile-summary">
+                <span className="header-profile-avatar large"><UserRound size={22}/></span>
+                <span><strong>{auth.name||auth.username||"User"}</strong><small>{String(auth.role||"USER").replace(/_/g," ")}</small></span>
+              </div>
+              <div className="header-profile-details">
+                <div><span>Username</span><strong>{auth.username||"—"}</strong></div>
+                <div><span>Account role</span><strong>{String(auth.role||"USER").replace(/_/g," ")}</strong></div>
+              </div>
+              <button type="button" className="header-profile-menu-item" role="menuitem" onClick={()=>{setProfileOpen(false);setPasswordForm({currentPassword:"",newPassword:"",confirmPassword:""});setShowPasswordModal(true);}}>
+                <KeyRound size={16}/><span>Change Password</span>
+              </button>
+              <button type="button" className="header-profile-menu-item logout" role="menuitem" onClick={()=>{setProfileOpen(false);localStorage.removeItem("tt_token");localStorage.removeItem("tt_user");window.location.reload();}}>
+                <LogOut size={16}/><span>Logout</span>
+              </button>
+            </div>}
+          </div>
+        </div>
+      </header>
+      {tab==="Dashboard"&&<header className="page-heading"><div><h1>{tab}</h1></div></header>}
       {message && <div className={`message ${/error|network|failed|unable|cannot|start the backend|could not be loaded|not configured/i.test(message)?"error":"success"}`}>{message}{/some data could not be loaded|backend api is not configured/i.test(message) && <button className="secondary" type="button" onClick={()=>load()} style={{marginLeft:10}}>Retry</button>}</div>}
 
 
