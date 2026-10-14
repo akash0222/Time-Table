@@ -367,7 +367,11 @@ export default function App(){
 
   function toggleSidebar(){
     if(window.matchMedia("(max-width: 1000px)").matches){
-      setMobileNavOpen(value=>!value);
+      setMobileNavOpen(value=>{
+        const next=!value;
+        if(!next)setActiveNavGroup(null);
+        return next;
+      });
       return;
     }
     setSidebarCollapsed(current=>{
