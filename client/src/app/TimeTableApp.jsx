@@ -293,7 +293,8 @@ export default function App(){
   }
 
   function showNavGroup(event,group){
-    if(group.items.length<=1){
+    const original=navGroupsForRole(auth.role).find(item=>item.label===group.label)||group;
+    if(original.items.length<=1){
       setActiveNavGroup(null);
       setFlyoutSearch("");
       return;
@@ -303,8 +304,11 @@ export default function App(){
   }
 
   function openNavGroup(event,group){
-    if(group.items.length===1){
-      navigateToNavPage(group.items[0].name,group.label);
+    const original=navGroupsForRole(auth.role).find(item=>item.label===group.label)||group;
+    // Search filters the flyout's children; it must not turn a multi-page module
+    // into a direct-navigation button when only one result matches.
+    if(original.items.length===1){
+      navigateToNavPage(original.items[0].name,group.label);
       setActiveNavGroup(null);
       return;
     }
