@@ -181,7 +181,10 @@ export default function AcademicSessions({sessions,programs,semesters=[],activeS
       ))}
       {!activePrograms.length&&<tr><td colSpan="5">No active programs found. Add Programs first.</td></tr>}
     </tbody></table></div>
-    <div className="form-actions" style={{marginTop:10}}><button type="button" className="secondary" onClick={addSemesterCalendar} disabled={!activePrograms.length}>+ Add Semester Calendar</button></div>
+    <div className="form-actions" style={{marginTop:10}}>
+      <button type="button" className="secondary" onClick={addSemesterCalendar} disabled={!activePrograms.length||!editingId}>+ Add Semester Calendar</button>
+      {!editingId&&activePrograms.length>0&&<small className="muted">Create the session first, then use Edit Dates to add semester-specific calendars.</small>}
+    </div>
     <div className="form-actions" style={{marginTop:14}}><button className="primary add" onClick={saveSession} disabled={saving}>{saving?(editingId?"Updating...":"Creating..."):(editingId?"Update Academic Session":"+ Add Academic Session")}</button>{editingId&&<button className="secondary" onClick={reset}>Cancel Edit</button>}</div>
     <div className="table-wrap" style={{marginTop:24}}><table><thead><tr><th>Session</th><th>Program Calendars</th><th>Overall Range</th><th>Status</th><th>Actions</th></tr></thead>
     <tbody>{sessions.map(s=><tr key={s._id}><td><strong>{s.name}</strong><div className="muted">{s.description||""}</div></td><td>{(s.programDates||[]).length} program(s) configured</td><td>{s.startDate?dateValue(s.startDate):"—"} → {s.endDate?dateValue(s.endDate):"—"}</td><td>{s.active?<span className="status-badge approved">ACTIVE</span>:"Inactive"}</td><td style={{display:"flex",gap:8,flexWrap:"wrap"}}><button className="secondary" onClick={()=>editSession(s)}>Edit Dates</button>{!s.active&&<button className="secondary" onClick={()=>activate(s._id)}>Set Active</button>}</td></tr>)}</tbody></table></div>
