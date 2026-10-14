@@ -90,14 +90,14 @@ export default function App(){
     }
     document.title=tab==="Dashboard" ? "Time Table" : `${tab} | Time Table`;
   },[tab,auth?.role]);
-  const [sidebarCollapsed,setSidebarCollapsed]=useState(()=>localStorage.getItem("tt_sidebar_collapsed")==="true");
+  const [sidebarCollapsed,setSidebarCollapsed]=useState(false);
   const [mobileNavOpen,setMobileNavOpen]=useState(false);
   const [navQuery,setNavQuery]=useState("");
   const navSearchRef=useRef(null);
   const [focusNavSearchOnExpand,setFocusNavSearchOnExpand]=useState(false);
-  const [collapsedNavGroups,setCollapsedNavGroups]=useState(()=>{
-    try{return JSON.parse(localStorage.getItem("tt_nav_collapsed_groups")||"{}")}catch{return {}}
-  });
+  const [activeNavGroup,setActiveNavGroup]=useState(null);
+  const [flyoutTop,setFlyoutTop]=useState(190);
+  const [flyoutSearch,setFlyoutSearch]=useState("");
 
 
   const [data,setData]=useState({faculty:[],subjects:[],sections:[],rooms:[],timeslots:[],programs:[],semesters:[],students:[]});
@@ -228,7 +228,7 @@ export default function App(){
     })();
   },[auth?.username,activeSession?._id]);
 
-  useEffect(()=>{localStorage.setItem("tt_sidebar_collapsed",String(sidebarCollapsed));},[sidebarCollapsed]);
+  // The desktop sidebar stays fixed-width; navigation submodules open in a flyout.
   useEffect(()=>{
     const mobileViewport=window.matchMedia("(max-width: 1000px)").matches;
     if(!sidebarCollapsed&&focusNavSearchOnExpand&&(!mobileViewport||mobileNavOpen)){
@@ -264,7 +264,6 @@ export default function App(){
     window.addEventListener("keydown",closeOnEscape);
     return ()=>window.removeEventListener("keydown",closeOnEscape);
   },[mobileNavOpen]);
-  useEffect(()=>{localStorage.setItem("tt_nav_collapsed_groups",JSON.stringify(collapsedNavGroups));},[collapsedNavGroups]);
   useEffect(()=>{
     if(!showGenerationDialog)return;
     const closeDialogOnEscape=event=>{
@@ -277,18 +276,40 @@ export default function App(){
     return ()=>window.removeEventListener("keydown",closeDialogOnEscape);
   },[showGenerationDialog]);
 
-  // Deep links always reveal the one top-level group containing the current page.
+  // Keep the flyout aligned to the selected module; deep links select their owning module.
   useEffect(()=>{
-    if(!auth) return;
+    if(!auth)return;
     const group=navGroupsForRole(auth.role).find(candidate=>candidate.items.some(item=>item.name===tab));
-    if(group)setCollapsedNavGroups(previous=>previous[group.label]?{...previous,[group.label]:false}:previous);
+    if(group)setActiveNavGroup(group.label);
   },[tab,auth?.role]);
+
+  useEffect(()=>{
+    if(!activeNavGroup)return;
+    const close=event=>{
+      if(event.key==="Escape"){setActiveNavGroup(null);setFlyoutSearch("");}
+    };
+    window.addEventListener("keydown",close);
+    return ()=>window.removeEventListener("keydown",close);
+  },[activeNavGroup]);
 
   function navigateToNavPage(page,groupLabel){
     setTab(page);
     setNavQuery("");
+    setFlyoutSearch("");
+    setActiveNavGroup(groupLabel||null);
     setMobileNavOpen(false);
-    setCollapsedNavGroups(previous=>previous[groupLabel]?{...previous,[groupLabel]:false}:previous);
+  }
+
+  function openNavGroup(event,group){
+    if(group.items.length===1){
+      navigateToNavPage(group.items[0].name,group.label);
+      setActiveNavGroup(null);
+      return;
+    }
+    const rect=event.currentTarget.getBoundingClientRect();
+    setFlyoutTop(Math.max(90,Math.min(rect.top,window.innerHeight-420)));
+    setActiveNavGroup(previous=>previous===group.label?null:group.label);
+    setFlyoutSearch("");
   }
 
   function navigateFromDashboard(page){
@@ -399,14 +420,12 @@ export default function App(){
 
 
 
-  return <div className={`app ${sidebarCollapsed ? "sidebar-collapsed" : ""} ${mobileNavOpen ? "mobile-nav-open" : ""}`}>
+  return <div className={`app ${mobileNavOpen ? "mobile-nav-open" : ""} ${activeNavGroup ? "nav-flyout-open" : ""}`}>
     <aside className="erp-sidebar">
       <div className="brand">
         <CalendarDays size={22}/>
         <span>Time Table</span>
-        <button type="button" className="sidebar-toggle" onClick={()=>{if(window.matchMedia("(max-width: 1000px)").matches){setMobileNavOpen(false);return;}setSidebarCollapsed(v=>!v);}} title={mobileNavOpen?"Close navigation":sidebarCollapsed ? "Expand navigation" : "Collapse navigation"} aria-label={mobileNavOpen?"Close navigation":sidebarCollapsed ? "Expand navigation" : "Collapse navigation"}>
-          {sidebarCollapsed ? <ChevronRight size={17}/> : <ChevronLeft size={17}/>}
-        </button>
+
       </div>
       <div className="workspace-label">ACADEMIC WORKSPACE</div>
       <button
@@ -437,33 +456,24 @@ export default function App(){
         <kbd id="nav-search-shortcut" className="nav-search-shortcut">Ctrl K</kbd>
         <button type="button" className="nav-search-collapsed-trigger" aria-label="Search pages" title="Search pages (Ctrl+K)" onClick={()=>{setFocusNavSearchOnExpand(true);setSidebarCollapsed(false);}}><Search size={17}/></button>
       </div>
-      <nav className="sidebar-nav" aria-label="Main navigation">
+      <nav className="sidebar-nav module-nav" aria-label="Main navigation">
         {visibleNavGroups.map(group=>{
-          const groupId="nav-group-"+group.label.toLowerCase().replace(/[^a-z0-9]+/g,"-");
-          const groupCollapsed=!normalizedNavQuery&&Boolean(collapsedNavGroups[group.label]);
-          return <div className={"nav-group"+(groupCollapsed?" is-collapsed":"")} key={group.label} data-nav-group={group.label}>
+          const active=activeNavGroup===group.label;
+          const current=group.items.some(item=>item.name===tab);
+          const Icon=group.items[0]?.Icon||Activity;
+          return <div className="nav-module-entry" key={group.label}>
             <button
               type="button"
-              className="nav-group-title"
-              aria-expanded={!groupCollapsed}
-              aria-controls={groupId}
-              aria-label={(groupCollapsed?"Expand ":"Collapse ")+group.label}
-              onClick={()=>setCollapsedNavGroups(previous=>({...previous,[group.label]:!previous[group.label]}))}
+              className={`nav-module-button${current?" has-current":""}${active?" is-open":""}`}
+              onClick={event=>openNavGroup(event,group)}
+              aria-expanded={active}
+              aria-haspopup={group.items.length>1?"dialog":undefined}
+              title={group.label}
             >
-              <span className="nav-group-label">{group.label}</span>
-              <ChevronDown className={"nav-group-chevron"+(groupCollapsed?" is-collapsed":"")} size={13}/>
+              <Icon size={18}/>
+              <span>{group.label}</span>
+              {group.items.length>1&&<ChevronRight className="nav-module-chevron" size={15}/>}
             </button>
-            {!groupCollapsed&&<div className="nav-group-items" id={groupId}>
-              {group.items.map(item=><button
-                key={item.name}
-                data-nav={item.name}
-                data-nav-group={group.label}
-                className={tab===item.name?"nav active":"nav"}
-                title={sidebarCollapsed?item.name:undefined}
-                onClick={()=>navigateToNavPage(item.name,group.label)}
-                aria-current={tab===item.name?"page":undefined}
-              ><item.Icon size={17}/><span className="nav-label">{item.name}</span></button>)}
-            </div>}
           </div>;
         })}
         {normalizedNavQuery&&!visibleNavGroups.length&&<div className="nav-search-empty" role="status">No pages match “{navQuery.trim()}”.</div>}
@@ -474,6 +484,23 @@ export default function App(){
         <button className="secondary full" onClick={()=>{localStorage.removeItem("tt_token");localStorage.removeItem("tt_user");window.location.reload()}}>Logout</button>
       </div>
     </aside>
+    {activeNavGroup&&(()=>{
+      const group=visibleNavGroups.find(item=>item.label===activeNavGroup);
+      if(!group)return null;
+      const items=group.items.filter(item=>!flyoutSearch||item.name.toLowerCase().includes(flyoutSearch.toLowerCase()));
+      return <div className="nav-flyout-backdrop" onMouseDown={event=>{if(event.target===event.currentTarget)setActiveNavGroup(null);}}>
+        <section className="nav-flyout-panel" role="dialog" aria-label={group.label+" submenu"} style={{top:flyoutTop}}>
+          <header className="nav-flyout-header"><strong>{group.label}</strong><button type="button" onClick={()=>setActiveNavGroup(null)} aria-label="Close submenu"><X size={16}/></button></header>
+          <div className="nav-flyout-search"><Search size={15}/><input value={flyoutSearch} onChange={event=>setFlyoutSearch(event.target.value)} placeholder="Search submodules..." aria-label="Search submodules"/></div>
+          <div className="nav-flyout-items">
+            {items.map(item=><button type="button" key={item.name} className={tab===item.name?"nav-flyout-item active":"nav-flyout-item"} onClick={()=>navigateToNavPage(item.name,group.label)}>
+              <span className="nav-flyout-marker" aria-hidden="true"/><span>{item.name}</span>{tab===item.name&&<Check size={15}/>}
+            </button>)}
+            {!items.length&&<p className="nav-search-empty">No submodules found.</p>}
+          </div>
+        </section>
+      </div>;
+    })()}
     {showGenerationDialog&&<div className="modal-backdrop generation-modal-backdrop" role="presentation" onClick={event=>{if(event.target===event.currentTarget)setShowGenerationDialog(false);}}>
       <section className="modal-panel generation-modal-panel" role="dialog" aria-modal="true" aria-labelledby="generate-program-title">
         <div className="modal-header">
