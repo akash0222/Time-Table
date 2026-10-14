@@ -41,6 +41,8 @@ import { filterTimetableEntriesForUser } from "./services/timetableAccess.js";
 import { subjectProgramMatchesSection } from "./services/subjectProgramMapping.js";
 import { subjectWeeklyLimitIssue } from "./services/subjectSessionConstraints.js";
 import { timeSlotInputIssue, timeSlotConflictIssue } from "./services/timeSlotValidation.js";
+import { normalizeProgramDates, programDateInputIssue } from "./services/programDateValidation.js";
+import { workflowNoteRequired } from "./services/timetableWorkflow.js";
 
 const app = express();
 globalThis.__APP_STARTED_AT = Date.now();
@@ -186,14 +188,6 @@ function cleanHolidayDates(values){
   return valid.sort();
 }
 
-function normalizeProgramDates(programDates){
-  if(!Array.isArray(programDates)) return [];
-  return programDates.filter(x=>x?.program&&x?.startDate&&x?.endDate).map(x=>({
-    program:x.program,
-    startDate:x.startDate,
-    endDate:x.endDate
-  }));
-}
 
 
 app.get("/api/sessions", requireAuth, async (_req,res)=>{
@@ -223,11 +217,15 @@ app.post("/api/sessions", requireAuth, async (req,res)=>{
   try{
     const body=req.body||{};
     const programDates=normalizeProgramDates(body.programDates);
-    const dates=programDates.map(x=>({start:new Date(x.startDate),end:new Date(x.endDate)})).filter(x=>!Number.isNaN(x.start.valueOf())&&!Number.isNaN(x.end.valueOf()));
     if(!body.name?.trim())return res.status(400).json({message:"Academic session name is required."});
-    if(programDates.length!==dates.length || dates.some(x=>x.end<x.start))return res.status(400).json({message:"Every program must have a valid start date and end date."});
-    const startDate=dates.length?new Date(Math.min(...dates.map(x=>x.start.valueOf()))):null;
-    const endDate=dates.length?new Date(Math.max(...dates.map(x=>x.end.valueOf()))):null;
+    const dateIssue=programDateInputIssue(programDates);
+    if(dateIssue)return res.status(400).json({message:dateIssue});
+    const programIds=programDates.map(item=>item.program);
+    const validPrograms=await Program.find({_id:{$in:programIds},active:{$ne:false}}).select("_id").lean();
+    if(validPrograms.length!==programIds.length)return res.status(400).json({message:"One or more program calendars reference a missing or inactive program."});
+    const dates=programDates.map(x=>({start:new Date(x.startDate),end:new Date(x.endDate)}));
+    const startDate=new Date(Math.min(...dates.map(x=>x.start.valueOf())));
+    const endDate=new Date(Math.max(...dates.map(x=>x.end.valueOf())));
     const row=await AcademicSession.create({
       name:body.name.trim(),description:String(body.description||"").trim(),
       programDates,startDate,endDate,active:false,holidayDates:[]
@@ -244,17 +242,17 @@ app.put("/api/sessions/:id", requireAuth, async (req,res)=>{
     const body=req.body||{};
     if(body.name!==undefined) row.name=String(body.name).trim();
     if(body.description!==undefined) row.description=String(body.description||"").trim();
-    const programDates=normalizeProgramDates(body.programDates);
-    if(programDates.length){
+    if(body.programDates!==undefined){
+      const programDates=normalizeProgramDates(body.programDates);
+      const dateIssue=programDateInputIssue(programDates);
+      if(dateIssue)return res.status(400).json({message:dateIssue});
+      const programIds=programDates.map(item=>item.program);
+      const validPrograms=await Program.find({_id:{$in:programIds},active:{$ne:false}}).select("_id").lean();
+      if(validPrograms.length!==programIds.length)return res.status(400).json({message:"One or more program calendars reference a missing or inactive program."});
       const dates=programDates.map(x=>({start:new Date(x.startDate),end:new Date(x.endDate)}));
-      if(dates.some(x=>Number.isNaN(x.start.valueOf())||Number.isNaN(x.end.valueOf())||x.end<x.start))return res.status(400).json({message:"Every program must have a valid start date and end date."});
       row.programDates=programDates;
       row.startDate=new Date(Math.min(...dates.map(x=>x.start.valueOf())));
       row.endDate=new Date(Math.max(...dates.map(x=>x.end.valueOf())));
-    }else if(body.programDates){
-      row.programDates=[];
-      row.startDate=body.startDate||null;
-      row.endDate=body.endDate||null;
     }
     await row.save();
     res.json(await AcademicSession.findById(row._id).populate("programDates.program","name code").lean());
@@ -2209,7 +2207,7 @@ app.patch("/api/timetable/status", requireAuth, async (req, res) => {
     }
 
     const noteText = String(note || "").trim();
-    const noteRequired = ["DRAFT", "APPROVED", "PUBLISHED"].includes(status) && ["SUBMITTED", "APPROVED", "LOCKED"].includes(current);
+    const noteRequired = workflowNoteRequired(current, status);
     if (noteRequired && noteText.length < 3) {
       return res.status(400).json({ message: "Remarks are required for return, approval, publication, and unlock-related workflow actions." });
     }
