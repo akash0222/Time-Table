@@ -5,7 +5,7 @@ import {days, apiName, refId} from "../core/utils.js";
 import {Input, Select} from "../components/SharedComponents.jsx";
 import {Users, BookOpen, DoorOpen, Clock3, Trash2} from "lucide-react";
 
-export default function MasterView({type,data,setData,reload}){
+export default function MasterView({type,data,setData,reload,sessions=[],setMessage=()=>{}}){
   const key=Object.keys(apiName).find(k=>apiName[k]===type);
   const [form,setForm]=useState({});
   const [editingId,setEditingId]=useState(null);
@@ -17,7 +17,14 @@ export default function MasterView({type,data,setData,reload}){
   }
 
   function edit(record){
-    if(key==="subjects"){
+    if(key==="timeslots"){
+      setForm({
+        ...record,
+        academicSession:record.academicSession?._id||record.academicSession||"",
+        program:record.program?._id||record.program||"",
+        semester:record.semester||""
+      });
+    }else if(key==="subjects"){
       setForm({
         name:record.name||"",
         code:record.code||"",
@@ -63,8 +70,14 @@ export default function MasterView({type,data,setData,reload}){
     };
 
     if(key==="timeslots") body={
-      day:body.day||"Monday",startTime:body.startTime,
-      endTime:body.endTime,order:Number(body.order||1),isBreak:false
+      academicSession:body.academicSession||null,
+      program:body.program||null,
+      semester:String(body.semester||"").trim(),
+      day:body.day||"Monday",
+      startTime:body.startTime,
+      endTime:body.endTime,
+      order:Number(body.order||1),
+      isBreak:false
     };
 
     if(key==="subjects"){
@@ -186,10 +199,16 @@ export default function MasterView({type,data,setData,reload}){
       </>}
 
       {key==="timeslots" && <>
+        <Select label="Academic Session" value={form.academicSession||""} options={[["","All sessions (shared default)"],...(sessions||[]).map(s=>[s._id,s.name])]} onChange={v=>setForm({...form,academicSession:v})}/>
+        <Select label="Program" value={form.program||""} options={[["","All programs (shared default)"],...(data.programs||[]).filter(p=>p.active!==false).map(p=>[p._id,p.name])]} onChange={v=>setForm({...form,program:v,semester:v?form.semester||"":""})}/>
+        <Input label="Semester (optional)" value={form.semester||""} placeholder="e.g. Semester I" onChange={v=>setForm({...form,semester:v})}/>
         <Select label="Day" value={form.day||"Monday"} options={days.map(d=>[d,d])} onChange={v=>setForm({...form,day:v})}/>
-        <Input label="Start" type="time" value={form.startTime} onChange={v=>setForm({...form,startTime:v})}/>
-        <Input label="End" type="time" value={form.endTime} onChange={v=>setForm({...form,endTime:v})}/>
-        <Input label="Order" type="number" value={form.order||1} onChange={v=>setForm({...form,order:v})}/>
+        <Input label="Start Time" type="time" value={form.startTime||""} onChange={v=>setForm({...form,startTime:v})}/>
+        <Input label="End Time" type="time" value={form.endTime||""} onChange={v=>setForm({...form,endTime:v})}/>
+        <Input label="Period Order" type="number" value={form.order||1} onChange={v=>setForm({...form,order:v})}/>
+        <div className="message success wide" style={{marginTop:4}}>
+          <strong>Scope:</strong> Select the same academic session, program and semester to define its own clock schedule (for example, BBA ENT Semester I at 09:00 and BBA COM Semester I at 09:30). Leave Program and Semester blank only for a shared default.
+        </div>
       </>}
 
       <div className="form-actions">
@@ -249,7 +268,10 @@ export default function MasterView({type,data,setData,reload}){
             {key==="timeslots" && <>
               <div><small>Day</small><strong>{x.day||"—"}</strong></div>
               <div><small>Time</small><strong>{x.startTime||"—"} – {x.endTime||"—"}</strong></div>
-              <div><small>Order</small><strong>{x.order||"—"}</strong></div>
+              <div><small>Period Order</small><strong>{x.order||"—"}</strong></div>
+              <div><small>Academic Session</small><strong>{(sessions||[]).find(s=>refId(s)===refId(x.academicSession))?.name||"All sessions"}</strong></div>
+              <div><small>Program</small><strong>{(data.programs||[]).find(p=>refId(p)===refId(x.program))?.name||"All programs"}</strong></div>
+              <div><small>Semester</small><strong>{x.semester||"All semesters"}</strong></div>
             </>}
           </div>
           <div className="master-card-actions">
