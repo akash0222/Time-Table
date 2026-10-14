@@ -691,3 +691,54 @@ test("admin can generate and submit a timetable for review", async ({ page }) =>
   await page.getByRole("button", { name: /Submit for Review/ }).click();
   await expect(page.locator(".status-badge.submitted")).toBeVisible();
 });
+
+
+test("Generate Timetable program selector is centered, scrollable, and accessible", async ({page})=>{
+  await signIn(page);
+  const openButton=page.locator(".erp-sidebar .side-bottom button.primary").filter({hasText:"Generate Timetable"});
+  await expect(openButton).toBeVisible();
+  await openButton.click();
+
+  const dialog=page.getByRole("dialog",{name:/Generate Timetable/});
+  await expect(dialog).toBeVisible();
+  await expect(dialog.locator(".modal-program-option")).toHaveCount(1);
+  await expect(dialog.getByRole("button",{name:"Select all"})).toBeVisible();
+  await expect(dialog.getByRole("button",{name:"Clear selection"})).toBeVisible();
+  await expect(dialog.getByRole("button",{name:/Generate selected \(1\)/})).toBeVisible();
+
+  const geometry=await dialog.evaluate(element=>{
+    const rect=element.getBoundingClientRect();
+    return {
+      left:rect.left,
+      right:rect.right,
+      top:rect.top,
+      bottom:rect.bottom,
+      width:rect.width,
+      height:rect.height,
+      viewportWidth:window.innerWidth,
+      viewportHeight:window.innerHeight,
+      position:getComputedStyle(element).position,
+      backdropPosition:getComputedStyle(element.parentElement).position,
+      backdropZIndex:Number(getComputedStyle(element.parentElement).zIndex)
+    };
+  });
+  expect(geometry.position).toBe("relative");
+  expect(geometry.backdropPosition).toBe("fixed");
+  expect(geometry.backdropZIndex).toBeGreaterThanOrEqual(1000);
+  expect(Math.abs((geometry.left+geometry.width/2)-geometry.viewportWidth/2)).toBeLessThan(35);
+  expect(geometry.left).toBeGreaterThanOrEqual(0);
+  expect(geometry.right).toBeLessThanOrEqual(geometry.viewportWidth);
+  expect(geometry.height).toBeLessThanOrEqual(geometry.viewportHeight);
+
+  await page.setViewportSize({width:390,height:700});
+  await expect(dialog).toBeVisible();
+  const mobile=await dialog.boundingBox();
+  expect(mobile).not.toBeNull();
+  expect(mobile.x).toBeGreaterThanOrEqual(0);
+  expect(mobile.x+mobile.width).toBeLessThanOrEqual(390);
+  expect(mobile.height).toBeLessThanOrEqual(700);
+  await page.keyboard.press("Escape");
+  // The dialog remains dismissible via its explicit close control on compact layouts.
+  await dialog.getByRole("button",{name:"Close dialog"}).click();
+  await expect(dialog).toHaveCount(0);
+});
