@@ -16,7 +16,24 @@ export default function FullSessionTimetable({sessions,activeSession,role}){
   const [exportBusy,setExportBusy]=useState(false);
   const [error,setError]=useState("");
   useEffect(()=>{if(activeSession?._id&&!sessionId)setSessionId(activeSession._id)},[activeSession?._id]);
-  useEffect(()=>{setPlan(null);setWeekIndex(0);if(!sessionId)return;axios.get(`${API}/session-plans?sessionId=${sessionId}`).then(r=>setPlans(r.data||[])).catch(e=>setError(e.response?.data?.message||e.message))},[sessionId]);
+  useEffect(()=>{
+    const sessionRows=Array.isArray(sessions)?sessions:[];
+    if(sessionId&&!sessionRows.some(item=>String(item._id)===String(sessionId))){
+      const activeId=activeSession?._id&&sessionRows.some(item=>String(item._id)===String(activeSession._id))
+        ?String(activeSession._id):"";
+      setSessionId(activeId);setSectionId("");setFacultyId("");
+    }
+  },[sessions,activeSession?._id]);
+  useEffect(()=>{
+    let current=true;
+    setPlan(null);setWeekIndex(0);setPlans([]);
+    if(!sessionId){setError("");return ()=>{current=false};}
+    setError("");
+    axios.get(`${API}/session-plans?sessionId=${encodeURIComponent(sessionId)}`)
+      .then(r=>{if(current)setPlans(r.data||[])})
+      .catch(e=>{if(current){setPlans([]);setError(e.response?.data?.message||e.message)}})
+    return ()=>{current=false};
+  },[sessionId]);
   async function openPlan(id){setBusy(true);setError("");try{const r=await axios.get(`${API}/session-plans/${id}`);setPlan(r.data);setWeekIndex(0)}catch(e){setError(e.response?.data?.message||e.message)}finally{setBusy(false)}}
   async function generateFull(){if(!window.confirm('Generate and save a new full academic session plan? Existing plans will be preserved.'))return;setBusy(true);setError("");try{const dates=holidays.split(/[\s,;]+/).map(x=>x.trim()).filter(Boolean);const r=await axios.post(`${API}/session-plans/generate`,{sessionId,holidays:dates});const p=await axios.get(`${API}/session-plans?sessionId=${sessionId}`);setPlans(p.data||[]);await openPlan(r.data.id)}catch(e){setError(e.response?.data?.message||e.message)}finally{setBusy(false)}}
   async function publish(){if(!plan||!window.confirm('Publish this full-session timetable version?'))return;setBusy(true);try{await axios.patch(`${API}/session-plans/${plan._id}/publish`);const r=await axios.get(`${API}/session-plans?sessionId=${sessionId}`);setPlans(r.data||[]);await openPlan(plan._id)}catch(e){setError(e.response?.data?.message||e.message)}finally{setBusy(false)}}
