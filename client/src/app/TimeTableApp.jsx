@@ -293,6 +293,13 @@ export default function App(){
     setMobileNavOpen(false);
   }
 
+  function showNavGroup(event,group){
+    if(group.items.length<=1)return;
+    const rect=event.currentTarget.getBoundingClientRect();
+    setFlyoutTop(Math.max(90,Math.min(rect.top,window.innerHeight-420)));
+    setActiveNavGroup(group.label);
+  }
+
   function openNavGroup(event,group){
     if(group.items.length===1){
       navigateToNavPage(group.items[0].name,group.label);
@@ -458,6 +465,8 @@ export default function App(){
             <button
               type="button"
               className={`nav-module-button${current?" has-current":""}${active?" is-open":""}`}
+              onMouseEnter={event=>showNavGroup(event,group)}
+              onFocus={event=>showNavGroup(event,group)}
               onClick={event=>openNavGroup(event,group)}
               aria-expanded={active}
               aria-haspopup={group.items.length>1?"dialog":undefined}
@@ -482,7 +491,7 @@ export default function App(){
       if(!group)return null;
       const items=group.items.filter(item=>!flyoutSearch||item.name.toLowerCase().includes(flyoutSearch.toLowerCase()));
       return <div className="nav-flyout-backdrop" onMouseDown={event=>{if(event.target===event.currentTarget)setActiveNavGroup(null);}}>
-        <section className="nav-flyout-panel" role="dialog" aria-label={group.label+" submenu"} style={{top:flyoutTop}}>
+        <section className="nav-flyout-panel" role="dialog" aria-label={group.label+" submenu"} style={{top:flyoutTop}} onMouseLeave={()=>setActiveNavGroup(null)}>
           <header className="nav-flyout-header"><strong>{group.label}</strong><button type="button" onClick={()=>setActiveNavGroup(null)} aria-label="Close submenu"><X size={16}/></button></header>
           <div className="nav-flyout-search"><Search size={15}/><input value={flyoutSearch} onChange={event=>setFlyoutSearch(event.target.value)} placeholder="Search submodules..." aria-label="Search submodules"/></div>
           <div className="nav-flyout-items">
