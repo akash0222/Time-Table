@@ -62,6 +62,9 @@ jobs:
       - name: Test timetable version comparison
         working-directory: server
         run: npm run test:regression:timetable-version-diff
+      - name: Test time slot input and collision validation
+        working-directory: server
+        run: npm run test:regression:time-slot-validation
       - name: Test program-specific session targets
         working-directory: server
         run: npm run test:regression:session-plan-targets
