@@ -364,7 +364,7 @@ test("desktop sidebar collapses to an icon rail and expands without losing modul
 test("profile dropdown is in the global header and supports password change and logout", async ({ page }) => {
   await installRoleApiMocks(page, "ADMIN");
   await expect(page.locator(".app-topbar")).toBeVisible();
-  const profile=page.getByRole("button",{name:/ADMIN Test User ADMIN/});
+  const profile=page.getByRole("button",{name:/Profile/});
   await expect(profile).toBeVisible();
   await profile.click();
   await expect(page.getByRole("menu",{name:"Profile menu"})).toBeVisible();
@@ -386,7 +386,7 @@ test("profile dropdown is in the global header and supports password change and 
   await expect(page.getByText("Password changed successfully.")).toBeVisible();
   await expect(dialog).toHaveCount(0);
 
-  await page.getByRole("button",{name:/ADMIN Test User ADMIN/}).click();
+  await page.getByRole("button",{name:/Profile/}).click();
   await page.getByRole("menuitem",{name:"Logout"}).click();
   await expect(page.getByRole("button",{name:"Sign In"})).toBeVisible();
 });
