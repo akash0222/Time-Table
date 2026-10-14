@@ -71,6 +71,9 @@ jobs:
       - name: Test full-session plan versioning
         working-directory: server
         run: npm run test:regression:session-plan-versioning
+      - name: Test subject weekly-session constraints
+        working-directory: server
+        run: npm run test:regression:subject-session-constraints
       - name: Test login failed-attempt limiter
         working-directory: server
         run: npm run test:regression:login-rate-limit
