@@ -29,10 +29,10 @@ assert.match(timeSlotConflictIssue({day:"Monday",startTime:"09:30",endTime:"10:3
 assert.match(timeSlotConflictIssue({day:"Monday",startTime:"10:00",endTime:"11:00",order:1},[shared]), /order 1/);
 assert.equal(timeSlotConflictIssue({day:"Monday",startTime:"10:00",endTime:"11:00",order:2},[shared]), "");
 assert.equal(timeSlotConflictIssue({day:"Tuesday",startTime:"09:00",endTime:"10:00",order:1},[shared]), "");
-assert.equal(timeSlotConflictIssue({day:"Monday",startTime:"09:30",endTime:"10:30",order:2,program:programA,semester:"Semester I"},[ent]), /./.test("same scope should conflict") ? timeSlotConflictIssue({day:"Monday",startTime:"09:30",endTime:"10:30",order:2,program:programA,semester:"Semester I"},[ent]) : "");
+assert.match(timeSlotConflictIssue({day:"Monday",startTime:"09:30",endTime:"10:30",order:2,program:programA,semester:"Semester I"},[ent]), /overlaps/);
 assert.equal(timeSlotConflictIssue({day:"Monday",startTime:"09:30",endTime:"10:30",order:1,program:programB,semester:"Semester I"},[ent]), "");
 assert.equal(timeSlotConflictIssue({day:"Monday",startTime:"09:30",endTime:"10:30",order:1,program:programA,semester:"Semester III"},[ent]), "");
-assert.match(timeSlotConflictIssue({day:"Monday",startTime:"09:30",endTime:"10:30",order:2,academicSession:sessionA},[{...shared,academicSession:sessionB}]), /./.test("different academic sessions should not conflict") ? timeSlotConflictIssue({day:"Monday",startTime:"09:30",endTime:"10:30",order:2,academicSession:sessionA},[{...shared,academicSession:sessionB}]) : "");
+assert.equal(timeSlotConflictIssue({day:"Monday",startTime:"09:30",endTime:"10:30",order:2,academicSession:sessionA},[{...shared,academicSession:sessionB}]), "");
 assert.equal(timeSlotConflictIssue({day:"Monday",startTime:"09:00",endTime:"10:00",order:1,program:programB},[{...shared,program:programA}], "ignored"), "");
 assert.equal(timeSlotConflictIssue({day:"Monday",startTime:"10:00",endTime:"11:00",order:2,program:programA,semester:"Semester I"},[ent], "slot-ent"), "");
 
