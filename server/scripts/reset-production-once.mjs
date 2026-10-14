@@ -122,6 +122,15 @@ async function main() {
       throw error;
     }
 
+    const preResetAdminCount = await User.countDocuments({ role: "ADMIN" });
+    if (preResetAdminCount === 0) {
+      await markers.updateOne(
+        { _id: RESET_MARKER_ID },
+        { $set: { status: "FAILED_BEFORE_DELETE", failure: "No existing ADMIN account was found; production data was not deleted.", failedAt: new Date(), backupDatabaseName, backupCounts } }
+      );
+      throw new Error("No existing ADMIN account was found; production data was backed up but not deleted. Create/verify an admin before retrying.");
+    }
+
     const remainingCounts = {};
     const deletedByCollection = {};
     try {
