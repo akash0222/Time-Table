@@ -95,3 +95,111 @@ jobs:
       - name: Test timetable role scoping
         working-directory: server
         run: npm run test:timetable-access
+
+  production-smoke:
+    name: Production read-only smoke test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Verify live frontend, API health, authentication boundaries, and CORS
+        env:
+          APP_URL: https://time-table-beige-three.vercel.app
+          API_URL: https://time-table-t8t9.onrender.com
+        run: |
+          node --input-type=module <<'NODE'
+          import assert from "node:assert/strict";
+
+          const appUrl = process.env.APP_URL.replace(/\\/$/, "");
+          const apiUrl = process.env.API_URL.replace(/\\/$/, "");
+
+          const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+
+          async function requestEventually(label, url, options = {}, accept = response => response.ok) {
+            let lastError;
+            for (let attempt = 1; attempt <= 18; attempt += 1) {
+              try {
+                const response = await fetch(url, {
+                  ...options,
+                  signal: AbortSignal.timeout(15000),
+                  redirect: "follow"
+                });
+                const body = await response.text();
+                if (accept(response, body)) {
+                  console.log(`PASS ${label}: HTTP ${response.status} (attempt ${attempt})`);
+                  return { response, body };
+                }
+                lastError = new Error(`${label}: unexpected HTTP ${response.status}; body=${body.slice(0, 300)}`);
+              } catch (error) {
+                lastError = error;
+              }
+              if (attempt < 18) await sleep(5000);
+            }
+            throw lastError || new Error(`${label} failed without a response`);
+          }
+
+          const frontend = await requestEventually(
+            "production frontend route",
+            `${appUrl}/academic-structure`,
+            {},
+            (response, body) => response.status === 200 && /<div[^>]+id=["']root["']/.test(body)
+          );
+
+          const health = await requestEventually(
+            "public API health",
+            `${apiUrl}/api/health`,
+            {},
+            response => response.status === 200
+          );
+          const healthJson = JSON.parse(health.body);
+          assert.equal(healthJson.ok, true, "API health endpoint did not report ok=true");
+          assert.equal(healthJson.database, "connected", "API database is not connected");
+          console.log("PASS MongoDB reports connected");
+
+          const readiness = await requestEventually(
+            "API readiness",
+            `${apiUrl}/api/readiness`,
+            {},
+            response => response.status === 200
+          );
+          const readinessJson = JSON.parse(readiness.body);
+          assert.equal(readinessJson.database, "connected", "API readiness reports database disconnected");
+          console.log("PASS API readiness reports database connected");
+
+          await requestEventually(
+            "sessions endpoint rejects anonymous access",
+            `${apiUrl}/api/sessions`,
+            {},
+            response => response.status === 401
+          );
+          await requestEventually(
+            "academic structure rejects anonymous access",
+            `${apiUrl}/api/academic-structure`,
+            {},
+            response => response.status === 401
+          );
+
+          const cors = await requestEventually(
+            "Vercel-origin CORS preflight",
+            `${apiUrl}/api/auth/login`,
+            {
+              method: "OPTIONS",
+              headers: {
+                Origin: appUrl,
+                "Access-Control-Request-Method": "POST",
+                "Access-Control-Request-Headers": "content-type,authorization"
+              }
+            },
+            response => response.status >= 200 && response.status < 300
+          );
+          assert.equal(
+            cors.response.headers.get("access-control-allow-origin"),
+            appUrl,
+            "CORS response does not allow the production frontend origin"
+          );
+          const methods = cors.response.headers.get("access-control-allow-methods") || "";
+          assert.match(methods, /POST/i, "CORS response does not allow POST");
+          console.log("PASS CORS permits the production frontend to call the API");
+
+          console.log("Production smoke tests passed; no production records were created or modified.");
+          NODE
