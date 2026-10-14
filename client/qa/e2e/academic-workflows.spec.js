@@ -404,7 +404,7 @@ const moduleForPage = {
 async function navigateToPage(page, pageName) {
   const moduleName = moduleForPage[pageName];
   if (!moduleName) throw new Error("No navigation module configured for " + pageName);
-  await page.locator(".nav-module-button").filter({ has: page.locator("span", { hasText: moduleName }) }).click();
+  await page.locator(".nav-module-button").filter({ hasText: moduleName }).click();
   if (pageName !== "Dashboard") {
     await page.locator(".nav-flyout-panel").getByRole("button", { name: pageName, exact: true }).click();
   }
