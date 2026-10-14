@@ -33,6 +33,15 @@ function timeToMinutes(value) {
   return hours * 60 + minutes;
 }
 
+function calendarWindowsOverlap(a,b){
+  const aStart=String(a?.calendarStartDate||a?._calendarStartDate||"");
+  const aEnd=String(a?.calendarEndDate||a?._calendarEndDate||"");
+  const bStart=String(b?.calendarStartDate||b?._calendarStartDate||"");
+  const bEnd=String(b?.calendarEndDate||b?._calendarEndDate||"");
+  if(!aStart||!aEnd||!bStart||!bEnd)return true;
+  return aStart<=bEnd&&bStart<=aEnd;
+}
+
 function normalizeRoomType(value) {
   const v = String(value || "Classroom").trim().toLowerCase();
   if (v === "any") return "Any";
@@ -163,11 +172,16 @@ export function validateTimetable({
       continue;
     }
     const entrySlotKeys = slotsForEntry.map(slotKey);
+    const entryWindow = {
+      calendarStartDate: entry.calendarStartDate || section?._calendarStartDate || "",
+      calendarEndDate: entry.calendarEndDate || section?._calendarEndDate || ""
+    };
     const reserveClockInterval = (map, resourceId, label, resourceName) => {
       if (!resourceId) return;
       const key = `${resourceId}|${entry.day}`;
       const previous = map.get(key) || [];
       for (const existing of previous) {
+        if (!calendarWindowsOverlap(entryWindow,existing)) continue;
         if (startMinute < existing.end && existing.start < endMinute) {
           const hasSharedPeriodKey = entrySlotKeys.some(slotKeyValue => existing.slotKeys.includes(slotKeyValue));
           if (!hasSharedPeriodKey) {
@@ -175,7 +189,7 @@ export function validateTimetable({
           }
         }
       }
-      previous.push({start:startMinute,end:endMinute,slotKeys:entrySlotKeys});
+      previous.push({start:startMinute,end:endMinute,slotKeys:entrySlotKeys,...entryWindow});
       map.set(key, previous);
     };
     reserveClockInterval(facultyClockIntervals, facultyId, "Faculty", f?.name);
