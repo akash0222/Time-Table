@@ -404,7 +404,7 @@ const moduleForPage = {
 async function navigateToPage(page, pageName) {
   const moduleName = moduleForPage[pageName];
   if (!moduleName) throw new Error("No navigation module configured for " + pageName);
-  await page.locator(".nav-module-button").filter({ hasText: moduleName }).click();
+  await page.locator(`.nav-module-button[data-nav-module="${moduleName}"]`).click();
   if (pageName !== "Dashboard") {
     await page.locator(".nav-flyout-panel").getByRole("button", { name: pageName, exact: true }).click();
   }
@@ -424,7 +424,7 @@ test("admin can open and refresh a direct module URL", async ({ page }) => {
   await signIn(page);
   await navigateToPage(page, "Academic Sessions");
   await expect(page.getByRole("heading", { name: "Academic Sessions", exact: true })).toBeVisible();
-  await expect(page.getByText("Program-wise academic calendar")).toBeVisible();
+  await expect(page.getByText("Set the session year and overall dates, then configure program/semester calendar overrides.")).toBeVisible();
   await page.reload();
   await expect(page.getByRole("heading", { name: "Academic Sessions", exact: true })).toBeVisible();
   await expect(page).toHaveURL(/\/academic-sessions$/);
