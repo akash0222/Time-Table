@@ -19,7 +19,22 @@ export default function StudentPromotion({data,sessions,activeSession,reload,set
   const [history,setHistory]=useState([]);
 
   useEffect(()=>{if(!sessionId&&activeSession?._id)setSessionId(activeSession._id)},[activeSession?._id]);
-  useEffect(()=>{loadStudents();setPreview(null)},[fromSection]);
+  useEffect(()=>{
+    const sessionRows=Array.isArray(sessions)?sessions:[];
+    const activeId=activeSession?._id&&sessionRows.some(item=>String(item._id)===String(activeSession._id))
+      ?String(activeSession._id):"";
+    let selectionReset=false;
+    if(sessionId&&!sessionRows.some(item=>String(item._id)===String(sessionId))){
+      setSessionId(activeId);setToSection("");selectionReset=true;
+    }
+    if(sourceSessionId&&!sessionRows.some(item=>String(item._id)===String(sourceSessionId))){
+      setSourceSessionId("");setFromSection("");selectionReset=true;
+    }
+    if(selectionReset){setSelected([]);setPreview(null);setStudents([]);}
+  },[sessions,activeSession?._id]);
+  // Student records are also cached locally by this page. Re-fetch when the
+  // main application refreshes its student list, e.g. after a production reset.
+  useEffect(()=>{loadStudents();setPreview(null)},[fromSection,data.students]);
   useEffect(()=>{loadHistory();},[sessionId]);
 
   const sourceSections=(data.sections||[]).filter(s=>!sourceSessionId||String(s.academicSession?._id||s.academicSession||"")===String(sourceSessionId));
