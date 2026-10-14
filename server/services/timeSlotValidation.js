@@ -26,15 +26,28 @@ export function timeSlotInputIssue(slot) {
   if (end <= start) return "End Time must be later than Start Time."; 
   const order = Number(slot?.order);
   if (!Number.isInteger(order) || order < 1 || order > 100) return "Period order must be an integer between 1 and 100."; 
-  if (slot?.program && !mongoose.isValidObjectId(idOf(slot.program))) return "Program selection is invalid."; 
+  if (slot?.academicSession && !mongoose.isValidObjectId(idOf(slot.academicSession))) return "Academic session selection is invalid.";
+  if (slot?.program && !mongoose.isValidObjectId(idOf(slot.program))) return "Program selection is invalid.";
+  if (String(slot?.semester ?? "").trim().length > 80) return "Semester label must be 80 characters or fewer.";
+  if (String(slot?.semester ?? "").trim() && !slot?.program) return "Select a Program before setting a semester-specific timetable."; 
   return "";
 }
 
 function scopesCanOverlap(a, b) {
+  const aSession = idOf(a?.academicSession);
+  const bSession = idOf(b?.academicSession);
+  if (aSession && bSession && aSession !== bSession) return false;
+
   const aProgram = idOf(a?.program);
   const bProgram = idOf(b?.program);
-  // Shared slots collide with every program-specific slot; different specific programs can run in parallel.
-  return !aProgram || !bProgram || aProgram === bProgram;
+  if (aProgram && bProgram && aProgram !== bProgram) return false;
+
+  const aSemester = String(a?.semester ?? "").trim().toLowerCase();
+  const bSemester = String(b?.semester ?? "").trim().toLowerCase();
+  // Different explicit semesters have independent period orders and clock schedules.
+  // An empty semester is a program-wide default and therefore intersects every semester.
+  if (aSemester && bSemester && aSemester !== bSemester) return false;
+  return true;
 }
 
 export function timeSlotConflictIssue(candidate, existingSlots = [], exceptId = "") {
