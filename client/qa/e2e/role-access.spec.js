@@ -207,15 +207,28 @@ async function installRoleApiMocks(page, role) {
   await expect(page.getByRole("heading", { name: "Dashboard", exact: true })).toBeVisible();
 }
 
+async function openModule(page, moduleName) {
+  await page.locator(`.nav-module-button[data-nav-module="${moduleName}"]`).click();
+  await expect(page.locator(".nav-flyout-panel")).toBeVisible();
+}
+
+async function openSubmodule(page, moduleName, pageName) {
+  await openModule(page, moduleName);
+  await page.locator(`.nav-flyout-panel [data-nav="${pageName}"]`).click();
+}
+
 test("Scheduler can run timetable workflows but cannot administer users", async ({ page }) => {
   await installRoleApiMocks(page, "SCHEDULER");
 
   await expect(page.getByRole("button", { name: /Generate Timetable/ }).first()).toBeVisible();
-  await expect(page.locator('[data-nav="Academic Sessions"]')).toBeVisible();
-  await expect(page.locator('[data-nav="Public Sharing"]')).toHaveCount(0);
-  await expect(page.locator('[data-nav="User Management"]')).toHaveCount(0);
+  await expect(page.locator('.nav-module-button[data-nav-module="Academic Setup"]')).toBeVisible();
+  await expect(page.locator('.nav-module-button[data-nav-module="Tools & Sharing"]')).toBeVisible();
+  await openModule(page, "Tools & Sharing");
+  await expect(page.locator('.nav-flyout-panel [data-nav="Public Sharing"]')).toHaveCount(0);
+  await openModule(page, "Administration");
+  await expect(page.locator('.nav-flyout-panel [data-nav="User Management"]')).toHaveCount(0);
 
-  await page.locator('[data-nav="Academic Sessions"]').click();
+  await openSubmodule(page, "Academic Setup", "Academic Sessions");
   await expect(page.getByRole("heading", { name: "Academic Sessions", exact: true })).toBeVisible();
 
   await page.goto("/user-management");
@@ -227,13 +240,12 @@ test("Scheduler can run timetable workflows but cannot administer users", async 
 test("Faculty can see their faculty portal but not academic administration", async ({ page }) => {
   await installRoleApiMocks(page, "FACULTY");
 
-  await expect(page.locator('[data-nav="Faculty Portal"]')).toBeVisible();
-  await expect(page.locator('[data-nav="My Timetable"]')).toBeVisible();
-  await expect(page.locator('[data-nav="Students"]')).toHaveCount(0);
-  await expect(page.locator('[data-nav="Academic Sessions"]')).toHaveCount(0);
-  await expect(page.locator('[data-nav="User Management"]')).toHaveCount(0);
+  await expect(page.locator('.nav-module-button[data-nav-module="Portals & Communication"]')).toBeVisible();
+  await expect(page.locator('.nav-module-button[data-nav-module="Students & Operations"]')).toHaveCount(0);
+  await expect(page.locator('.nav-module-button[data-nav-module="Academic Setup"]')).toHaveCount(0);
+  await expect(page.locator('.nav-module-button[data-nav-module="Administration"]')).toHaveCount(0);
 
-  await page.locator('[data-nav="Faculty Portal"]').click();
+  await openSubmodule(page, "Portals & Communication", "Faculty Portal");
   await expect(page.getByRole("heading", { name: "Faculty Portal" })).toBeVisible();
   await expect(page.getByText("Assigned Mathematics")).toBeVisible();
   await expect(page.getByText("Confidential Section Z")).toHaveCount(0);
@@ -246,12 +258,12 @@ test("Faculty can see their faculty portal but not academic administration", asy
 test("Viewer can only see assigned section timetable and cannot open another section", async ({ page }) => {
   await installRoleApiMocks(page, "VIEWER");
 
-  await expect(page.locator('[data-nav="Section Portal"]')).toBeVisible();
-  await expect(page.locator('[data-nav="Student Mapping"]')).toHaveCount(0);
-  await expect(page.locator('[data-nav="Academic Sessions"]')).toHaveCount(0);
-  await expect(page.locator('[data-nav="User Management"]')).toHaveCount(0);
+  await expect(page.locator('.nav-module-button[data-nav-module="Portals & Communication"]')).toBeVisible();
+  await expect(page.locator('.nav-module-button[data-nav-module="Students & Operations"]')).toHaveCount(0);
+  await expect(page.locator('.nav-module-button[data-nav-module="Academic Setup"]')).toHaveCount(0);
+  await expect(page.locator('.nav-module-button[data-nav-module="Administration"]')).toHaveCount(0);
 
-  await page.locator('[data-nav="Section Portal"]').click();
+  await openSubmodule(page, "Portals & Communication", "Section Portal");
   await expect(page.getByRole("heading", { name: "Student / Section Timetable" })).toBeVisible();
   await expect(page.getByText("Section A", { exact: true })).toBeVisible();
   await expect(page.getByText("Assigned Mathematics")).toBeVisible();
@@ -273,125 +285,105 @@ test("Viewer can only see assigned section timetable and cannot open another sec
 });
 
 
-test("dashboard navigation collapses top-level groups while all pages stay directly accessible", async ({ page }) => {
+test("ERP navigation uses a fixed-width module sidebar with flyout submenus", async ({ page }) => {
   await installRoleApiMocks(page, "ADMIN");
   await expect(page.getByRole("heading", { name: "Class distribution" })).toBeVisible();
   await expect(page.getByRole("img", { name: "Bar chart of scheduled classes by day" })).toBeVisible();
-  const sidebar=page.locator(".erp-sidebar"), app=page.locator(".app");
-  await expect(page.getByRole("button", { name: "Collapse navigation" })).toBeVisible();
-  const group=page.locator('.nav-group[data-nav-group="Academic Setup"]');
-  await group.getByRole("button", { name: "Collapse Academic Setup" }).click();
-  await expect(group.locator('[data-nav="Academic Sessions"]')).toHaveCount(0);
-  await group.getByRole("button", { name: "Expand Academic Setup" }).click();
-  await expect(group.locator('[data-nav="Academic Sessions"]')).toBeVisible();
-  await expect(group.locator('[data-nav="Academic Structure"]')).toBeVisible();
-  await expect(group.locator('[data-nav="Holiday Management"]')).toBeVisible();
-  await group.locator('[data-nav="Academic Structure"]').click();
+
+  const sidebar=page.locator(".erp-sidebar");
+  const app=page.locator(".app");
+  await expect(sidebar).toHaveCSS("width", "258px");
+  await expect(page.getByRole("button", { name: "Collapse navigation" })).toHaveCount(0);
+  await expect(page.locator(".nav-module-button")).toHaveCount(8);
+
+  const academic=page.locator('.nav-module-button[data-nav-module="Academic Setup"]');
+  await academic.hover();
+  await expect(page.locator(".nav-flyout-panel")).toBeVisible();
+  await expect(page.locator(".nav-flyout-header")).toContainText("Academic Setup");
+  await expect(page.locator('.nav-flyout-panel [data-nav="Academic Sessions"]')).toBeVisible();
+
+  // Clicking the already-hovered module should keep the flyout open.
+  await academic.click();
+  await expect(page.locator(".nav-flyout-panel")).toBeVisible();
+  await page.locator('.nav-flyout-panel [data-nav="Academic Structure"]').click();
   await expect(page.getByRole("heading", { name: "Academic Structure", exact: true })).toBeVisible();
-  await expect(group.locator('[data-nav="Holiday Management"]')).toBeVisible();
-  await page.getByRole("button", { name: "Collapse navigation" }).click();
-  await expect(app).toHaveClass(/sidebar-collapsed/);
-  await expect(sidebar).toHaveCSS("width", "82px");
-  await expect(sidebar.locator(".nav-label").first()).toBeHidden();
-  await expect(page.getByRole("button", { name: "Expand navigation" })).toBeVisible();
+  await expect(page).toHaveURL(/\/academic-structure$/);
+  await expect(page.locator(".nav-flyout-panel")).toHaveCount(0);
+  await expect(sidebar).toHaveCSS("width", "258px");
+  await expect(app).not.toHaveClass(/sidebar-collapsed/);
+  await expect(page.locator('.nav-module-button[data-nav-module="Academic Setup"]')).toHaveClass(/has-current/);
+
+  // A direct URL marks the module as current; its flyout exposes the selected page.
+  await page.goto("/program-and-section-mapping");
+  const group=page.locator('.nav-module-button[data-nav-module="Academic Setup"]');
+  await expect(group).toHaveClass(/has-current/);
+  await group.click();
+  await expect(page.locator('.nav-flyout-panel [data-nav="Program & Section Mapping"]')).toHaveClass(/active/);
 });
 
-test("the eight top-level navigation groups contain only direct page submodules", async ({ page }) => {
+test("module flyouts contain role-visible submodules and no browser-default buttons", async ({ page }) => {
   await installRoleApiMocks(page, "ADMIN");
   const expected = {
     "Overview": ["Dashboard"],
     "Academic Setup": ["Academic Sessions","Academic Structure","Holiday Management","Master Data Settings","Subject & Faculty Mapping","Program & Section Mapping"],
-    "Timetable & Scheduling": ["Generation Readiness","Availability","Optimization","Full Session Timetable","All Program Timetables","Timetable","Calendar View"],
+    "Timetable & Scheduling": ["Generation Readiness","Availability","Optimization","Full Session Timetable","All Program Timetables","Timetable","Approval & Versions","Calendar View"],
     "Students & Operations": ["Students","Student Mapping","Student Profile","Student Promotion","Attendance","Fees"],
     "Portals & Communication": ["My Timetable","Faculty Portal","Section Portal","Notifications"],
     "Tools & Sharing": ["Excel Import","Import Center","Templates & Clone","Public Sharing"],
     "Reports & Audit": ["Reports","Analytics","Validation","Audit Logs","Change History"],
     "Administration": ["User Management","Settings"]
   };
-  await expect(page.locator(".nav-group")).toHaveCount(Object.keys(expected).length);
-  for (const [groupName, pages] of Object.entries(expected)) {
-    const group=page.locator(`.nav-group[data-nav-group="${groupName}"]`);
-    await expect(group, groupName + " top-level group should exist").toHaveCount(1);
-    await expect(group.getByRole("button", { name: "Collapse " + groupName })).toBeVisible();
-    for (const pageName of pages) {
-      const item=group.locator(`[data-nav="${pageName}"]`);
-      await expect(item, pageName + " should be directly inside " + groupName).toBeVisible();
-      await expect(item).toHaveAttribute("data-nav-group", groupName);
-      await expect(item).not.toHaveAttribute("data-nav-parent", /.+/);
-      await expect(item.locator("xpath=ancestor::*[contains(concat(' ', normalize-space(@class), ' '), ' nav-module ')]")).toHaveCount(0);
+
+  for (const [moduleName, submodules] of Object.entries(expected)) {
+    const button=page.locator(`.nav-module-button[data-nav-module="${moduleName}"]`);
+    await expect(button, moduleName + " module should exist").toBeVisible();
+    await expect(button).not.toHaveCSS("background-color", "rgb(255, 255, 255)");
+    await button.click();
+    if (submodules.length === 1) {
+      await expect(page).toHaveURL(/\/dashboard$/);
+      continue;
     }
+    const panel=page.locator(".nav-flyout-panel");
+    await expect(panel).toBeVisible();
+    for (const name of submodules) {
+      await expect(panel.locator(`[data-nav="${name}"]`), name + " should be in " + moduleName + " flyout").toBeVisible();
+      await expect(panel.locator(`[data-nav="${name}"]`)).toHaveAttribute("data-nav-group", moduleName);
+    }
+    await expect(panel.locator(".nav-flyout-item")).toHaveCount(submodules.length);
+    await page.locator(".nav-flyout-header").getByRole("button", {name:"Close submenu"}).click();
   }
-  await expect(page.locator(".nav-module-toggle")).toHaveCount(0);
-  await expect(page.locator(".nav-subitem")).toHaveCount(0);
 });
 
-test("every Students page is a direct submodule and opens its top-level group", async ({ page }) => {
-  await installRoleApiMocks(page, "ADMIN");
-  await page.evaluate(() => localStorage.setItem("tt_nav_collapsed_groups", JSON.stringify({ "Students & Operations": true })));
-  await page.goto("/students");
-  const group=page.locator('.nav-group[data-nav-group="Students & Operations"]');
-  await expect(group).toBeVisible();
-  await expect(group.getByRole("button", { name: "Collapse Students & Operations" })).toBeVisible();
-  for (const pageName of ["Students","Student Mapping","Student Profile","Student Promotion","Attendance","Fees"]) {
-    const item=group.locator(`[data-nav="${pageName}"]`);
-    await expect(item, pageName + " should be visible as a direct submodule").toBeVisible();
-    await expect(item).not.toHaveAttribute("data-nav-parent", /.+/);
-  }
-  await group.locator('[data-nav="Student Mapping"]').click();
-  await expect(page).toHaveURL(/\/student-mapping$/);
-  await expect(group.locator('[data-nav="Student Mapping"]')).toHaveClass(/active/);
-});
-
-test("direct URL navigation expands the correct top-level group and highlights its page", async ({ page }) => {
-  await installRoleApiMocks(page, "ADMIN");
-  await page.evaluate(() => localStorage.setItem("tt_nav_collapsed_groups", JSON.stringify({ "Academic Setup": true })));
-  await page.goto("/program-and-section-mapping");
-  await expect(page).toHaveURL(/\/program-and-section-mapping$/);
-  const group=page.locator('.nav-group[data-nav-group="Academic Setup"]');
-  const item=group.locator('[data-nav="Program & Section Mapping"]');
-  await expect(group).toBeVisible();
-  await expect(group.getByRole("button", { name: "Collapse Academic Setup" })).toBeVisible();
-  await expect(item).toBeVisible();
-  await expect(item).toHaveClass(/active/);
-  await expect(item).not.toHaveAttribute("data-nav-parent", /.+/);
-  await expect(page.locator(".nav-module-toggle")).toHaveCount(0);
-});
-
-test("mobile navigation drawer opens, dismisses, and navigates with persisted collapsed preference", async ({ page }) => {
-  await page.addInitScript(() => { if (window.location.origin !== "null") localStorage.setItem("tt_sidebar_collapsed", "true"); });
+test("mobile navigation drawer opens and its flyout navigates without collapsing the desktop sidebar", async ({ page }) => {
   await installRoleApiMocks(page, "ADMIN");
   await page.setViewportSize({ width: 390, height: 844 });
 
-  const sidebar = page.locator(".erp-sidebar");
-  const trigger = page.locator(".mobile-nav-trigger");
+  const sidebar=page.locator(".erp-sidebar");
+  const trigger=page.locator(".mobile-nav-trigger");
   await expect(trigger).toBeVisible();
   await expect(trigger).toHaveAttribute("aria-label", "Open navigation");
   await expect(sidebar).toBeHidden();
 
   await trigger.click();
-  await expect(trigger).toHaveAttribute("aria-expanded", "true");
   await expect(sidebar).toBeVisible();
-  await expect(sidebar.getByText("Time Table", { exact: true })).toBeVisible();
-  await expect(sidebar.locator('[data-nav="Academic Sessions"]')).toBeVisible();
-  await expect(sidebar.getByRole("button", { name: "Collapse Academic Setup" })).toBeVisible();
+  await expect(sidebar.getByText("Time Table", { exact:true })).toBeVisible();
+  await expect(sidebar.locator(".nav-module-button[data-nav-module=\"Academic Setup\"]")).toBeVisible();
 
+  await sidebar.locator('.nav-module-button[data-nav-module="Academic Setup"]').click();
+  await expect(page.locator(".nav-flyout-panel")).toBeVisible();
+  await page.locator('.nav-flyout-panel [data-nav="Academic Sessions"]').click();
+  await expect(page.getByRole("heading", {name:"Academic Sessions", exact:true})).toBeVisible();
+  await expect(page).toHaveURL(/\/academic-sessions$/);
+  await expect(sidebar).toBeHidden();
+
+  await trigger.click();
+  await expect(sidebar).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(sidebar).toBeHidden();
   await expect(trigger).toHaveAttribute("aria-expanded", "false");
-
-  await trigger.click();
-  await expect(sidebar).toBeVisible();
-  await page.locator(".sidebar-backdrop").click({ position: { x: 380, y: 420 } });
-  await expect(sidebar).toBeHidden();
-
-  await trigger.click();
-  await page.locator('[data-nav="Academic Sessions"]').click();
-  await expect(page.getByRole("heading", { name: "Academic Sessions", exact: true })).toBeVisible();
-  await expect(page).toHaveURL(/\/academic-sessions$/);
-  await expect(sidebar).toBeHidden();
 });
 
-test("quick navigation searches role-visible pages, supports keyboard shortcut and works when sidebar is collapsed", async ({ page }) => {
+test("quick navigation searches role-visible modules and opens a matching page", async ({ page }) => {
   await installRoleApiMocks(page, "ADMIN");
   const search=page.getByRole("searchbox", { name: "Search pages" });
   await expect(search).toBeVisible();
@@ -399,52 +391,20 @@ test("quick navigation searches role-visible pages, supports keyboard shortcut a
   await page.keyboard.press("Control+k");
   await expect(search).toBeFocused();
   await search.fill("sTuDeNt PrOm");
-  const group=page.locator('.nav-group[data-nav-group="Students & Operations"]');
-  await expect(group).toBeVisible();
-  await expect(group.locator('[data-nav="Student Promotion"]')).toBeVisible();
-  await expect(group.locator('[data-nav="Students"]')).toHaveCount(0);
-  await expect(page.locator('[data-nav-group="Academic Setup"]')).toHaveCount(0);
+  const module=page.locator('.nav-module-button[data-nav-module="Students & Operations"]');
+  await expect(module).toBeVisible();
+  await expect(page.locator('.nav-module-button[data-nav-module="Academic Setup"]')).toHaveCount(0);
+  await module.click();
+  await expect(page.locator('.nav-flyout-panel [data-nav="Student Promotion"]')).toBeVisible();
+  await expect(page.locator('.nav-flyout-panel .nav-flyout-item')).toHaveCount(1);
+  await page.locator('.nav-flyout-panel [data-nav="Student Promotion"]').click();
+  await expect(page).toHaveURL(/\/student-promotion$/);
+  await expect(search).toHaveValue("");
+  await expect(page.locator('.nav-module-button[data-nav-module="Students & Operations"]')).toHaveClass(/has-current/);
 
   await search.fill("page-does-not-exist");
   await expect(page.getByRole("status").getByText(/No pages match/)).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(search).toHaveValue("");
   await expect(search).not.toBeFocused();
-
-  await search.fill("Student Promotion");
-  await group.locator('[data-nav="Student Promotion"]').click();
-  await expect(page).toHaveURL(/\/student-promotion$/);
-  await expect(search).toHaveValue("");
-  await expect(page.locator('[data-nav="Student Promotion"]')).toHaveClass(/active/);
-
-  await page.getByRole("button", { name: "Collapse navigation" }).click();
-  await expect(page.locator(".app")).toHaveClass(/sidebar-collapsed/);
-  const collapsedSearch=page.getByRole("button",{name:"Search pages"});
-  await expect(collapsedSearch).toBeVisible();
-  await collapsedSearch.click();
-  await expect(page.locator(".app")).not.toHaveClass(/sidebar-collapsed/);
-  await expect(search).toBeFocused();
-
-  await page.setViewportSize({width:390,height:844});
-  await expect(page.locator(".mobile-nav-trigger")).toBeVisible();
-  await page.keyboard.press("Escape");
-  await page.keyboard.press("Control+k");
-  await expect(page.locator(".app")).toHaveClass(/mobile-nav-open/);
-  await expect(search).toBeFocused();
 });
-
-test("top-level groups collapse independently and active pages stay highlighted", async ({ page }) => {
-  await installRoleApiMocks(page, "ADMIN");
-  const academicGroup=page.locator('.nav-group[data-nav-group="Academic Setup"]');
-  const studentsGroup=page.locator('.nav-group[data-nav-group="Students & Operations"]');
-  await academicGroup.getByRole("button", { name: "Collapse Academic Setup" }).click();
-  await expect(academicGroup.locator('[data-nav="Academic Sessions"]')).toHaveCount(0);
-  await expect(studentsGroup.locator('[data-nav="Students"]')).toBeVisible();
-  await academicGroup.getByRole("button", { name: "Expand Academic Setup" }).click();
-  await expect(academicGroup.locator('[data-nav="Academic Sessions"]')).toBeVisible();
-  await academicGroup.locator('[data-nav="Academic Structure"]').click();
-  await expect(academicGroup.locator('[data-nav="Academic Structure"]')).toHaveClass(/active/);
-  await expect(academicGroup.locator('[data-nav="Academic Sessions"]')).not.toHaveClass(/active/);
-  await expect(academicGroup.locator('[data-nav="Holiday Management"]')).not.toHaveClass(/active/);
-});
-
