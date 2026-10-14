@@ -1,3 +1,5 @@
+import { timeSlotMatchesSection } from "./academicCalendar.js";
+
 function idOf(value) {
   if (value === null || value === undefined) return "";
   if (typeof value === "object" && value._id !== undefined) return String(value._id);
@@ -38,7 +40,7 @@ function normalizeRoomType(value) {
   return "Classroom";
 }
 
-function entrySlots(entry, slotMap, section, programs) {
+function entrySlots(entry, slotMap, section, programs, academicSessionId = "") {
   const duration = Math.max(1, Number(entry.duration || 1));
   const startOrder = Number(entry.order);
   if (!Number.isFinite(startOrder)) return [];
@@ -46,12 +48,9 @@ function entrySlots(entry, slotMap, section, programs) {
   const slots = [];
   for (let i = 0; i < duration; i += 1) {
     const key = `${entry.day}|${startOrder + i}`;
-    let candidates = (slotMap.get(key) || []).filter(slot => {
-      const slotProgramId = idOf(slot.program);
-      // Shared slots work for any program; program-specific slots must belong
-      // to the section's actual program.
-      return !slotProgramId || (programId && slotProgramId === programId);
-    });
+    let candidates = (slotMap.get(key) || []).filter(slot =>
+      timeSlotMatchesSection(slot, section, programs, academicSessionId)
+    );
     if (i === 0) {
       candidates = candidates.filter(slot => String(slot.startTime) === String(entry.startTime));
     }
@@ -88,7 +87,8 @@ export function validateTimetable({
   programs = [],
   settings = {},
   holidayDays = ["Sunday"],
-  holidayDates = []
+  holidayDates = [],
+  academicSessionId = ""
 }) {
   const errors = [];
   const warnings = [];
@@ -142,7 +142,7 @@ export function validateTimetable({
     if (!subject) errors.push(`Entry references missing subject: ${subjectId}`);
     if (!room) errors.push(`Entry references missing room: ${roomId}`);
 
-    const slotsForEntry = entrySlots(entry, slotMap, section, programs);
+    const slotsForEntry = entrySlots(entry, slotMap, section, programs, academicSessionId);
     if (!slotsForEntry.length) {
       errors.push(`Invalid slot block for ${subject?.name || subjectId} on ${entry.day}.`);
       continue;
