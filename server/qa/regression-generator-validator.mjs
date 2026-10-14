@@ -215,4 +215,65 @@ assert.equal(
 
 console.log("PASS  Faculty-unavailable day is rejected by the hard-constraint validator");
 console.log("PASS  Generator refuses to schedule a class on a faculty-unavailable day");
-console.log("\nResult: 6 passed, 0 failed.");
+
+const programA={_id:"qa-program-a",name:"QA Program A",code:"QPA"};
+const programB={_id:"qa-program-b",name:"QA Program B",code:"QPB"};
+const sectionA={...sections[0],_id:"qa-section-a",program:"QA Program A",programId:"qa-program-a"};
+const sectionB={...sections[0],_id:"qa-section-b",program:"QA Program B",programId:"qa-program-b"};
+const subjectA={...subjects[0],_id:"qa-subject-a",section:"qa-section-a",faculty:"qa-faculty-1"};
+const subjectB={...subjects[0],_id:"qa-subject-b",section:"qa-section-b",faculty:"qa-faculty-1"};
+const roomB={...rooms[0],_id:"qa-room-2",name:"QA Room 2"};
+const programSlots=[
+  {...slots[0],_id:"qa-slot-program-a",program:"qa-program-a",order:1,startTime:"09:00",endTime:"10:00"},
+  {...slots[0],_id:"qa-slot-program-b",program:"qa-program-b",order:2,startTime:"09:30",endTime:"10:30"}
+];
+const overlappingProgramEntries=[
+  {...unavailableDayEntry,_id:"qa-entry-a",day:"Monday",startTime:"09:00",endTime:"10:00",order:1,duration:1,section:"qa-section-a",subject:"qa-subject-a",faculty:"qa-faculty-1",room:"qa-room-1"},
+  {...unavailableDayEntry,_id:"qa-entry-b",day:"Monday",startTime:"09:30",endTime:"10:30",order:2,duration:1,section:"qa-section-b",subject:"qa-subject-b",faculty:"qa-faculty-1",room:"qa-room-2"}
+];
+const overlapValidation=validateTimetable({
+  entries:overlappingProgramEntries,
+  faculty,
+  sections:[sectionA,sectionB],
+  subjects:[subjectA,subjectB],
+  rooms:[...rooms,roomB],
+  slots:programSlots,
+  programs:[programA,programB],
+  settings:{maxConsecutiveFaculty:2,maxConsecutiveSection:3}
+});
+assert.equal(overlapValidation.valid,false,"Program-specific classes with overlapping clock times must be rejected.");
+assert.ok(
+  overlapValidation.errors.some(message=>/Faculty time-overlap conflict/i.test(message)),
+  "Validator must detect faculty double-booking even when program period orders differ."
+);
+console.log("PASS  Validator detects clock-time overlap across program-specific period layouts");
+
+const blockedByProgramClockOverlap=generateBestTimetable({
+  faculty,
+  subjects:[subjectB],
+  sections:[sectionB],
+  rooms,
+  slots:[programSlots[1]],
+  programs:[programA,programB],
+  reservedEntries:[overlappingProgramEntries[0]],
+  settings:{
+    maxConsecutiveFaculty:2,
+    maxConsecutiveSection:3,
+    avoidSameSubjectSameDay:true,
+    distributeSubjectAcrossDays:true,
+    avoidFirstLastPeriod:false,
+    holidayDays:["Sunday"]
+  },
+  runs:1,
+  totalMaxMillis:1000,
+  perRunMillis:750,
+  attemptsPerRun:10
+});
+assert.equal(
+  blockedByProgramClockOverlap.entries.length,
+  0,
+  "Generation must reserve faculty clock intervals even if another program uses a different period order."
+);
+console.log("PASS  Generator reserves overlapping clock intervals across programs");
+
+console.log("\nResult: regression checks passed, 0 failed.");
