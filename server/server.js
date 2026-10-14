@@ -1361,7 +1361,7 @@ app.get("/api/timetable/readiness", requireAuth, allowRoles("ADMIN","SCHEDULER")
       const type=String(sub.roomType||"Classroom");
       roomNeeds.set(type,(roomNeeds.get(type)||0)+weekly);
       if(weekly<1) push("ERROR","Weekly Load",`${sub.name||"Unnamed subject"} has zero classes per week.`);
-      const scopedSlots=resolveTimeSlotsForSection(usableSlots,sec,programs,sessionId));
+      const scopedSlots=resolveTimeSlotsForSection(usableSlots,sec,programs,sessionId);
       if(Number(sub.duration||1)>scopedSlots.length) push("ERROR","Duration",`${sub.name||"Unnamed subject"} requires ${sub.duration} consecutive periods, but its program/semester timetable has fewer usable periods.`);
     }
 
@@ -1379,7 +1379,7 @@ app.get("/api/timetable/readiness", requireAuth, allowRoles("ADMIN","SCHEDULER")
     for(const [sid,load] of sectionLoad){
       const sec=sectionMap.get(sid); if(!sec) continue;
       const maxPerDay=Math.max(1,Number(sec.maxClassesPerDay||1));
-      const sectionDays=[...new Set(resolveTimeSlotsForSection(usableSlots,sec,programs,sessionId)).map(slot=>String(slot.day)))];
+      const sectionDays=[...new Set(resolveTimeSlotsForSection(usableSlots,sec,programs,sessionId).map(slot=>String(slot.day)))];
       const capacity=sectionDays.length*maxPerDay;
       if(load>capacity) push("ERROR","Section Workload",`${sec.program||"Program"} · ${sec.semester||""} · ${sec.name||"Section"} requires ${load} periods but has an estimated weekly capacity of ${capacity}.`);
     }
