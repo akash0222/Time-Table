@@ -534,8 +534,67 @@ function crud(path, Model) {
     catch(e) { res.status(500).json({message:e.message}); }
   });
   app.post(`/api/${path}`, requireAuth, allowRoles("ADMIN", "SCHEDULER"), async (req,res) => {
-    try { res.status(201).json(await Model.create(req.body)); }
-    catch(e) { res.status(400).json({message:e.message}); }
+    try {
+      const body = {...(req.body || {})};
+
+      if (path === "sections") {
+        if (body.programId) {
+          const program = await Program.findById(body.programId).lean();
+          if (!program) return res.status(404).json({message:"Program not found."});
+          body.program = program.name;
+        } else if (body.program) {
+          const program = await resolveProgramFromText(body.program);
+          if (program) {
+            body.programId = program._id;
+            body.program = program.name;
+          }
+        }
+        if (body.academicSession) {
+          const session = await AcademicSession.findById(body.academicSession).lean();
+          if (!session) return res.status(404).json({message:"Academic Session not found."});
+        } else {
+          const active = await AcademicSession.findOne({active:true}).select("_id").lean();
+          if (active) body.academicSession = active._id;
+        }
+      }
+
+      if (path === "subjects") {
+        if (!body.section || !body.faculty || !body.name) {
+          return res.status(400).json({message:"Subject Name, Faculty and Section are required."});
+        }
+        const [section, faculty] = await Promise.all([
+          Section.findById(body.section).lean(),
+          Faculty.findById(body.faculty).lean()
+        ]);
+        if (!section) return res.status(404).json({message:"Section not found."});
+        if (!faculty) return res.status(404).json({message:"Faculty not found."});
+        let sessionId = body.academicSession || section.academicSession || "";
+        if (!sessionId) sessionId = (await AcademicSession.findOne({active:true}).select("_id").lean())?._id || "";
+        if (!sessionId) return res.status(400).json({message:"Set an active academic session or use Subject & Faculty Mapping to assign this subject."});
+        const session = await AcademicSession.findById(sessionId).select("_id").lean();
+        if (!session) return res.status(404).json({message:"Academic Session not found."});
+        if (section.academicSession && String(section.academicSession) !== String(session._id)) {
+          return res.status(400).json({message:"Selected section belongs to a different Academic Session."});
+        }
+        let programId = body.programId || section.programId || null;
+        let program = programId ? await Program.findById(programId).lean() : null;
+        if (body.programId && !program) return res.status(404).json({message:"Program not found."});
+        if (!program && section.program) program = await resolveProgramFromText(section.program);
+        if (program && !subjectProgramMatchesSection(section, program)) {
+          return res.status(400).json({message:"Selected program does not match the selected section."});
+        }
+        body.academicSession = session._id;
+        body.programId = program?._id || section.programId || null;
+        const weekly = Math.max(1, Number(body.classesPerWeek || 1));
+        const total = Math.max(0, Number(body.totalSessions || 0));
+        const weeklyMax = Number(body.maxClassesPerWeek || weekly);
+        if (total === 0 && weeklyMax < weekly) {
+          return res.status(400).json({message:"Max Classes / Week must be at least Classes / Week when Total Sessions is 0."});
+        }
+      }
+
+      res.status(201).json(await Model.create(body));
+    } catch(e) { res.status(400).json({message:e.message}); }
   });
   app.put(`/api/${path}/:id`, requireAuth, allowRoles("ADMIN", "SCHEDULER"), async (req,res) => {
     try {
@@ -543,6 +602,90 @@ function crud(path, Model) {
       delete body._id;
       delete body.createdAt;
       delete body.updatedAt;
+
+      if (path === "sections") {
+        const row = await Section.findById(req.params.id).lean();
+        if (!row) return res.status(404).json({message:"Record not found"});
+        const nextSessionId = body.academicSession !== undefined ? (body.academicSession || null) : (row.academicSession || null);
+        if (body.academicSession !== undefined && nextSessionId) {
+          const session = await AcademicSession.findById(nextSessionId).lean();
+          if (!session) return res.status(404).json({message:"Academic Session not found."});
+        }
+        let nextProgram = null;
+        if (body.programId !== undefined) {
+          nextProgram = body.programId ? await Program.findById(body.programId).lean() : null;
+          if (body.programId && !nextProgram) return res.status(404).json({message:"Program not found."});
+        } else if (body.program !== undefined) {
+          nextProgram = await resolveProgramFromText(body.program);
+        } else if (row.programId) {
+          nextProgram = await Program.findById(row.programId).lean();
+        }
+        const nextProgramId = nextProgram?._id || (body.programId === undefined && body.program === undefined ? (row.programId || null) : null);
+        const nextProgramText = String(nextProgram?.name || (body.program !== undefined ? body.program : row.program) || "").trim();
+        const nextSemester = String(body.semester !== undefined ? body.semester : row.semester || "").trim();
+        const nextName = String(body.name !== undefined ? body.name : row.name || "").trim();
+        const programChanged = String(nextProgramId || "") !== String(row.programId || "")
+          || (!nextProgramId && nextProgramText.toLowerCase() !== String(row.program || "").trim().toLowerCase());
+        const sessionChanged = String(nextSessionId || "") !== String(row.academicSession || "");
+        if (programChanged || sessionChanged) {
+          const [studentCount, subjectCount] = await Promise.all([
+            Student.countDocuments({section:row._id}),
+            Subject.countDocuments({section:row._id})
+          ]);
+          if (studentCount || subjectCount) return res.status(409).json({
+            message:`This section has linked records (${studentCount} student record(s), ${subjectCount} subject mapping(s)). Create a target section and use promotion/mapping workflows rather than changing its program or academic session in place.`
+          });
+        }
+        const duplicateFilter = {_id:{$ne:row._id},academicSession:nextSessionId,semester:nextSemester,name:nextName};
+        if (nextProgramId) duplicateFilter.programId = nextProgramId;
+        else duplicateFilter.program = nextProgramText;
+        const duplicate = await Section.findOne(duplicateFilter).lean();
+        if (duplicate) return res.status(409).json({message:"This section already exists for the selected Program, Semester and Academic Session."});
+        if (nextProgramId) {
+          body.programId = nextProgramId;
+          body.program = nextProgram?.name || nextProgramText;
+        } else if (body.program !== undefined) {
+          body.program = nextProgramText;
+          body.programId = null;
+        }
+        if (body.academicSession !== undefined) body.academicSession = nextSessionId;
+      }
+
+      if (path === "subjects") {
+        const row = await Subject.findById(req.params.id).lean();
+        if (!row) return res.status(404).json({message:"Record not found"});
+        const sectionId = body.section !== undefined ? body.section : row.section;
+        const facultyId = body.faculty !== undefined ? body.faculty : row.faculty;
+        const [section, faculty] = await Promise.all([
+          Section.findById(sectionId).lean(),
+          Faculty.findById(facultyId).lean()
+        ]);
+        if (!section) return res.status(404).json({message:"Section not found."});
+        if (!faculty) return res.status(404).json({message:"Faculty not found."});
+        let sessionId = body.academicSession !== undefined ? (body.academicSession || "") : (row.academicSession || section.academicSession || "");
+        if (!sessionId) sessionId = (await AcademicSession.findOne({active:true}).select("_id").lean())?._id || "";
+        if (!sessionId) return res.status(400).json({message:"Set an active academic session or use Subject & Faculty Mapping to assign this subject."});
+        const session = await AcademicSession.findById(sessionId).select("_id").lean();
+        if (!session) return res.status(404).json({message:"Academic Session not found."});
+        if (section.academicSession && String(section.academicSession) !== String(session._id)) {
+          return res.status(400).json({message:"Selected section belongs to a different Academic Session."});
+        }
+        let programId = body.programId !== undefined ? (body.programId || null) : (section.programId || row.programId || null);
+        let program = programId ? await Program.findById(programId).lean() : null;
+        if (body.programId && !program) return res.status(404).json({message:"Program not found."});
+        if (!program && section.program) program = await resolveProgramFromText(section.program);
+        if (program && !subjectProgramMatchesSection(section, program)) {
+          return res.status(400).json({message:"Selected program does not match the selected section."});
+        }
+        body.academicSession = session._id;
+        body.programId = program?._id || section.programId || row.programId || null;
+        const weekly = Math.max(1, Number(body.classesPerWeek ?? row.classesPerWeek ?? 1));
+        const total = Math.max(0, Number(body.totalSessions ?? row.totalSessions ?? 0));
+        const weeklyMax = Number(body.maxClassesPerWeek ?? row.maxClassesPerWeek ?? weekly);
+        if (total === 0 && weeklyMax > 0 && weeklyMax < weekly) {
+          return res.status(400).json({message:"Max Classes / Week must be at least Classes / Week when Total Sessions is 0."});
+        }
+      }
 
       const updated = await Model.findByIdAndUpdate(
         req.params.id,
