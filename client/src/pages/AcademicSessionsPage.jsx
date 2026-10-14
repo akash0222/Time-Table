@@ -5,8 +5,14 @@ import {Input} from "../components/SharedComponents.jsx";
 
 export default function AcademicSessions({sessions,programs,semesters=[],activeSession,setSessions,setActiveSession,setMessage}){
   const activePrograms=(programs||[]).filter(p=>p.active!==false);
-  const blankDates=()=>activePrograms.map(p=>({program:p._id,semester:"",startDate:"",endDate:""}));
-  const [form,setForm]=useState({name:"",description:"",programDates:blankDates()});
+  const defaultStartYear=new Date().getFullYear();
+  const sessionNameForYear=year=>/^\d{4}$/.test(String(year))?String(Number(year))+"-"+String(Number(year)+1):"";
+  const dateRangeForYear=year=>({startDate:String(year)+"-04-01",endDate:String(Number(year)+1)+"-03-31"});
+  const blankForm=(year=defaultStartYear)=>{
+    const range=dateRangeForYear(year);
+    return {startYear:String(year),name:sessionNameForYear(year),description:"",sessionStartDate:range.startDate,sessionEndDate:range.endDate,programDates:activePrograms.map(p=>({program:p._id,semester:"",...range}))};
+  };
+  const [form,setForm]=useState(()=>blankForm());
   const [editingId,setEditingId]=useState(null);
   const [saving,setSaving]=useState(false);
 
@@ -16,7 +22,7 @@ export default function AcademicSessions({sessions,programs,semesters=[],activeS
       const rows=Array.isArray(f.programDates)?[...f.programDates]:[];
       for(const p of activePrograms){
         if(!rows.some(row=>String(row.program?._id||row.program)===String(p._id))){
-          rows.push({program:p._id,semester:"",startDate:"",endDate:""});
+          rows.push({program:p._id,semester:"",startDate:f.sessionStartDate||"",endDate:f.sessionEndDate||""});
         }
       }
       return {...f,programDates:rows};
@@ -24,12 +30,25 @@ export default function AcademicSessions({sessions,programs,semesters=[],activeS
   },[programs?.length,editingId]);
 
   function dateValue(v){return v?String(v).slice(0,10):""}
+  function changeStartYear(value){
+    const year=String(value||"").replace(/[^0-9]/g,"").slice(0,4);
+    if(!year){setForm(f=>({...f,startYear:"",name:""}));return;}
+    const range=dateRangeForYear(year);
+    setForm(f=>({...f,startYear:year,name:sessionNameForYear(year),sessionStartDate:range.startDate,sessionEndDate:range.endDate,programDates:(f.programDates||[]).map(row=>({...row,...range}))}));
+  }
+  function updateGlobalDate(field,value){
+    setForm(f=>{
+      const previous=f[field];
+      const rowField=field==="sessionStartDate"?"startDate":"endDate";
+      return {...f,[field]:value,programDates:(f.programDates||[]).map(row=>row[rowField]===previous?{...row,[rowField]:value}:row)};
+    });
+  }
   function updateProgramDate(index,field,value){
     setForm(f=>({...f,programDates:(f.programDates||[]).map((x,i)=>i===index?{...x,[field]:value}:x)}));
   }
   function addSemesterCalendar(){
     setForm(f=>({...f,programDates:[...(f.programDates||[]),{
-      program:activePrograms[0]?._id||"",semester:"",startDate:"",endDate:""
+      program:activePrograms[0]?._id||"",semester:"",startDate:f.sessionStartDate||"",endDate:f.sessionEndDate||""
     }]}));
   }
   function removeCalendarRow(index){
@@ -71,19 +90,21 @@ export default function AcademicSessions({sessions,programs,semesters=[],activeS
     return true;
   }
   async function saveSession(){
-    if(!form.name.trim())return setMessage("Session name is required.");
+    if(!/^\d{4}$/.test(String(form.startYear||""))||Number(form.startYear)<1900||Number(form.startYear)>9998)return setMessage("Enter a valid four-digit Session Start Year.");
+    if(form.name!==sessionNameForYear(form.startYear))return setMessage("Academic Session name must match the selected start year.");
+    if(!form.sessionStartDate||!form.sessionEndDate||form.sessionEndDate<form.sessionStartDate)return setMessage("Overall session End Date must be on or after the Start Date.");
     if(!validateProgramDates())return;
     const dates=form.programDates.filter(x=>x.startDate&&x.endDate);
     const start=dates.map(x=>x.startDate).sort()[0];
     const end=dates.map(x=>x.endDate).sort().slice(-1)[0];
-    const body={name:form.name.trim(),description:form.description||"",programDates:dates,startDate:start,endDate:end};
+    const body={name:sessionNameForYear(form.startYear),description:form.description||"",programDates:dates,startDate:start||form.sessionStartDate,endDate:end||form.sessionEndDate};
     setSaving(true);
     try{
       if(editingId) await axios.put(`${API}/sessions/${editingId}`,body);
       else await axios.post(`${API}/sessions`,body);
       const r=await axios.get(`${API}/sessions`);setSessions(r.data||[]);
       setMessage(editingId?"Program-wise session dates updated.":"Academic session created with program-wise dates.");
-      setForm({name:"",description:"",programDates:blankDates()});setEditingId(null);
+      setForm(blankForm());setEditingId(null);
     }catch(e){setMessage(e.response?.data?.message||e.message)}finally{setSaving(false)}
   }
   function editSession(s){
@@ -102,10 +123,12 @@ export default function AcademicSessions({sessions,programs,semesters=[],activeS
         rows.push({program:p._id,semester:"",startDate:"",endDate:""});
       }
     }
-    setForm({name:s.name||"",description:s.description||"",programDates:rows});
+    const parsedYear=String(s.name||"").match(/^(\d{4})/);
+    const startYear=parsedYear?parsedYear[1]:String(new Date(s.startDate||Date.now()).getFullYear());
+    setForm({startYear,name:sessionNameForYear(startYear),description:s.description||"",sessionStartDate:dateValue(s.startDate)||dateRangeForYear(startYear).startDate,sessionEndDate:dateValue(s.endDate)||dateRangeForYear(startYear).endDate,programDates:rows});
     window.scrollTo({top:0,behavior:"smooth"});
   }
-  function reset(){setEditingId(null);setForm({name:"",description:"",programDates:blankDates()})}
+  function reset(){setEditingId(null);setForm(blankForm())}
   async function activate(id){
     try{
       const r=await axios.post(`${API}/sessions/${id}/activate`);setActiveSession(r.data);
@@ -113,12 +136,15 @@ export default function AcademicSessions({sessions,programs,semesters=[],activeS
     }catch(e){setMessage(e.response?.data?.message||e.message)}
   }
   return <div className="panel">
-    <div className="panel-head"><div><h3>Academic Sessions</h3><p>Program-wise academic calendar</p><p>Configure session dates separately for each program and semester.</p></div>{activeSession&&<span className="status-badge approved">Active: {activeSession.name}</span>}</div>
-    <div className="form-grid">
-      <Input label="Academic Session Name" value={form.name} onChange={v=>setForm({...form,name:v})}/>
-      <Input label="Description" value={form.description} onChange={v=>setForm({...form,description:v})}/>
+    <div className="panel-head"><div><h3>Create Academic Session</h3><p>Set the session year and overall dates, then configure program/semester calendar overrides.</p></div>{activeSession&&<span className="status-badge approved">Active: {activeSession.name}</span>}</div>
+    <div className="form-grid academic-session-form-grid">
+      <div className="field"><label htmlFor="session-start-year">Session Start Year</label><input id="session-start-year" type="number" min="1900" max="9998" step="1" inputMode="numeric" value={form.startYear||""} onChange={e=>changeStartYear(e.target.value)} placeholder="e.g. 2026"/></div>
+      <div className="field"><label htmlFor="session-generated-name">Academic Session</label><input id="session-generated-name" value={form.name||""} readOnly disabled placeholder="Generated from start year"/></div>
+      <div className="field"><label htmlFor="session-start-date">Overall Start Date</label><input id="session-start-date" type="date" value={form.sessionStartDate||""} onChange={e=>updateGlobalDate("sessionStartDate",e.target.value)}/></div>
+      <div className="field"><label htmlFor="session-end-date">Overall End Date</label><input id="session-end-date" type="date" value={form.sessionEndDate||""} min={form.sessionStartDate||undefined} onChange={e=>updateGlobalDate("sessionEndDate",e.target.value)}/></div>
+      <Input label="Description (optional)" value={form.description} onChange={v=>setForm({...form,description:v})}/>
     </div>
-    <div className="message success" style={{marginTop:14}}><strong>Shared academic session, separate calendars:</strong> Keep one session such as 2026–27, then add date ranges for each Program and Semester. A Semester-specific range overrides the program-wide default for sections in that semester.</div>
+    <div className="message success" style={{marginTop:14}}><strong>Automatic session naming:</strong> Entering 2026 generates 2026-2027. Overall dates default to 1 April through 31 March; adjust them as needed. Each Program and Semester calendar below can still use its own start and end dates, independent of the shared session.</div>
     <div className="table-wrap" style={{marginTop:14}}><table><thead><tr><th>Program</th><th>Semester (optional)</th><th>Start Date</th><th>End Date</th><th>Action</th></tr></thead><tbody>
       {(form.programDates||[]).map((x,index)=>(
         <tr key={index}>
