@@ -71,6 +71,9 @@ jobs:
       - name: Test required timetable workflow remarks
         working-directory: server
         run: npm run test:regression:timetable-workflow-notes
+      - name: Test program-semester calendars and time-slot scopes
+        working-directory: server
+        run: npm run test:regression:program-semester-scope
       - name: Test program-specific session targets
         working-directory: server
         run: npm run test:regression:session-plan-targets
