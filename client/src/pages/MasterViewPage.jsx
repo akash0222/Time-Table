@@ -65,12 +65,20 @@ export default function MasterView({type,data,setData,reload,sessions=[],setMess
       unavailableSlots:body.unavailableSlots||[]
     };
 
-    if(key==="sections") body={
-      academicSession:body.academicSession,programId:body.programId,
-      program:(data.programs||[]).find(p=>refId(p)===String(body.programId))?.name||body.program||"",
-      semester:body.semester,name:body.name,
-      maxClassesPerDay:Number(body.maxClassesPerDay||5)
-    };
+    if(key==="sections"){
+      body={
+        academicSession:body.academicSession,
+        programId:body.programId,
+        program:(data.programs||[]).find(p=>refId(p)===String(body.programId))?.name||body.program||"",
+        semester:String(body.semester||"").trim(),
+        name:String(body.name||"").trim(),
+        maxClassesPerDay:Number(body.maxClassesPerDay||5)
+      };
+      if(!body.academicSession || !body.programId || !body.semester || !body.name){
+        setMessage("Select an Academic Session, Program and Semester, then enter a Section Name.");
+        return;
+      }
+    }
 
     if(key==="rooms") body={
       name:body.name,type:body.type||"Classroom",
@@ -205,8 +213,11 @@ export default function MasterView({type,data,setData,reload,sessions=[],setMess
         <Select label="Academic Session" value={form.academicSession||""} options={[["","Select academic session"],...(sessions||[]).map(s=>[s._id,s.name])]} onChange={v=>setForm({...form,academicSession:v,programId:"",semester:""})}/>
         <Select label="Program" value={form.programId||""} options={[["","Select program"],...(data.programs||[]).filter(p=>p.active!==false&&(sessions||[]).find(s=>refId(s)===String(form.academicSession))?.programDates?.some(d=>refId(d.program)===refId(p))).map(p=>[p._id,p.name])]} onChange={v=>setForm({...form,programId:v,semester:""})}/>
         <Select label="Semester" value={form.semester||""} options={[["","Select semester"],...(data.semesters||[]).filter(s=>refId(s.academicSession)===String(form.academicSession)&&refId(s.program)===String(form.programId)&&s.active!==false).map(s=>[s.name,s.name])]} onChange={v=>setForm({...form,semester:v})}/>
-        <Input label="Section" value={form.name||""} onChange={v=>setForm({...form,name:v})}/>
-        <Input label="Max Classes / Day" type="number" value={form.maxClassesPerDay||5} onChange={v=>setForm({...form,maxClassesPerDay:v})}/>
+        <Input label="Section Name" value={form.name||""} placeholder="e.g. Section A" onChange={v=>setForm({...form,name:v})}/>
+        <div className="field">
+          <label>Daily class limit</label>
+          <div className="message success">Default: 5 classes per day. The section name is the only text field required.</div>
+        </div>
       </>}
 
       {key==="rooms" && <>
