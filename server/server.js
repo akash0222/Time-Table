@@ -1421,21 +1421,36 @@ app.post("/api/timetable/generate", requireAuth, allowRoles("ADMIN", "SCHEDULER"
     const requestedProgramIds=Array.isArray(req.body?.programIds)
       ? [...new Set(req.body.programIds.map(value=>String(value||"").trim()).filter(Boolean))]
       : [];
+    let selectedSession=null;
     if(academicSessionId){
-      const session=await AcademicSession.findById(academicSessionId);
-      if(!session)return res.status(404).json({message:"Selected academic session was not found."});
+      selectedSession=await AcademicSession.findById(academicSessionId).lean();
+      if(!selectedSession)return res.status(404).json({message:"Selected academic session was not found."});
     }
     if(requestedProgramIds.some(id=>!mongoose.isValidObjectId(id))){
       return res.status(400).json({message:"One or more selected program IDs are invalid."});
     }
 
-    const [faculty, allSections, rooms, slots, programs] = await Promise.all([
+    const [faculty, rawSections, rooms, allSlots, programs] = await Promise.all([
       Faculty.find().lean(),
       academicSessionId ? Section.find({academicSession:academicSessionId}).lean() : Section.find().lean(),
       Room.find().lean(),
       TimeSlot.find().sort({day:1,order:1}).lean(),
       Program.find({active:{$ne:false}}).lean()
     ]);
+    const allSections=rawSections.map(section=>{
+      const calendar=selectedSession
+        ? resolveProgramCalendar(selectedSession.programDates||[],section,programs)
+        : null;
+      const start=calendar?.startDate||selectedSession?.startDate||null;
+      const end=calendar?.endDate||selectedSession?.endDate||null;
+      return {
+        ...section,
+        _calendarStartDate:start?new Date(start).toISOString().slice(0,10):"",
+        _calendarEndDate:end?new Date(end).toISOString().slice(0,10):""
+      };
+    });
+    const slots=allSlots.filter(slot=>!String(slot.academicSession||"")
+      ||String(slot.academicSession)===String(academicSessionId||""));
     const programById=new Map(programs.map(program=>[String(program._id),program]));
     const selectedPrograms=requestedProgramIds.map(id=>programById.get(id));
     if(requestedProgramIds.length && selectedPrograms.some(program=>!program)){
@@ -1450,6 +1465,12 @@ app.post("/api/timetable/generate", requireAuth, allowRoles("ADMIN", "SCHEDULER"
       return selectedProgramNames.has(legacyProgram);
     };
     const sections=allSections.filter(isSelectedSection);
+    if(selectedSession?.programDates?.length){
+      const missingCalendars=sections.filter(section=>!resolveProgramCalendar(selectedSession.programDates,section,programs));
+      if(missingCalendars.length){
+        return res.status(422).json({message:"Configure academic dates for every selected program/semester before timetable generation: "+missingCalendars.map(section=>[section.program,section.semester,section.name].filter(Boolean).join(" · ")).join(", ")});
+      }
+    }
     if(requestedProgramIds.length && !sections.length){
       return res.status(400).json({message:"No sections are mapped to the selected program(s) in this academic session."});
     }
@@ -1504,7 +1525,17 @@ app.post("/api/timetable/generate", requireAuth, allowRoles("ADMIN", "SCHEDULER"
     const currentQuery=academicSessionId?{academicSession:academicSessionId,isCurrent:true}:{isCurrent:true};
     const current=await Timetable.findOne(currentQuery).sort({version:-1}).lean();
     const reservedEntries=requestedProgramIds.length
-      ? (current?.entries||[]).filter(entry=>!selectedSectionIds.has(String(entry.section?._id||entry.section||"")))
+      ? (current?.entries||[])
+          .filter(entry=>!selectedSectionIds.has(String(entry.section?._id||entry.section||"")))
+          .map(entry=>{
+            const sectionId=String(entry.section?._id||entry.section||"");
+            const section=allSections.find(item=>String(item._id)===sectionId);
+            return {
+              ...entry,
+              calendarStartDate:entry.calendarStartDate||section?._calendarStartDate||"",
+              calendarEndDate:entry.calendarEndDate||section?._calendarEndDate||""
+            };
+          })
       : [];
 
     const result=generateBestTimetable({
@@ -1523,9 +1554,7 @@ app.post("/api/timetable/generate", requireAuth, allowRoles("ADMIN", "SCHEDULER"
 
     // For program-scoped runs, keep all other programs' current entries and replace
     // only the selected program entries. Validate the merged timetable before saving.
-    const preservedEntries=requestedProgramIds.length
-      ? (current?.entries||[]).filter(entry=>!selectedSectionIds.has(String(entry.section?._id||entry.section||"")))
-      : [];
+    const preservedEntries=requestedProgramIds.length ? reservedEntries : [];
     const mergedEntries=[...preservedEntries,...(result.entries||[])];
     const allValidSubjects=allSubjects.filter(subject=>{
       const facultyId=String(subject.faculty?._id||subject.faculty||"");
