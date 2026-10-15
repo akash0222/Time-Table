@@ -710,19 +710,27 @@ function crud(path, Model) {
         const nextProgramText = String(nextProgram?.name || (body.program !== undefined ? body.program : row.program) || "").trim();
         const nextSemester = String(body.semester !== undefined ? body.semester : row.semester || "").trim();
         const nextName = String(body.name !== undefined ? body.name : row.name || "").trim();
-        if (nextProgramId && nextSessionId) {
+        const programChanged = String(nextProgramId || "") !== String(row.programId || "")
+          || (!nextProgramId && nextProgramText.toLowerCase() !== String(row.program || "").trim().toLowerCase());
+        const sessionChanged = String(nextSessionId || "") !== String(row.academicSession || "");
+        const semesterChanged = nextSemester !== String(row.semester || "").trim();
+        const mappingChanged = programChanged || sessionChanged || semesterChanged;
+
+        // Preserve existing legacy mappings when a user edits non-mapping fields,
+        // but require all new/revised mappings to use configured master records.
+        if (mappingChanged) {
+          if (!nextProgramId || !nextSessionId) {
+            return res.status(400).json({message:"A section must be mapped to a Program and Academic Session. Configure its semester in Master Data Settings first."});
+          }
           const session = await AcademicSession.findById(nextSessionId).lean();
-          if (!session || !(session.programDates || []).some(item => String(item.program) === String(nextProgramId))) {
+          if (!session) return res.status(404).json({message:"Academic Session not found."});
+          if (!(session.programDates || []).some(item => String(item.program?._id || item.program) === String(nextProgramId))) {
             return res.status(400).json({message:"Link this Program to the selected Academic Session first in Academic Sessions."});
           }
           const semesterMaster = await Semester.findOne({academicSession:nextSessionId,program:nextProgramId,name:nextSemester,active:true}).lean();
           if (!semesterMaster) return res.status(400).json({message:"Select a semester configured for this Academic Session and Program in Master Data Settings → Semesters."});
         }
-        const programChanged = String(nextProgramId || "") !== String(row.programId || "")
-          || (!nextProgramId && nextProgramText.toLowerCase() !== String(row.program || "").trim().toLowerCase());
-        const sessionChanged = String(nextSessionId || "") !== String(row.academicSession || "");
-        const semesterChanged = nextSemester !== String(row.semester || "").trim();
-        if (programChanged || sessionChanged || semesterChanged) {
+        if (mappingChanged) {
           const [studentCount, subjectCount] = await Promise.all([
             Student.countDocuments({section:row._id}),
             Subject.countDocuments({section:row._id})
