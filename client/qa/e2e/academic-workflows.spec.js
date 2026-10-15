@@ -815,6 +815,10 @@ test("generation is stopped when pre-generation readiness reports blockers", asy
   await expect(page.getByRole("button", { name: /Fix issue/ })).toBeVisible();
   expect(generationRequests).toBe(0);
 
+  await page.getByRole("button", { name: "Dismiss message", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Dismiss message", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: /Fix issue/ })).toBeVisible();
+
   await page.getByRole("button", { name: /Fix issue/ }).click();
   await expect(page).toHaveURL(/\/subject-and-faculty-mapping$/);
   expect(generationRequests).toBe(0);
@@ -885,6 +889,7 @@ test("section-wise timetable uses only the selected program's effective time slo
     timetable
   });
   await navigateToPage(page, "Timetable");
+  await expect(page.getByRole("heading", { name: "Timetable Versions", exact: true })).toHaveCount(0);
 
   const grid = page.locator(".tt-grid");
   await expect(grid.getByText("09:00-09:50", { exact: true })).toBeVisible();
