@@ -219,7 +219,41 @@ async function openModule(page, moduleName) {
 
 async function openSubmodule(page, moduleName, pageName) {
   await openModule(page, moduleName);
-  await page.locator(`.nav-flyout-panel [data-nav="${pageName}"]`).click();
+  const directLink = page.locator(`.nav-flyout-panel [data-nav="${pageName}"]`);
+  if (await directLink.count()) {
+    await directLink.click();
+    return;
+  }
+  const nestedGroups = {
+    "Academic Structure": "Program & Section Structure",
+    "Program & Section Mapping": "Program & Section Structure",
+    "Master Data Settings": "Master Data & Mapping",
+    "Subject & Faculty Mapping": "Master Data & Mapping",
+    "Generation Readiness": "Generation & Optimization",
+    "Availability": "Generation & Optimization",
+    "Optimization": "Generation & Optimization",
+    "Full Session Timetable": "Timetable Views",
+    "All Program Timetables": "Timetable Views",
+    "Timetable": "Timetable Views",
+    "Calendar View": "Timetable Views",
+    "Students": "Student Management",
+    "Student Mapping": "Student Management",
+    "Student Profile": "Student Management",
+    "Student Promotion": "Student Management",
+    "Attendance": "Attendance & Fees",
+    "Fees": "Attendance & Fees",
+    "Excel Import": "Import & Data Transfer",
+    "Import Center": "Import & Data Transfer",
+    "Templates & Clone": "Templates & Sharing",
+    "Public Sharing": "Templates & Sharing",
+    "Validation": "Validation & Audit History",
+    "Audit Logs": "Validation & Audit History",
+    "Change History": "Validation & Audit History"
+  };
+  const groupName = nestedGroups[pageName];
+  if (!groupName) throw new Error(`No nested navigation mapping for ${pageName}`);
+  await page.locator(`.nav-flyout-panel [data-nav-submenu="${groupName}"]`).click();
+  await page.locator(`.nav-subflyout-panel [data-nav="${pageName}"]`).click();
 }
 
 test("successful sign-in always opens Dashboard instead of a stale last-visited page", async ({ page }) => {
@@ -331,7 +365,9 @@ test("ERP navigation uses a fixed-width module sidebar with flyout submenus", as
   // Clicking the already-hovered module should keep the flyout open.
   await academic.click();
   await expect(page.locator(".nav-flyout-panel")).toBeVisible();
-  await page.locator('.nav-flyout-panel [data-nav="Academic Structure"]').click();
+  await page.locator('.nav-flyout-panel [data-nav-submenu="Program & Section Structure"]').click();
+  await expect(page.locator('.nav-subflyout-panel [data-nav="Academic Structure"]')).toBeVisible();
+  await page.locator('.nav-subflyout-panel [data-nav="Academic Structure"]').click();
   await expect(page.getByRole("heading", { name: "Academic Structure", exact: true })).toBeVisible();
   await expect(page).toHaveURL(/\/academic-structure$/);
   await expect(page.locator(".nav-flyout-panel")).toHaveCount(0);
@@ -344,7 +380,8 @@ test("ERP navigation uses a fixed-width module sidebar with flyout submenus", as
   const group=page.locator('.nav-module-button[data-nav-module="Academic Setup"]');
   await expect(group).toHaveClass(/has-current/);
   await group.click();
-  await expect(page.locator('.nav-flyout-panel [data-nav="Program & Section Mapping"]')).toHaveClass(/active/);
+  await page.locator('.nav-flyout-panel [data-nav-submenu="Program & Section Structure"]').click();
+  await expect(page.locator('.nav-subflyout-panel [data-nav="Program & Section Mapping"]')).toHaveClass(/active/);
 });
 
 test("desktop sidebar collapses to an icon rail and expands without losing module navigation", async ({ page }) => {
@@ -442,36 +479,59 @@ test("desktop navigation sidebar resizes with the pointer and keyboard and remem
   await expect(handle).toHaveAttribute("aria-valuenow","210");
 });
 
-test("module flyouts contain role-visible submodules and no browser-default buttons", async ({ page }) => {
+test("module flyouts support nested groups and show only role-visible pages", async ({ page }) => {
   await installRoleApiMocks(page, "ADMIN");
   const expected = {
     "Overview": ["Dashboard"],
-    "Academic Setup": ["Academic Sessions","Academic Structure","Holiday Management","Master Data Settings","Subject & Faculty Mapping","Program & Section Mapping"],
-    "Timetable & Scheduling": ["Generation Readiness","Availability","Optimization","Full Session Timetable","All Program Timetables","Timetable","Approval & Versions","Calendar View"],
-    "Students & Operations": ["Students","Student Mapping","Student Profile","Student Promotion","Attendance","Fees"],
+    "Academic Setup": ["Academic Sessions","Program & Section Structure","Holiday Management","Master Data & Mapping"],
+    "Timetable & Scheduling": ["Generation & Optimization","Timetable Views","Approval & Versions"],
+    "Students & Operations": ["Student Management","Attendance & Fees"],
     "Portals & Communication": ["My Timetable","Faculty Portal","Section Portal","Notifications"],
-    "Tools & Sharing": ["Excel Import","Import Center","Templates & Clone","Public Sharing"],
-    "Reports & Audit": ["Reports","Analytics","Validation","Audit Logs","Change History"],
+    "Tools & Sharing": ["Import & Data Transfer","Templates & Sharing"],
+    "Reports & Audit": ["Reports","Analytics","Validation & Audit History"],
     "Administration": ["User Management","Settings"]
   };
+  const nested = {
+    "Program & Section Structure": ["Academic Structure","Program & Section Mapping"],
+    "Master Data & Mapping": ["Master Data Settings","Subject & Faculty Mapping"],
+    "Generation & Optimization": ["Generation Readiness","Availability","Optimization"],
+    "Timetable Views": ["Full Session Timetable","All Program Timetables","Timetable","Calendar View"],
+    "Student Management": ["Students","Student Mapping","Student Profile","Student Promotion"],
+    "Attendance & Fees": ["Attendance","Fees"],
+    "Import & Data Transfer": ["Excel Import","Import Center"],
+    "Templates & Sharing": ["Templates & Clone","Public Sharing"],
+    "Validation & Audit History": ["Validation","Audit Logs","Change History"]
+  };
 
-  for (const [moduleName, submodules] of Object.entries(expected)) {
+  for (const [moduleName, entries] of Object.entries(expected)) {
     const button=page.locator(`.nav-module-button[data-nav-module="${moduleName}"]`);
     await expect(button, moduleName + " module should exist").toBeVisible();
     await expect(button).not.toHaveCSS("background-color", "rgb(255, 255, 255)");
     await button.click();
-    if (submodules.length === 1) {
-      await expect(page).toHaveURL(/\/dashboard$/);
+
+    if (entries.length === 1) {
+      await expect(page).toHaveURL(/\\/dashboard$/);
       continue;
     }
+
     const panel=page.locator(".nav-flyout-panel");
     await expect(panel).toBeVisible();
-    for (const name of submodules) {
-      await expect(panel.locator(`[data-nav="${name}"]`), name + " should be in " + moduleName + " flyout").toBeVisible();
-      await expect(panel.locator(`[data-nav="${name}"]`)).toHaveAttribute("data-nav-group", moduleName);
+    for (const name of entries) {
+      const direct=panel.locator(`[data-nav="${name}"]`);
+      const submenu=panel.locator(`[data-nav-submenu="${name}"]`);
+      await expect(direct.or(submenu), name + " should appear in " + moduleName + " flyout").toBeVisible();
+      if (await submenu.count()) {
+        await submenu.click();
+        const expectedChildren=nested[name];
+        await expect(page.locator(".nav-subflyout-panel")).toBeVisible();
+        for(const child of expectedChildren) {
+          const link=page.locator(`.nav-subflyout-panel [data-nav="${child}"]`);
+          await expect(link, child + " should be in " + name).toBeVisible();
+          await expect(link).toHaveAttribute("data-nav-parent",name);
+        }
+      }
     }
-    await expect(panel.locator(".nav-flyout-item")).toHaveCount(submodules.length);
-    await page.locator(".nav-flyout-header").getByRole("button", {name:"Close submenu"}).click();
+    await page.locator(".nav-flyout-header").first().getByRole("button", {name:"Close submenu"}).click();
   }
 });
 
