@@ -105,6 +105,16 @@ try {
   );
   assert.equal(String(activatedSession._id), String(session._id));
 
+  const semester = await post("/api/semesters", {
+    academicSession: session._id,
+    program: program._id,
+    name: "Semester I",
+    order: 1,
+    active: true
+  }, "Create program/session semester master");
+  assert.equal(String(semester.academicSession?._id || semester.academicSession), String(session._id));
+  assert.equal(String(semester.program?._id || semester.program), String(program._id));
+
   const section = await post("/api/academic-structure/sections", {
     programId: program._id,
     academicSession: session._id,
