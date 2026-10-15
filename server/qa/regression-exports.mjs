@@ -1,5 +1,5 @@
 import process from "node:process";
-import XLSX from "xlsx";
+import ExcelJS from "exceljs";
 
 const base = String(process.env.QA_BASE_URL || "http://localhost:5000").replace(/\/$/, "");
 const username = String(process.env.QA_ADMIN_USERNAME || "admin").trim().toLowerCase();
@@ -8,6 +8,24 @@ let token = "";
 let passed = 0;
 let skipped = 0;
 const failures = [];
+
+
+async function workbookRows(bytes) {
+  const workbook = new ExcelJS.Workbook();
+  await workbook.xlsx.load(bytes);
+  const sheet = workbook.worksheets[0];
+  if (!sheet) return [];
+  const headers = sheet.getRow(1).values.slice(1).map(value => String(value ?? ""));
+  const rows = [];
+  sheet.eachRow((row, rowNumber) => {
+    if (rowNumber === 1) return;
+    const values = row.values;
+    const record = {};
+    headers.forEach((header, index) => { record[header] = values[index + 1] ?? ""; });
+    rows.push(record);
+  });
+  return rows;
+}
 
 function check(name, condition, detail = "") {
   if (condition) {
@@ -216,9 +234,7 @@ try {
       let exportedRows = [];
       if (fullExcel.response.status === 200 && fullExcel.bytes.subarray(0, 2).toString() === "PK") {
         try {
-          const workbook = XLSX.read(fullExcel.bytes, { type: "buffer" });
-          const sheet = workbook.Sheets[workbook.SheetNames[0]];
-          exportedRows = XLSX.utils.sheet_to_json(sheet, { defval: "" });
+          exportedRows = await workbookRows(fullExcel.bytes);
         } catch (error) {
           failures.push("Excel workbook can be parsed");
           console.error("FAIL  Excel workbook can be parsed — " + error.message);
@@ -272,8 +288,7 @@ try {
         let rows = [];
         if (file.response.status === 200 && isZip) {
           try {
-            const wb = XLSX.read(file.bytes, { type: "buffer" });
-            rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval: "" });
+            rows = await workbookRows(file.bytes);
           } catch {}
         }
         check(testCase.name + " restricts Excel rows",
