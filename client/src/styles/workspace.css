@@ -922,3 +922,106 @@ html:has(.app .erp-sidebar),body:has(.app .erp-sidebar),#root:has(.app .erp-side
 }
 /* A submenu opened near the top never covers the app header. */
 .app .nav-flyout-panel{scrollbar-gutter:stable}
+
+
+/* Nested navigation panel styling inspired by the supplied admin reference. */
+.app .nav-flyout-backdrop{
+  background:rgba(15,23,42,.06)!important;
+}
+.app .nav-flyout-panel,
+.app .nav-subflyout-panel{
+  width:254px!important;
+  max-width:calc(100vw - 24px)!important;
+  border:1px solid #dcebe4!important;
+  border-radius:14px!important;
+  background:#fff!important;
+  color:#244f40!important;
+  box-shadow:0 14px 38px rgba(18,70,51,.15)!important;
+}
+.app .nav-subflyout-panel{
+  position:fixed;
+  z-index:1220;
+  display:flex;
+  flex-direction:column;
+  margin:0;
+  padding:0;
+  overflow:hidden;
+  pointer-events:auto;
+  animation:nav-flyout-in .14s ease-out;
+}
+.app .nav-flyout-panel>header.nav-flyout-header,
+.app .nav-subflyout-panel>header.nav-flyout-header{
+  border-bottom:1px solid #e5f0eb!important;
+  background:linear-gradient(180deg,#fbfefc,#f5fbf7)!important;
+  color:#245744!important;
+}
+.app .nav-flyout-panel .nav-flyout-search{
+  border-color:#d8eae0!important;
+  background:#f7fcf9!important;
+  color:#5c9d81!important;
+}
+.app .nav-flyout-panel .nav-flyout-search:focus-within{
+  border-color:#8bcdb0!important;
+  background:#fff!important;
+}
+.app .nav-flyout-panel button.nav-flyout-item,
+.app .nav-subflyout-panel button.nav-flyout-item{
+  min-height:40px!important;
+  border:1px solid transparent!important;
+  border-radius:9px!important;
+  color:#426557!important;
+  background:transparent!important;
+  font-size:12.5px!important;
+}
+.app .nav-flyout-panel button.nav-flyout-item:hover,
+.app .nav-subflyout-panel button.nav-flyout-item:hover{
+  border-color:#e0f1e8!important;
+  background:#f1faf5!important;
+  color:#176b4f!important;
+}
+.app .nav-flyout-panel button.nav-flyout-item.active,
+.app .nav-subflyout-panel button.nav-flyout-item.active{
+  border-color:#bde8d2!important;
+  background:#ddf6e8!important;
+  color:#146647!important;
+  font-weight:750!important;
+}
+.app .nav-flyout-panel .nav-flyout-marker,
+.app .nav-subflyout-panel .nav-flyout-marker{
+  width:6px!important;
+  height:6px!important;
+  flex:0 0 6px!important;
+  border-radius:50%!important;
+  background:#78af96!important;
+}
+.app .nav-flyout-panel button.active .nav-flyout-marker,
+.app .nav-subflyout-panel button.active .nav-flyout-marker{
+  background:#159765!important;
+}
+.app .nav-flyout-panel button.nav-flyout-submenu{
+  justify-content:flex-start!important;
+  gap:10px!important;
+}
+.app .nav-flyout-panel button.nav-flyout-submenu>span:nth-child(2){
+  flex:1;
+  min-width:0;
+}
+.app .nav-flyout-panel .nav-flyout-submenu-chevron{
+  flex:0 0 15px;
+  margin-left:auto;
+  color:#75a58f!important;
+  transition:transform .14s ease,color .14s ease;
+}
+.app .nav-flyout-panel button.nav-flyout-submenu[aria-expanded="true"] .nav-flyout-submenu-chevron{
+  transform:translateX(2px);
+  color:#159765!important;
+}
+@media(max-width:1000px){
+  .app .nav-subflyout-panel{
+    width:min(254px,calc(100vw - 24px))!important;
+  }
+}
+@media(prefers-reduced-motion:reduce){
+  .app .nav-subflyout-panel{animation:none}
+  .app .nav-flyout-submenu-chevron{transition:none}
+}
