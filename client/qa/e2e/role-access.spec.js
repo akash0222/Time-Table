@@ -388,6 +388,7 @@ test("profile dropdown is in the global header and supports password change and 
 
   await page.getByRole("button",{name:/Profile/}).click();
   await page.getByRole("menuitem",{name:"Logout"}).click();
+  await expect(page).toHaveURL(/\/login$/);
   await expect(page.getByRole("button",{name:"Sign In"})).toBeVisible();
 });
 
