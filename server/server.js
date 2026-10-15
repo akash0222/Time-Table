@@ -1637,7 +1637,10 @@ app.post("/api/timetable/generate", requireAuth, allowRoles("ADMIN", "SCHEDULER"
     const validation=validateTimetable({entries:result.entries||[],faculty,sections,subjects:validSubjects,rooms,slots:usableSlots,programs,settings:settings||{},academicSessionId,holidayDays:settings?.holidayDays||["Sunday"]});
     if(!(result.entries?.length))return res.status(422).json({message:"No timetable entries could be generated.",warnings:result.warnings||[],diagnostics:invalidSubjects.slice(0,50)});
     if(result.entries.length<requiredSessions)return res.status(422).json({message:`Timetable generation is incomplete: ${result.entries.length}/${requiredSessions} required weekly sessions were scheduled. Nothing was saved.`,warnings:result.warnings||[],validation});
-    if(!validation.valid)return res.status(422).json({message:"Generated timetable failed hard-constraint validation. Nothing was saved.",warnings:result.warnings||[],validation});
+    if(!validation.valid){
+      console.warn("TIMETABLE VALIDATION REJECTED",{sessionId:academicSessionId,programs:requestedProgramIds.length?selectedPrograms.map(program=>program.name):["ALL"],entryCount:result.entries.length,errors:validation.errors,warnings:validation.warnings});
+      return res.status(422).json({message:"Generated timetable failed hard-constraint validation. Nothing was saved.",warnings:result.warnings||[],errors:validation.errors||[],validation});
+    }
 
     // For program-scoped runs, keep all other programs' current entries and replace
     // only the selected program entries. Validate the merged timetable before saving.
