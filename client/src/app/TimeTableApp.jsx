@@ -761,7 +761,14 @@ export default function App(){
       );
       await load();
     }catch(e){
-      setMessage(e.response?.data?.message||e.message);
+      const responseData=e.response?.data||{};
+      const detailErrors=Array.isArray(responseData.validation?.errors)
+        ? responseData.validation.errors
+        : Array.isArray(responseData.errors) ? responseData.errors : [];
+      const detailText=detailErrors.length
+        ? " Details: "+detailErrors.slice(0,5).join(" | ")+(detailErrors.length>5?" (+"+(detailErrors.length-5)+" more)":"")
+        : "";
+      setMessage((responseData.message||e.message||"Timetable generation failed.")+detailText);
     }finally{
       setLoading(false);
     }
