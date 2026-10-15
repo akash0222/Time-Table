@@ -858,6 +858,10 @@ test("section-wise timetable uses only the selected program's effective time slo
       { program: "program-2", semester: "I", startDate: "2026-04-01", endDate: "2026-11-30" }
     ]
   });
+  const previousSessionSection = {
+    _id: "section-old", name: "Old A", program: sampleProgram.name, programId: sampleProgram._id,
+    semester: "I", academicSession: "session-previous", maxClassesPerDay: 5, capacity: 40
+  };
   const secondProgram = { _id: "program-2", name: "BBA (COM)", code: "BBA-COM", active: true };
   const secondSection = {
     _id: "section-2", name: "B", program: secondProgram.name, programId: secondProgram._id,
@@ -876,7 +880,7 @@ test("section-wise timetable uses only the selected program's effective time slo
   await signIn(page, {
     sessions: [activeSession],
     programs: [sampleProgram, secondProgram],
-    sections: [sampleSection, secondSection],
+    sections: [previousSessionSection, sampleSection, secondSection],
     timeslots: scopedSlots,
     timetable
   });
