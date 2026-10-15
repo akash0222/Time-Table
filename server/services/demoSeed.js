@@ -82,9 +82,9 @@ export async function seedDemoData({ mongoose } = {}) {
   const seededLab = await Room.findOne({ name: "Demo Lab 201" });
   const demoLabWasCreatedBySeed = Number(completed?.result?.created?.rooms?.created || 0) >= 4;
   if (demoLabWasCreatedBySeed && seededLab && Number(seededLab.capacity) === 35) {
-    seededLab.capacity = 45;
+    seededLab.capacity = 60;
     await seededLab.save();
-    repairs.push("Raised seeded Demo Lab 201 capacity from 35 to 45 to match the default demo section capacity.");
+    repairs.push("Raised seeded Demo Lab 201 capacity from 35 to 60 so it can accommodate the seeded demo sections.");
   }
 
   if (completed) {
@@ -154,7 +154,7 @@ export async function seedDemoData({ mongoose } = {}) {
     { name: "Demo Room 101", type: "Classroom", capacity: 60 },
     { name: "Demo Room 102", type: "Classroom", capacity: 60 },
     { name: "Demo Room 103", type: "Classroom", capacity: 45 },
-    { name: "Demo Lab 201", type: "Lab", capacity: 35 }
+    { name: "Demo Lab 201", type: "Lab", capacity: 60 }
   ];
   for (const seed of roomSeeds) {
     const result = await findOrCreate(Room, { name: seed.name }, seed);
