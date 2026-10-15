@@ -13,23 +13,45 @@ export default function TimetableView({timetable, data, onMoved, timetableStatus
   const [moveMessage,setMoveMessage]=useState("");
   const [roomChanging,setRoomChanging]=useState(false);
 
-  const periodSlots=useMemo(()=>{
-    const seen=new Set();
-    return [...(data?.timeslots||[])]
-      .filter(s=>!s.isBreak)
-      .sort((a,b)=>Number(a.order||0)-Number(b.order||0))
-      .filter(s=>{
-        const key=`${s.startTime}-${s.endTime}`;
-        if(seen.has(key)) return false;
-        seen.add(key); return true;
-      });
-  },[data?.timeslots]);
-
   const sections=data?.sections||[];
   const faculty=data?.faculty||[];
   const rooms=data?.rooms||[];
-
+  const programs=data?.programs||[];
   const idOfLocal=refId;
+
+  // Each section has its own effective weekly clock schedule. Do not build a
+  // global grid that treats the same period number in different programs as
+  // the same time (e.g. PGDM 09:00 vs BBA 09:30 / 10:00).
+  const sectionSlotsById=useMemo(()=>{
+    const map=new Map();
+    for(const section of sections){
+      map.set(idOfLocal(section),resolveEffectiveTimeSlots(data?.timeslots||[],section,programs,activeSession?._id||""));
+    }
+    return map;
+  },[sections,data?.timeslots,programs,activeSession?._id]);
+
+  const periodSlots=useMemo(()=>{
+    let candidates=[];
+    if(viewMode==="Section"&&selectedItem){
+      candidates=sectionSlotsById.get(idOfLocal(selectedItem))||resolveEffectiveTimeSlots(data?.timeslots||[],selectedItem,programs,activeSession?._id||"");
+    }else{
+      for(const entry of rows){
+        const sectionId=idOfLocal(entry.section);
+        const section=sections.find(item=>idOfLocal(item)===sectionId)||(typeof entry.section==="object"?entry.section:null);
+        if(!section)continue;
+        candidates.push(...(sectionSlotsById.get(sectionId)||resolveEffectiveTimeSlots(data?.timeslots||[],section,programs,activeSession?._id||"")));
+      }
+    }
+    const unique=[...new Map(candidates.filter(slot=>!slot.isBreak).map(slot=>[String(slot.startTime)+"-"+String(slot.endTime),slot])).values()];
+    const minutes=value=>{const parts=String(value||"").split(":").map(Number);return parts.length===2&&parts.every(Number.isFinite)?parts[0]*60+parts[1]:Number.MAX_SAFE_INTEGER;};
+    return unique.sort((a,b)=>{
+      if(viewMode==="Section"){
+        const orderDiff=Number(a.order||0)-Number(b.order||0);
+        if(orderDiff)return orderDiff;
+      }
+      return minutes(a.startTime)-minutes(b.startTime)||minutes(a.endTime)-minutes(b.endTime)||Number(a.order||0)-Number(b.order||0);
+    });
+  },[data?.timeslots,programs,activeSession?._id,sections,rows,viewMode,selectedItem,sectionSlotsById]);
 
   useEffect(()=>{
     const list=viewMode==="Section"?sections:viewMode==="Faculty"?faculty:rooms;
@@ -57,20 +79,32 @@ export default function TimetableView({timetable, data, onMoved, timetableStatus
     ? `${selectedItem?.program||""} ${selectedItem?.semester||""} - ${selectedItem?.name||""}`
     : selectedItem?.name||"";
 
+  function getSlotForEntry(entry,slot){
+    if(!entry||!slot)return null;
+    const sectionId=idOfLocal(entry.section);
+    const section=sections.find(item=>idOfLocal(item)===sectionId)||(typeof entry.section==="object"?entry.section:null);
+    if(!section)return null;
+    const sectionSlots=sectionSlotsById.get(sectionId)||resolveEffectiveTimeSlots(data?.timeslots||[],section,programs,activeSession?._id||"");
+    return sectionSlots.find(candidate=>String(candidate.day)===String(slot.day)&&String(candidate.startTime)===String(slot.startTime)&&String(candidate.endTime)===String(slot.endTime))||null;
+  }
+
   function slotIsOccupied(entry,slot){
-    if(!entry) return false;
-    if(entry.day!==slot.day) return false;
+    if(!entry||String(entry.day)!==String(slot.day))return false;
+    const scopedSlot=getSlotForEntry(entry,slot);
+    if(!scopedSlot)return false;
     const start=Number(entry.order||0);
-    const order=Number(slot.order||0);
-    return order>=start && order<start+Math.max(1,Number(entry.duration||1));
+    const order=Number(scopedSlot.order||0);
+    return order>=start&&order<start+Math.max(1,Number(entry.duration||1));
   }
 
   function entryForCell(day,slot){
-    return rows.find(e=>e.day===day && slotIsOccupied(e,slot));
+    return rows.find(e=>String(e.day)===String(day)&&slotIsOccupied(e,{...slot,day}));
   }
 
   function isEntryStart(entry,slot){
-    return entry && entry.day===slot.day && Number(entry.order||0)===Number(slot.order||0);
+    if(!entry||String(entry.day)!==String(slot.day))return false;
+    const scopedSlot=getSlotForEntry(entry,slot);
+    return Boolean(scopedSlot&&Number(entry.order||0)===Number(scopedSlot.order||0));
   }
 
   async function moveEntry(entry,day,slot){
