@@ -210,7 +210,7 @@ export default function App(){
   const sidebarResizeRef=useRef(null);
   const [navQuery,setNavQuery]=useState("");
   const [searchResultsOpen,setSearchResultsOpen]=useState(false);
-  const [searchResultIndex,setSearchResultIndex]=useState(0);
+  const [searchResultIndex,setSearchResultIndex]=useState(-1);
   const navSearchRef=useRef(null);
   const navSearchWrapRef=useRef(null);
   const [activeNavGroup,setActiveNavGroup]=useState(null);
@@ -953,7 +953,7 @@ export default function App(){
                 aria-controls="page-search-results"
                 value={navQuery}
                 onFocus={()=>setSearchResultsOpen(true)}
-                onChange={event=>{setNavQuery(event.target.value);setSearchResultIndex(0);setSearchResultsOpen(true);}}
+                onChange={event=>{setNavQuery(event.target.value);setSearchResultIndex(-1);setSearchResultsOpen(true);}}
                 onKeyDown={event=>{
                   if(event.key==="ArrowDown"&&pageSearchResults.length){
                     event.preventDefault();
@@ -966,7 +966,7 @@ export default function App(){
                   }else if(event.key==="Enter"&&normalizedNavQuery){
                     if(pageSearchResults.length){
                       event.preventDefault();
-                      const result=pageSearchResults[Math.min(searchResultIndex,pageSearchResults.length-1)];
+                      const result=pageSearchResults[Math.max(0,Math.min(searchResultIndex,pageSearchResults.length-1))];
                       navigateToNavPage(result.name,result.groupLabel);
                     }
                   }
