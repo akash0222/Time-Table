@@ -255,10 +255,6 @@ export function validateTimetable({
     if (facultyId) addDayEntry(facultyDayEntriesByFaculty, facultyId, scheduledDay);
     if (subjectId) addDayEntry(subjectDayEntries, subjectId + "|" + entry.day, scheduledDay);
 
-    if (facultyId) {
-      if (!facultyClockIntervals.has(facultyId + "|" + entry.day)) facultyClockIntervals.set(facultyId + "|" + entry.day, []);
-    }
-
     if (programId && sectionSlots.length) {
       for (const slot of slotsForEntry) {
         if (!slot.program) continue;
