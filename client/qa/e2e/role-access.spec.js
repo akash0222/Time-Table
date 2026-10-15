@@ -582,28 +582,35 @@ test("mobile navigation drawer opens and its flyout navigates without collapsing
   await expect(trigger).toHaveAttribute("aria-expanded", "false");
 });
 
-test("quick navigation searches role-visible modules and opens a matching page", async ({ page }) => {
+test("page search shows matching links beneath the search field without filtering navigation", async ({ page }) => {
   await installRoleApiMocks(page, "ADMIN");
-  const search=page.getByRole("searchbox", { name: "Search pages" });
+  const search=page.getByRole("combobox", { name: "Search pages" });
   await expect(search).toBeVisible();
 
   await page.keyboard.press("Control+k");
   await expect(search).toBeFocused();
   await search.fill("sTuDeNt PrOm");
-  const module=page.locator('.nav-module-button[data-nav-module="Students & Operations"]');
-  await expect(module).toBeVisible();
-  await expect(page.locator('.nav-module-button[data-nav-module="Academic Setup"]')).toHaveCount(0);
-  await module.click();
-  await expect(page.locator('.nav-flyout-panel [data-nav="Student Promotion"]')).toBeVisible();
-  await expect(page.locator('.nav-flyout-panel .nav-flyout-item')).toHaveCount(1);
-  await page.locator('.nav-flyout-panel [data-nav="Student Promotion"]').click();
+
+  // Main navigation stays unchanged while matches appear directly below search.
+  await expect(page.locator(".nav-module-button")).toHaveCount(8);
+  await expect(page.locator('.nav-module-button[data-nav-module="Academic Setup"]')).toBeVisible();
+  const results=page.locator("#page-search-results");
+  await expect(results).toBeVisible();
+  await expect(results.locator('[data-search-result="Student Promotion"]')).toBeVisible();
+  await expect(page.locator('.nav-flyout-panel')).toHaveCount(0);
+
+  // Arrow keys + Enter open the page directly from the suggestions list.
+  await search.press("ArrowDown");
+  await search.press("Enter");
   await expect(page).toHaveURL(/\/student-promotion$/);
   await expect(search).toHaveValue("");
+  await expect(page.locator("#page-search-results")).toHaveCount(0);
   await expect(page.locator('.nav-module-button[data-nav-module="Students & Operations"]')).toHaveClass(/has-current/);
 
   await search.fill("page-does-not-exist");
-  await expect(page.getByRole("status").getByText(/No pages match/)).toBeVisible();
+  await expect(page.locator("#page-search-results").getByRole("status").getByText(/No pages match/)).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(search).toHaveValue("");
+  await expect(page.locator("#page-search-results")).toHaveCount(0);
   await expect(search).not.toBeFocused();
 });
