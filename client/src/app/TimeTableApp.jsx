@@ -155,6 +155,7 @@ export default function App(){
   const [versionList,setVersionList]=useState([]);
   const [approvalHistory,setApprovalHistory]=useState([]);
   const loadRef=useRef(null);
+  const isLoadingDataRef=useRef(false);
 
   async function load(){
     if(!API){
@@ -162,8 +163,11 @@ export default function App(){
       return;
     }
 
-    const loadErrors=[];
-    const keys=Object.keys(data);
+    if(isLoadingDataRef.current)return;
+    isLoadingDataRef.current=true;
+    try{
+      const loadErrors=[];
+      const keys=Object.keys(data);
 
     // Fetch account hydration, all master-data resources, and session data in
     // parallel. Previously /auth/me and session resolution were serial gates,
@@ -230,6 +234,9 @@ export default function App(){
     }else{
       // Clear only a stale load/API error; retain unrelated action feedback.
       setMessage(current=>/^Some data could not be loaded\./i.test(String(current||""))||/^Backend API is not configured\./i.test(String(current||""))?"":current);
+      }
+    } finally {
+      isLoadingDataRef.current=false;
     }
   }
   // Revalidate server-backed records when the user returns to an open tab.
@@ -237,11 +244,14 @@ export default function App(){
   loadRef.current=load;
   useEffect(()=>{
     if(!auth) return;
-    let lastRefreshAt=0;
+    // The initial load starts as soon as auth is available. Do not launch a
+    // second full batch just because focus/visibility fires immediately after
+    // login; allow a short cooldown and coalesce any overlapping loads.
+    let lastRefreshAt=Date.now();
     const refreshIfVisible=()=>{
       if(document.visibilityState==="hidden") return;
       const now=Date.now();
-      if(now-lastRefreshAt<3000) return;
+      if(now-lastRefreshAt<15000) return;
       lastRefreshAt=now;
       loadRef.current?.().catch(e=>setMessage(e.response?.data?.message||"Unable to refresh application data."));
     };
