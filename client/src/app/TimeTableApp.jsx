@@ -71,6 +71,7 @@ export default function App(){
   const [auth,setAuth]=useState(()=>{try{return JSON.parse(localStorage.getItem("tt_user")||"null")}catch{return null}});
   const [tab,setTabState]=useState(()=>getPageForPath(window.location.pathname));
   const setTab=(nextTab)=>setTabState(nextTab);
+  const skipNextRouteSyncRef=useRef(false);
 
   // Browser-history navigation keeps each module addressable as its own page.
   useEffect(()=>{
@@ -80,6 +81,12 @@ export default function App(){
   },[]);
 
   useEffect(()=>{
+    // A login callback has already synchronously committed /dashboard. Skip
+    // one route-sync pass so an older tab state cannot push its URL back.
+    if(skipNextRouteSyncRef.current){
+      skipNextRouteSyncRef.current=false;
+      return;
+    }
     const currentPath=window.location.pathname;
 
     // Protected page URLs should never display the sign-in form while keeping
@@ -244,6 +251,14 @@ export default function App(){
       isLoadingDataRef.current=false;
     }
   }
+  async function reloadStudentData(){
+    await load({verifyAccount:false});
+    if(!API)return;
+    const response=await axios.get(`${API}/students`);
+    const rows=Array.isArray(response.data)?response.data:(Array.isArray(response.data?.data)?response.data.data:[]);
+    setData(current=>({...current,students:rows}));
+  }
+
   // Revalidate server-backed records when the user returns to an open tab.
   // Keep the mounted page, but refresh its data instead of showing pre-reset records.
   loadRef.current=load;
@@ -542,10 +557,12 @@ export default function App(){
   })).filter(group=>group.items.length):[];
 
   if(!auth) return <Suspense fallback={<PageLoading label="sign in" />}><Login onLogin={u=>{
-    setAuth(u);
+    // Reset route + tab together and ignore one pending route-sync pass.
+    skipNextRouteSyncRef.current=true;
     setTabState("Dashboard");
-    try { sessionStorage.removeItem("tt_return_to"); } catch {}
     window.history.replaceState({page:"Dashboard"},"",getPathForPage("Dashboard"));
+    setAuth(u);
+    try { sessionStorage.removeItem("tt_return_to"); } catch {}
     document.title="Time Table";
   }} /></Suspense>;
 
@@ -851,8 +868,8 @@ export default function App(){
 
       <Suspense fallback={<PageLoading label={tab} />}>
       {tab==="Attendance" && <Attendance data={data} auth={auth} setMessage={setMessage}/>}
-      {tab==="Students" && <Students data={data} reload={load} setMessage={setMessage}/>}
-      {tab==="Student Mapping" && <StudentMapping data={data} sessions={sessions} activeSession={activeSession} reload={load} setMessage={setMessage}/>}
+      {tab==="Students" && <Students data={data} reload={reloadStudentData} setMessage={setMessage}/>}
+      {tab==="Student Mapping" && <StudentMapping data={data} sessions={sessions} activeSession={activeSession} reload={reloadStudentData} setMessage={setMessage}/>}
       {tab==="Student Profile" && <StudentProfile data={data} setMessage={setMessage}/>}
       {tab==="Student Promotion" && <StudentPromotion data={data} sessions={sessions} activeSession={activeSession} reload={load} setMessage={setMessage}/>}
       {tab==="Fees" && <FeeManagement data={data} sessions={sessions} auth={auth} setMessage={setMessage}/>}
