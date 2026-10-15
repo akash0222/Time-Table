@@ -378,6 +378,27 @@ export function generateTimetable({
     };
   });
 
+  const subjectsWithoutCompatibleRooms = [];
+  for (const subject of validSubjects) {
+    const section = sMap.get(idOf(subject.section));
+    if (!section) continue;
+    const wantedType = normalizeRoomType(subject.roomType);
+    const requiredCapacity = Math.max(0, Number(section.capacity || 0));
+    const hasCompatibleRoom = rooms.some(room => {
+      const actualType = normalizeRoomType(room.type);
+      const typeMatches = wantedType === "Any" || actualType === wantedType;
+      const capacityMatches = !requiredCapacity || Number(room.capacity || 0) >= requiredCapacity;
+      return typeMatches && capacityMatches;
+    });
+    if (!hasCompatibleRoom) {
+      const typeLabel = wantedType === "Any" ? "room" : wantedType === "Lab" ? "Lab" : "Classroom";
+      subjectsWithoutCompatibleRooms.push(
+        `${subject.name || "Unnamed subject"} requires a ${typeLabel}${requiredCapacity ? ` with capacity of at least ${requiredCapacity}` : ""} for section ${section.program || "Program"} · ${section.semester || ""} · ${section.name || "Section"}.`
+      );
+    }
+  }
+  warnings.push(...subjectsWithoutCompatibleRooms);
+
   const invalidBlockTasks=candidatesByTask.filter(x=>x.blocks.length===0);
   if(invalidBlockTasks.length){
     warnings.push(
