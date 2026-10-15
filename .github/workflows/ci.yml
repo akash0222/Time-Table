@@ -70,9 +70,12 @@ jobs:
             console.log(JSON.stringify({name, severity:item.severity, direct:item.isDirect, range:item.range, fixAvailable:item.fixAvailable, advisories}));
           }
           NODE
+      - name: Test XLSX upload archive safety
+        working-directory: server
+        run: node qa/xlsx-safety.test.mjs
       - name: Check server JavaScript syntax
         working-directory: server
-        run: node --check server.js && node --check services/facultyWorkload.js && node --check services/timetableVersionDiff.js && node --check services/loginRateLimit.js && node --check middleware/auth.js && node --check routes/auth.js && node --check routes/attendance.js && node --check routes/students.js && node --check routes/studentPromotion.js && node --check routes/studentProfile.js && node --check routes/fees.js && node --check routes/sessionPlan.js && node --check routes/notifications.js && node --check services/notificationAccess.js && node --check services/dateValidation.js && node --check services/timetableAccess.js
+        run: node --check server.js && node --check services/facultyWorkload.js && node --check services/timetableVersionDiff.js && node --check services/loginRateLimit.js && node --check middleware/auth.js && node --check routes/auth.js && node --check routes/attendance.js && node --check routes/students.js && node --check routes/studentPromotion.js && node --check routes/studentProfile.js && node --check routes/fees.js && node --check routes/sessionPlan.js && node --check routes/notifications.js && node --check services/xlsxSafety.js && node --check services/notificationAccess.js && node --check services/dateValidation.js && node --check services/timetableAccess.js
       - name: Test timetable version comparison
         working-directory: server
         run: npm run test:regression:timetable-version-diff
