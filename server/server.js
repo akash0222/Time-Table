@@ -454,16 +454,21 @@ app.post("/api/academic-structure/sections", requireAuth, async (req, res) => {
   if (!["ADMIN", "SCHEDULER"].includes(req.user?.role)) return res.status(403).json({ message: "Only Admin or Scheduler can manage sections." });
   try {
     const { programId, academicSession, semester, name, maxClassesPerDay, capacity } = req.body || {};
-    if (!programId || !semester || !name) return res.status(400).json({ message: "Program, Semester and Section Name are required." });
+    if (!programId || !academicSession || !String(semester || "").trim() || !String(name || "").trim()) {
+      return res.status(400).json({ message: "Academic Session, Program, configured Semester and Section Name are required." });
+    }
     const program = await Program.findById(programId).lean();
     if (!program) return res.status(404).json({ message: "Program not found." });
-    if (academicSession) {
-      const session = await AcademicSession.findById(academicSession).lean();
-      if (!session) return res.status(404).json({ message: "Academic Session not found." });
-    }
-    const existing = await Section.findOne({ programId, academicSession: academicSession || null, semester: String(semester).trim(), name: String(name).trim() });
+    const session = await AcademicSession.findById(academicSession).lean();
+    if (!session) return res.status(404).json({ message: "Academic Session not found." });
+    const programLinked = (session.programDates || []).some(row => String(row.program?._id || row.program) === String(programId));
+    if (!programLinked) return res.status(400).json({ message: "This Program is not linked to the selected Academic Session. Link it in Academic Sessions first." });
+    const semesterName = String(semester).trim();
+    const semesterMaster = await Semester.findOne({ academicSession, program: programId, name: semesterName, active: true }).lean();
+    if (!semesterMaster) return res.status(400).json({ message: "Select a semester configured for this Academic Session and Program in Master Data Settings → Semesters." });
+    const existing = await Section.findOne({ programId, academicSession, semester: semesterName, name: String(name).trim() });
     if (existing) return res.status(409).json({ message: "This section already exists for the selected Program, Semester and Academic Session." });
-    const row = await Section.create({ programId, academicSession: academicSession || null, program: program.name, semester: String(semester).trim(), name: String(name).trim(), maxClassesPerDay: Number(maxClassesPerDay || 6), capacity: Number(capacity || 0) });
+    const row = await Section.create({ programId, academicSession, program: program.name, semester: semesterName, name: String(name).trim(), maxClassesPerDay: Number(maxClassesPerDay || 6), capacity: Number(capacity || 0) });
     res.status(201).json(await Section.findById(row._id).populate("programId", "name code").populate("academicSession", "name active").lean());
   } catch (e) { res.status(400).json({ message: e.message }); }
 });
@@ -497,7 +502,17 @@ app.put("/api/academic-structure/sections/:id", requireAuth, async (req, res) =>
       || (!nextProgramId && currentLegacyProgram !== nextLegacyProgram);
     const sessionChanged = String(nextSessionId || "") !== String(row.academicSession || "");
     const semesterChanged = nextSemester !== String(row.semester || "").trim();
-    if (programChanged || sessionChanged || semesterChanged) {
+    const mappingChanged = programChanged || sessionChanged || semesterChanged;
+    if (mappingChanged) {
+      if (!nextProgramId || !nextSessionId) return res.status(400).json({ message: "A section must be mapped to a Program and Academic Session. Create a configured semester before changing this mapping." });
+      const targetSession = await AcademicSession.findById(nextSessionId).lean();
+      if (!targetSession) return res.status(404).json({ message: "Academic Session not found." });
+      const programLinked = (targetSession.programDates || []).some(item => String(item.program?._id || item.program) === String(nextProgramId));
+      if (!programLinked) return res.status(400).json({ message: "This Program is not linked to the selected Academic Session. Link it in Academic Sessions first." });
+      const semesterMaster = await Semester.findOne({ academicSession: nextSessionId, program: nextProgramId, name: nextSemester, active: true }).lean();
+      if (!semesterMaster) return res.status(400).json({ message: "Select a semester configured for this Program and Academic Session in Master Data Settings → Semesters." });
+    }
+    if (mappingChanged) {
       const [studentCount, subjectCount] = await Promise.all([
         Student.countDocuments({ section: row._id }),
         Subject.countDocuments({ section: row._id })
