@@ -75,7 +75,26 @@ export async function seedDemoData({ mongoose } = {}) {
 
   const operations = db.collection("_appSeedOperations");
   const completed = await operations.findOne({ _id: SEED_ID });
-  if (completed) return { skipped: true, reason: "Demo seed already completed", result: completed.result };
+
+  // Repair only the exact legacy demo fixture created by this seed. Do not
+  // rewrite rooms with custom capacities or any other production room record.
+  const repairs = [];
+  const seededLab = await Room.findOne({ name: "Demo Lab 201" });
+  const demoLabWasCreatedBySeed = Number(completed?.result?.created?.rooms?.created || 0) >= 4;
+  if (demoLabWasCreatedBySeed && seededLab && Number(seededLab.capacity) === 35) {
+    seededLab.capacity = 45;
+    await seededLab.save();
+    repairs.push("Raised seeded Demo Lab 201 capacity from 35 to 45 to match the default demo section capacity.");
+  }
+
+  if (completed) {
+    return {
+      skipped: true,
+      reason: "Demo seed already completed",
+      result: completed.result,
+      repairs
+    };
+  }
 
   const stats = {};
   const programDocs = new Map();
