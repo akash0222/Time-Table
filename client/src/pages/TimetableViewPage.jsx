@@ -101,8 +101,8 @@ export default function TimetableView({timetable, data, onMoved, timetableStatus
     return order>=start&&order<start+Math.max(1,Number(entry.duration||1));
   }
 
-  function entryForCell(day,slot){
-    return rows.find(e=>String(e.day)===String(day)&&slotIsOccupied(e,{...slot,day}));
+  function entriesForCell(day,slot){
+    return rows.filter(e=>String(e.day)===String(day)&&slotIsOccupied(e,{...slot,day}));
   }
 
   function isEntryStart(entry,slot){
@@ -263,21 +263,23 @@ export default function TimetableView({timetable, data, onMoved, timetableStatus
           <div className="time">{slot.startTime}-{slot.endTime}</div>
           {days.map(day=>{
             const cellSlot={...slot,day};
-            const e=entryForCell(day,cellSlot);
-            const start=isEntryStart(e,cellSlot);
+            const cellEntries=entriesForCell(day,cellSlot);
             const validDropTarget=Boolean(draggedEntry&&timetableStatus==="DRAFT"&&getSlotForEntry(draggedEntry,cellSlot));
             return <div className={`cell ${validDropTarget?"drop-zone":""}`} key={`${day}-${time}`}
               onDragOver={ev=>{if(!validDropTarget)return;ev.preventDefault();ev.dataTransfer.dropEffect="move"}}
               onDrop={ev=>{ev.preventDefault();if(validDropTarget&&draggedEntry)moveEntry(draggedEntry,day,slot)}}>
-              {e && start ? <div className="tt-entry" draggable={!moving&&timetableStatus==="DRAFT"} onDragStart={ev=>{setDraggedEntry(e);setMoveMessage("");ev.dataTransfer.effectAllowed="move";ev.dataTransfer.setData("text/plain",e._id||"")}} onDragEnd={()=>setDraggedEntry(null)} title={e.duration>1?`Multi-period class: ${e.duration} periods`:"Drag to another period"}>
-                <strong>{e.subject?.name||"Subject"}</strong>
-                {e.duration>1 && <b>{e.duration} periods</b>}
-                {viewMode!=="Faculty"&&<span>{e.faculty?.name||"Faculty"}</span>}
-                {viewMode!=="Room"&&<small>{e.room?.name||"Room"}</small>}
-                {viewMode!=="Section"&&<small>{e.section?.name||"Section"}</small>}
-                {timetableStatus==="DRAFT" && <select className="tt-room-select" value={refId(e.room)} disabled={roomChanging} onChange={ev=>changeRoom(e,ev.target.value)} onClick={ev=>ev.stopPropagation()} onMouseDown={ev=>ev.stopPropagation()}><option value={refId(e.room)}>{e.room?.name||"Current room"}</option>{rooms.filter(r=>refId(r)!==refId(e.room)).map(r=><option key={refId(r)} value={refId(r)}>{r.name}</option>)}</select>}
-                <em>↕ Drag</em>
-              </div> : e ? <div className="tt-continuation">↳ {e.subject?.name||"Continued"}</div> : <span className="muted">—</span>}
+              {cellEntries.length ? cellEntries.map((e,index)=>isEntryStart(e,cellSlot)
+                ? <div key={e._id||`${day}-${time}-${index}`} className="tt-entry" draggable={!moving&&timetableStatus==="DRAFT"} onDragStart={ev=>{setDraggedEntry(e);setMoveMessage("");ev.dataTransfer.effectAllowed="move";ev.dataTransfer.setData("text/plain",e._id||"")}} onDragEnd={()=>setDraggedEntry(null)} title={e.duration>1?`Multi-period class: ${e.duration} periods`:"Drag to another period"}>
+                    <strong>{e.subject?.name||"Subject"}</strong>
+                    {e.duration>1 && <b>{e.duration} periods</b>}
+                    {viewMode!=="Faculty"&&<span>{e.faculty?.name||"Faculty"}</span>}
+                    {viewMode!=="Room"&&<small>{e.room?.name||"Room"}</small>}
+                    {viewMode!=="Section"&&<small>{e.section?.name||"Section"}</small>}
+                    {timetableStatus==="DRAFT" && <select className="tt-room-select" value={refId(e.room)} disabled={roomChanging} onChange={ev=>changeRoom(e,ev.target.value)} onClick={ev=>ev.stopPropagation()} onMouseDown={ev=>ev.stopPropagation()}><option value={refId(e.room)}>{e.room?.name||"Current room"}</option>{rooms.filter(r=>refId(r)!==refId(e.room)).map(r=><option key={refId(r)} value={refId(r)}>{r.name}</option>)}</select>}
+                    <em>↕ Drag</em>
+                  </div>
+                : <div key={e._id||`${day}-${time}-${index}`} className="tt-continuation">↳ {e.subject?.name||"Continued"}</div>)
+                : <span className="muted">—</span>}
             </div>
           })}
         </React.Fragment>
