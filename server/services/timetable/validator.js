@@ -118,10 +118,10 @@ export function validateTimetable({
   const facultyBusy = new Map();
   const sectionBusy = new Map();
   const roomBusy = new Map();
-  const facultyDayCounts = new Map();
-  const sectionDayCounts = new Map();
-  const facultyDays = new Map();
-  const subjectDayCounts = new Map();
+  const facultyDayEntries = new Map();
+  const sectionDayEntries = new Map();
+  const facultyDayEntriesByFaculty = new Map();
+  const subjectDayEntries = new Map();
   const facultyClockIntervals = new Map();
   const sectionClockIntervals = new Map();
   const roomClockIntervals = new Map();
@@ -244,19 +244,19 @@ export function validateTimetable({
       reserveBusySlot(roomBusy, roomId, "Room", room?.name, key);
     }
 
-    const facultyDayKey = `${facultyId}|${entry.day}`;
-    const sectionDayKey = `${sectionId}|${entry.day}`;
-    const subjectDayKey = `${subjectId}|${entry.day}`;
+    const addDayEntry = (map, key, row) => {
+      const rows = map.get(key) || [];
+      rows.push(row);
+      map.set(key, rows);
+    };
+    const scheduledDay = { day:String(entry.day), count:slotsForEntry.length, window:entryWindow, entry };
+    if (facultyId) addDayEntry(facultyDayEntries, facultyId + "|" + entry.day, scheduledDay);
+    if (sectionId) addDayEntry(sectionDayEntries, sectionId + "|" + entry.day, scheduledDay);
+    if (facultyId) addDayEntry(facultyDayEntriesByFaculty, facultyId, scheduledDay);
+    if (subjectId) addDayEntry(subjectDayEntries, subjectId + "|" + entry.day, scheduledDay);
 
-    facultyDayCounts.set(facultyDayKey, (facultyDayCounts.get(facultyDayKey) || 0) + slotsForEntry.length);
-    sectionDayCounts.set(sectionDayKey, (sectionDayCounts.get(sectionDayKey) || 0) + slotsForEntry.length);
-    subjectDayCounts.set(subjectDayKey, (subjectDayCounts.get(subjectDayKey) || 0) + 1);
-
-    if (!facultyDays.has(facultyId)) facultyDays.set(facultyId, new Set());
-    facultyDays.get(facultyId).add(entry.day);
-
-    if (subjectDayCounts.get(subjectDayKey) > 1 && settings.avoidSameSubjectSameDay !== false) {
-      warnings.push(`Subject ${subject?.name || subjectId} repeats on ${entry.day}.`);
+    if (facultyId) {
+      if (!facultyClockIntervals.has(facultyId + "|" + entry.day)) facultyClockIntervals.set(facultyId + "|" + entry.day, []);
     }
 
     if (programId && sectionSlots.length) {
@@ -270,26 +270,49 @@ export function validateTimetable({
     }
   }
 
-  for (const [key, count] of facultyDayCounts) {
+  const overlappingCount = (rows, target) => rows
+    .filter(row => calendarWindowsOverlap(target.window, row.window))
+    .reduce((total, row) => total + row.count, 0);
+
+  for (const [key, rows] of facultyDayEntries) {
     const facultyId = key.split("|")[0];
     const facultyMember = facultyMap.get(facultyId);
-    if (count > Number(facultyMember?.maxClassesPerDay || 99)) {
-      errors.push(`Faculty ${facultyMember?.name || facultyId} exceeds daily class limit.`);
+    const maximum = Number(facultyMember?.maxClassesPerDay || 99);
+    if (rows.some(target => overlappingCount(rows, target) > maximum)) {
+      errors.push("Faculty " + (facultyMember?.name || facultyId) + " exceeds daily class limit.");
     }
   }
 
-  for (const [facultyId, days] of facultyDays) {
+  for (const [facultyId, rows] of facultyDayEntriesByFaculty) {
     const facultyMember = facultyMap.get(facultyId);
-    if (days.size > Number(facultyMember?.maxWorkingDays || 7)) {
-      errors.push(`Faculty ${facultyMember?.name || facultyId} exceeds working-day limit.`);
-    }
+    const maximum = Number(facultyMember?.maxWorkingDays || 7);
+    const exceeds = rows.some(target => {
+      const workingDays = new Set(rows
+        .filter(row => calendarWindowsOverlap(target.window, row.window))
+        .map(row => row.day));
+      return workingDays.size > maximum;
+    });
+    if (exceeds) errors.push("Faculty " + (facultyMember?.name || facultyId) + " exceeds working-day limit.");
   }
 
-  for (const [key, count] of sectionDayCounts) {
+  for (const [key, rows] of sectionDayEntries) {
     const sectionId = key.split("|")[0];
     const section = sectionMap.get(sectionId);
-    if (count > Number(section?.maxClassesPerDay || 99)) {
-      errors.push(`Section ${section?.name || sectionId} exceeds daily class limit.`);
+    const maximum = Number(section?.maxClassesPerDay || 99);
+    if (rows.some(target => overlappingCount(rows, target) > maximum)) {
+      errors.push("Section " + (section?.name || sectionId) + " exceeds daily class limit.");
+    }
+  }
+
+  if (settings.avoidSameSubjectSameDay !== false) {
+    for (const [key, rows] of subjectDayEntries) {
+      if (rows.some(target => rows.some(other => other !== target && calendarWindowsOverlap(target.window, other.window)))) {
+        const parts = key.split("|");
+        const subjectId = parts[0];
+        const day = parts.slice(1).join("|");
+        const subject = subjectMap.get(subjectId);
+        warnings.push("Subject " + (subject?.name || subjectId) + " repeats on " + day + ".");
+      }
     }
   }
 
