@@ -144,6 +144,56 @@ test.describe("Login page", () => {
     await expect(page.locator("#login-username")).toBeEnabled();
   });
 
+  test("always opens Dashboard after sign-in even if an older page was saved", async ({ page }) => {
+    await page.addInitScript(() => {
+      localStorage.clear();
+      sessionStorage.setItem("tt_return_to", "/student-mapping");
+    });
+    await page.goto("/student-mapping");
+    await expect(page).toHaveURL(/\/login$/);
+
+    await page.route("**/api/**", async route => {
+      const url = new URL(route.request().url());
+      const path = url.pathname.replace(/\/$/, "");
+      if (path.endsWith("/health")) {
+        return route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({ ok: true, database: "connected" })
+        });
+      }
+      if (path.endsWith("/auth/login")) {
+        return route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({
+            token: "qa-test-token",
+            user: { id: "user-1", name: "Test Admin", username: "admin", role: "ADMIN", faculty: null, section: null }
+          })
+        });
+      }
+      if (path.endsWith("/auth/me")) {
+        return route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({ user: { id: "user-1", name: "Test Admin", username: "admin", role: "ADMIN", faculty: null, section: null } })
+        });
+      }
+      if (path.endsWith("/sessions/active")) {
+        return route.fulfill({ status: 200, contentType: "application/json", body: "null" });
+      }
+      return route.fulfill({ status: 200, contentType: "application/json", body: "[]" });
+    });
+
+    await page.locator("#login-username").fill("admin");
+    await page.locator("#login-password").fill("qa-password");
+    await page.getByRole("button", { name: "Sign In" }).click();
+
+    await expect(page).toHaveURL(/\/dashboard$/);
+    await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible();
+    expect(await page.evaluate(() => sessionStorage.getItem("tt_return_to"))).toBeNull();
+  });
+
   test("announces invalid credentials without exposing server details", async ({ page }) => {
     await page.route("**/api/auth/login", async route => {
       await route.fulfill({
