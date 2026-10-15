@@ -115,9 +115,9 @@ export function validateTimetable({
   const holidayDaySet = new Set(["Sunday", ...(holidayDays || []).map(String)]);
   const holidayDateSet = new Set((holidayDates || []).map(String));
 
-  const facultyBusy = new Set();
-  const sectionBusy = new Set();
-  const roomBusy = new Set();
+  const facultyBusy = new Map();
+  const sectionBusy = new Map();
+  const roomBusy = new Map();
   const facultyDayCounts = new Map();
   const sectionDayCounts = new Map();
   const facultyDays = new Map();
@@ -224,15 +224,24 @@ export function validateTimetable({
       errors.push(`First/last period is blocked by settings for ${subject?.name || subjectId}.`);
     }
 
+    const reserveBusySlot = (map, resourceId, label, resourceName, key) => {
+      if (!resourceId) return;
+      const busyKey = `${resourceId}|${key}`;
+      const previous = map.get(busyKey) || [];
+      if (previous.some(window => calendarWindowsOverlap(entryWindow, window))) {
+        errors.push(`${label} conflict: ${resourceName || resourceId} at ${key}.`);
+      }
+      previous.push(entryWindow);
+      map.set(busyKey, previous);
+    };
+
     for (const slot of slotsForEntry) {
       const key = slotKey(slot);
-      if (facultyBusy.has(`${facultyId}|${key}`)) errors.push(`Faculty conflict: ${f?.name || facultyId} at ${key}.`);
-      if (sectionBusy.has(`${sectionId}|${key}`)) errors.push(`Section conflict: ${section?.name || sectionId} at ${key}.`);
-      if (roomBusy.has(`${roomId}|${key}`)) errors.push(`Room conflict: ${room?.name || roomId} at ${key}.`);
-
-      facultyBusy.add(`${facultyId}|${key}`);
-      sectionBusy.add(`${sectionId}|${key}`);
-      roomBusy.add(`${roomId}|${key}`);
+      // Identical weekly clock slots conflict only when their calendar windows overlap.
+      // Different semesters can safely reuse faculty or rooms when dates do not overlap.
+      reserveBusySlot(facultyBusy, facultyId, "Faculty", f?.name, key);
+      reserveBusySlot(sectionBusy, sectionId, "Section", section?.name, key);
+      reserveBusySlot(roomBusy, roomId, "Room", room?.name, key);
     }
 
     const facultyDayKey = `${facultyId}|${entry.day}`;
