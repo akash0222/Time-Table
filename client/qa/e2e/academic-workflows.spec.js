@@ -405,9 +405,42 @@ async function navigateToPage(page, pageName) {
   const moduleName = moduleForPage[pageName];
   if (!moduleName) throw new Error("No navigation module configured for " + pageName);
   await page.locator(`.nav-module-button[data-nav-module="${moduleName}"]`).click();
-  if (pageName !== "Dashboard") {
-    await page.locator(".nav-flyout-panel").getByRole("button", { name: pageName, exact: true }).click();
+  if (pageName === "Dashboard") return;
+  const directLink = page.locator(`.nav-flyout-panel [data-nav="${pageName}"]`);
+  if (await directLink.count()) {
+    await directLink.click();
+    return;
   }
+  const subgroupForPage = {
+    "Academic Structure": "Program & Section Structure",
+    "Program & Section Mapping": "Program & Section Structure",
+    "Master Data Settings": "Master Data & Mapping",
+    "Subject & Faculty Mapping": "Master Data & Mapping",
+    "Generation Readiness": "Generation & Optimization",
+    "Availability": "Generation & Optimization",
+    "Optimization": "Generation & Optimization",
+    "Full Session Timetable": "Timetable Views",
+    "All Program Timetables": "Timetable Views",
+    "Timetable": "Timetable Views",
+    "Calendar View": "Timetable Views",
+    "Students": "Student Management",
+    "Student Mapping": "Student Management",
+    "Student Profile": "Student Management",
+    "Student Promotion": "Student Management",
+    "Attendance": "Attendance & Fees",
+    "Fees": "Attendance & Fees",
+    "Excel Import": "Import & Data Transfer",
+    "Import Center": "Import & Data Transfer",
+    "Templates & Clone": "Templates & Sharing",
+    "Public Sharing": "Templates & Sharing",
+    "Validation": "Validation & Audit History",
+    "Audit Logs": "Validation & Audit History",
+    "Change History": "Validation & Audit History"
+  };
+  const subgroup = subgroupForPage[pageName];
+  if (!subgroup) throw new Error("No nested navigation entry configured for " + pageName);
+  await page.locator(`.nav-flyout-panel [data-nav-submenu="${subgroup}"]`).click();
+  await page.locator(`.nav-subflyout-panel [data-nav="${pageName}"]`).click();
 }
 
 test("invalid login shows a useful error and does not authenticate", async ({ page }) => {
