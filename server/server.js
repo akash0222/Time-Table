@@ -21,6 +21,7 @@ import { generateTimetable, generateBestTimetable } from "./services/generator.j
 import { calculateFacultyWorkloadCapacity } from "./services/facultyWorkload.js";
 import { compareTimetableVersions } from "./services/timetableVersionDiff.js";
 import ExcelJS from "exceljs";
+import { assertSafeXlsxBuffer } from "./services/xlsxSafety.js";
 import { parseHolidayImportDate, parseHolidayCsv, holidayImportCell } from "./services/holidayImport.js";
 import multer from "multer";
 import bcrypt from "bcryptjs";
@@ -311,6 +312,7 @@ app.post("/api/sessions/:id/holidays/preview-import", requireAuth, allowRoles("A
       matrix = parseHolidayCsv(req.file.buffer.toString("utf8"));
     } else if (extension === "xlsx") {
       const workbook = new ExcelJS.Workbook();
+      assertSafeXlsxBuffer(req.file.buffer);
       await workbook.xlsx.load(req.file.buffer);
       const worksheet = workbook.worksheets[0];
       if (!worksheet) return res.status(400).json({ message: "The Excel file does not contain a worksheet." });
@@ -1115,6 +1117,7 @@ app.post("/api/import/excel", requireAuth, allowRoles("ADMIN", "SCHEDULER"), upl
     if (!req.file) return res.status(400).json({ message: "Please select an Excel file." });
 
     const wb = new ExcelJS.Workbook();
+    assertSafeXlsxBuffer(req.file.buffer);
     await wb.xlsx.load(req.file.buffer);
 
     const required = ["Programs","Faculty","Sections","Rooms","TimeSlots","Subjects"];
