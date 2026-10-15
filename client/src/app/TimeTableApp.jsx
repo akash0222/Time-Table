@@ -79,17 +79,50 @@ export default function App(){
   },[]);
 
   useEffect(()=>{
-    const visiblePages=navGroupsForRole(auth?.role).flatMap(group=>group.items.map(item=>item.name));
-    if(auth && tab!=="Dashboard" && !visiblePages.includes(tab)){
+    const currentPath=window.location.pathname;
+
+    // Protected page URLs should never display the sign-in form while keeping
+    // a misleading /dashboard or other module path in the address bar.
+    if(!auth){
+      if(currentPath!=="/login"){
+        try {
+          sessionStorage.setItem("tt_return_to",getPathForPage(getPageForPath(currentPath)));
+        } catch {}
+        window.history.replaceState({page:"Login"},"","/login");
+      }
+      document.title="Sign in | Time Table";
+      return;
+    }
+
+    const visiblePages=navGroupsForRole(auth.role).flatMap(group=>group.items.map(item=>item.name));
+    if(tab!=="Dashboard" && !visiblePages.includes(tab)){
       setMessage("This page is not available for your account role.");
       window.history.replaceState({page:"Dashboard"},"",getPathForPage("Dashboard"));
       setTabState("Dashboard");
       return;
     }
+
     const targetPath=getPathForPage(tab);
-    const currentPath=window.location.pathname;
     const pageFromUrl=getPageForPath(currentPath);
     const canonicalPath=getPathForPage(pageFromUrl);
+
+    // After successful sign-in, /login returns to the protected page originally
+    // requested. The login page itself is not in the protected route list.
+    if(currentPath==="/login"){
+      let returnPath="/dashboard";
+      try {
+        returnPath=sessionStorage.getItem("tt_return_to")||"/dashboard";
+        sessionStorage.removeItem("tt_return_to");
+      } catch {}
+      const returnPage=getPageForPath(returnPath);
+      const allowedPages=navGroupsForRole(auth.role).flatMap(group=>group.items.map(item=>item.name));
+      const destination=returnPage==="Dashboard"||allowedPages.includes(returnPage)?getPathForPage(returnPage):"/dashboard";
+      const destinationPage=getPageForPath(destination);
+      window.history.replaceState({page:destinationPage},"",destination);
+      if(destinationPage!==tab)setTabState(destinationPage);
+      document.title=destinationPage==="Dashboard"?"Time Table":`${destinationPage} | Time Table`;
+      return;
+    }
 
     // Normalize old aliases/unknown URLs without leaving a broken history step.
     if(currentPath!==canonicalPath && pageFromUrl===tab){
@@ -98,7 +131,7 @@ export default function App(){
       window.history.pushState({page:tab},"",targetPath);
     }
     document.title=tab==="Dashboard" ? "Time Table" : `${tab} | Time Table`;
-  },[tab,auth?.role]);
+  },[tab,auth?.role,Boolean(auth)]);
   const [mobileNavOpen,setMobileNavOpen]=useState(false);
   const [sidebarCollapsed,setSidebarCollapsed]=useState(()=>{
     try{return localStorage.getItem("tt_sidebar_collapsed")==="true";}catch{return false;}
@@ -398,6 +431,22 @@ export default function App(){
     });
   }
 
+  function logout(){
+    const currentPath=window.location.pathname;
+    try {
+      sessionStorage.setItem("tt_return_to",getPathForPage(getPageForPath(currentPath)));
+    } catch {}
+    localStorage.removeItem("tt_token");
+    localStorage.removeItem("tt_user");
+    setProfileOpen(false);
+    setMobileNavOpen(false);
+    setActiveNavGroup(null);
+    setAuth(null);
+    setTabState("Dashboard");
+    window.history.replaceState({page:"Login"},"","/login");
+    document.title="Sign in | Time Table";
+  }
+
   async function changePassword(event){
     event.preventDefault();
     if(passwordForm.newPassword.length<10){
@@ -485,7 +534,19 @@ export default function App(){
     items:group.items.filter(item=>!normalizedNavQuery||item.name.toLowerCase().includes(normalizedNavQuery))
   })).filter(group=>group.items.length):[];
 
-  if(!auth) return <Suspense fallback={<PageLoading label="sign in" />}><Login onLogin={u=>setAuth(u)} /></Suspense>;
+  if(!auth) return <Suspense fallback={<PageLoading label="sign in" />}><Login onLogin={u=>{
+    setAuth(u);
+    let returnPath="/dashboard";
+    try {
+      returnPath=sessionStorage.getItem("tt_return_to")||"/dashboard";
+      sessionStorage.removeItem("tt_return_to");
+    } catch {}
+    const desiredPage=getPageForPath(returnPath);
+    const allowedPages=navGroupsForRole(u.role).flatMap(group=>group.items.map(item=>item.name));
+    const destination=desiredPage==="Dashboard"||allowedPages.includes(desiredPage)?desiredPage:"Dashboard";
+    setTabState(destination);
+    window.history.replaceState({page:destination},"",getPathForPage(destination));
+  }} /></Suspense>;
 
   async function generate(programIds=selectedProgramIds){
     setShowGenerationDialog(false);
@@ -776,7 +837,7 @@ export default function App(){
               <button type="button" className="header-profile-menu-item" role="menuitem" onClick={()=>{setProfileOpen(false);setPasswordForm({currentPassword:"",newPassword:"",confirmPassword:""});setShowPasswordModal(true);}}>
                 <KeyRound size={16}/><span>Change Password</span>
               </button>
-              <button type="button" className="header-profile-menu-item logout" role="menuitem" onClick={()=>{setProfileOpen(false);localStorage.removeItem("tt_token");localStorage.removeItem("tt_user");window.location.reload();}}>
+              <button type="button" className="header-profile-menu-item logout" role="menuitem" onClick={logout}>
                 <LogOut size={16}/><span>Logout</span>
               </button>
             </div>}
