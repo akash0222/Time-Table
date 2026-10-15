@@ -35,10 +35,14 @@ export default function TimetableView({timetable, data, onMoved, timetableStatus
     if(viewMode==="Section"&&selectedItem){
       candidates=sectionSlotsById.get(idOfLocal(selectedItem))||resolveEffectiveTimeSlots(data?.timeslots||[],selectedItem,programs,activeSession?._id||"");
     }else{
-      for(const entry of rows){
-        const sectionId=idOfLocal(entry.section);
-        const section=sections.find(item=>idOfLocal(item)===sectionId)||(typeof entry.section==="object"?entry.section:null);
-        if(!section)continue;
+      const sectionRows=rows.length
+        ? rows.map(entry=>sections.find(item=>idOfLocal(item)===idOfLocal(entry.section))||(typeof entry.section==="object"?entry.section:null)).filter(Boolean)
+        : sections;
+      const seenSections=new Set();
+      for(const section of sectionRows){
+        const sectionId=idOfLocal(section);
+        if(seenSections.has(sectionId))continue;
+        seenSections.add(sectionId);
         candidates.push(...(sectionSlotsById.get(sectionId)||resolveEffectiveTimeSlots(data?.timeslots||[],section,programs,activeSession?._id||"")));
       }
     }
