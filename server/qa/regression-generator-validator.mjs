@@ -276,4 +276,64 @@ assert.equal(
 );
 console.log("PASS  Generator reserves overlapping clock intervals across programs");
 
+
+const termFaculty = { ...faculty[0], maxClassesPerDay: 1, maxWorkingDays: 1 };
+const termSectionA = {
+  ...sectionA,
+  maxClassesPerDay: 1,
+  _calendarStartDate: "2026-01-01",
+  _calendarEndDate: "2026-03-31"
+};
+const termSectionB = {
+  ...sectionB,
+  maxClassesPerDay: 1,
+  _calendarStartDate: "2026-04-01",
+  _calendarEndDate: "2026-06-30"
+};
+const sameClockDifferentTerms = [
+  {
+    ...overlappingProgramEntries[0],
+    startTime: "09:00",
+    endTime: "10:00",
+    order: 1,
+    room: "qa-room-1",
+    calendarStartDate: "2026-01-01",
+    calendarEndDate: "2026-03-31"
+  },
+  {
+    ...overlappingProgramEntries[1],
+    startTime: "09:00",
+    endTime: "10:00",
+    order: 1,
+    room: "qa-room-1",
+    calendarStartDate: "2026-04-01",
+    calendarEndDate: "2026-06-30"
+  }
+];
+const sameClockTermSlots = [
+  { ...slots[0], _id:"qa-slot-term-a", program:"qa-program-a", order:1, startTime:"09:00", endTime:"10:00" },
+  { ...slots[0], _id:"qa-slot-term-b", program:"qa-program-b", order:1, startTime:"09:00", endTime:"10:00" }
+];
+const separateTermValidation = validateTimetable({
+  entries: sameClockDifferentTerms,
+  faculty: [termFaculty],
+  sections: [termSectionA,termSectionB],
+  subjects: [subjectA,subjectB],
+  rooms,
+  slots: sameClockTermSlots,
+  programs: [programA,programB],
+  settings: { maxConsecutiveFaculty:2, maxConsecutiveSection:3 }
+});
+assert.equal(
+  separateTermValidation.valid,
+  true,
+  "The same faculty, room and weekly clock slot may be reused across non-overlapping semester date windows."
+);
+assert.equal(
+  separateTermValidation.stats.hardErrors,
+  0,
+  JSON.stringify(separateTermValidation.errors)
+);
+console.log("PASS  Non-overlapping semester calendars may reuse faculty, room, and day capacity");
+
 console.log("\nResult: regression checks passed, 0 failed.");
