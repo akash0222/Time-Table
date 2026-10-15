@@ -535,6 +535,24 @@ test("module flyouts support nested groups and show only role-visible pages", as
   }
 });
 
+
+test("navigation panels close when the pointer leaves and have no submodule search", async ({ page }) => {
+  await installRoleApiMocks(page, "ADMIN");
+
+  await page.locator('.nav-module-button[data-nav-module="Students & Operations"]').click();
+  const panel=page.locator(".nav-flyout-panel");
+  await expect(panel).toBeVisible();
+  await expect(panel.getByPlaceholder("Search submodules...")).toHaveCount(0);
+
+  await panel.locator('[data-nav-submenu="Student Management"]').click();
+  await expect(page.locator(".nav-subflyout-panel")).toBeVisible();
+
+  // Moving outside the complete navigation area should close both levels.
+  await page.mouse.move(1200, 680);
+  await expect(panel).toHaveCount(0);
+  await expect(page.locator(".nav-subflyout-panel")).toHaveCount(0);
+});
+
 test("mobile navigation drawer opens and its flyout navigates without collapsing the desktop sidebar", async ({ page }) => {
   await installRoleApiMocks(page, "ADMIN");
   await page.setViewportSize({ width: 390, height: 844 });
