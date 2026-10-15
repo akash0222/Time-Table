@@ -108,6 +108,7 @@ function makeTimetable() {
 
 async function installApiMocks(page, options = {}) {
   let sessions = [...(options.sessions || [])];
+  const semesters = [...(options.semesters || [])];
   let activeSession = sessions.find(session => session.active) || null;
   let timetable = options.timetable || { _id: "timetable-empty", status: "DRAFT", entries: [], warnings: [], approvalHistory: [] };
   let timetableStatus = timetable.status || "DRAFT";
@@ -152,6 +153,7 @@ async function installApiMocks(page, options = {}) {
     if (path === "/students" && method === "GET") return json(students);
     if (path === "/sessions" && method === "GET") return json(sessions);
     if (path === "/sessions/active" && method === "GET") return json(options.emptyActiveSessionEndpoint ? null : activeSession);
+    if (path === "/semesters" && method === "GET") return json(semesters);
     if (path === "/sessions" && method === "POST") {
       const created = {
         _id: "session-created",
@@ -209,7 +211,20 @@ async function installApiMocks(page, options = {}) {
     }
 
     if (path === "/academic-structure" && method === "GET") {
-      return json({ programs, sections, semesters: [] });
+      return json({ programs, sections, semesters });
+    }
+    if (path === "/academic-structure/sections" && method === "POST") {
+      const program = programs.find(row => String(row._id) === String(body.programId));
+      const created = {
+        _id: `section-created-${sections.length+1}`,
+        ...body,
+        program: program?.name || body.program || "",
+        programId: program || body.programId,
+        academicSession: body.academicSession,
+        studentCount: 0
+      };
+      sections.push(created);
+      return json(created, 201);
     }
     if (path === "/settings" && method === "GET") {
       return json({
@@ -461,6 +476,40 @@ test("admin can open and refresh a direct module URL", async ({ page }) => {
   await page.reload();
   await expect(page.getByRole("heading", { name: "Create Academic Session", exact: true })).toBeVisible();
   await expect(page).toHaveURL(/\/academic-sessions$/);
+});
+
+test("Academic Structure only offers session-scoped semester master records", async ({ page }) => {
+  const activeSession = makeActiveSession();
+  const semesters = [{
+    _id: "semester-master-1",
+    academicSession: activeSession._id,
+    program: sampleProgram._id,
+    name: "Semester I",
+    order: 1,
+    active: true
+  }];
+  await signIn(page, { sessions: [activeSession], programs: [sampleProgram], sections: [], semesters });
+  await navigateToPage(page, "Academic Structure");
+
+  const form = page.locator(".panel").first();
+  const sessionSelect = form.getByLabel("Academic Session", { exact: true });
+  const programSelect = form.getByLabel("Program", { exact: true });
+  const semesterSelect = form.getByLabel("Semester", { exact: true });
+
+  await expect(sessionSelect).toHaveValue(activeSession._id);
+  await expect(semesterSelect).toBeDisabled();
+  await programSelect.selectOption(sampleProgram._id);
+  await expect(semesterSelect).toBeEnabled();
+  await expect(semesterSelect.locator('option[value="Semester I"]')).toHaveText("Semester I");
+  await expect(semesterSelect.locator('option[value="Other Semester"]')).toHaveCount(0);
+
+  await semesterSelect.selectOption("Semester I");
+  await form.getByLabel("Section Name", { exact: true }).fill("A");
+  await form.getByRole("button", { name: "Add Section", exact: true }).click();
+
+  await expect(page.getByText("Section mapped successfully.", { exact: true })).toBeVisible();
+  await expect(page.getByText("Program → Semester → Section", { exact: true })).toBeVisible();
+  await expect(page.getByText("Semester I", { exact: false }).first()).toBeVisible();
 });
 
 test("clears stale academic structure when backend records disappear while the tab is open", async ({ page }) => {
