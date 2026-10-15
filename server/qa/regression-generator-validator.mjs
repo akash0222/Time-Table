@@ -75,6 +75,55 @@ assert.equal(result.validation?.stats?.hardErrors, 0, "A valid one-class fixture
 
 console.log("PASS  Generator imports timetable validator successfully");
 console.log("PASS  One-class fixture is generated");
+const capacitySection = { ...sections[0], capacity:45 };
+const labSubject = { ...subjects[0], name:"QA Lab Subject", roomType:"Lab" };
+const undersizedLab = { ...rooms[0], name:"QA Small Lab", type:"Lab", capacity:35 };
+const capacitySettings = {
+  maxConsecutiveFaculty:2,
+  maxConsecutiveSection:3,
+  avoidSameSubjectSameDay:true,
+  distributeSubjectAcrossDays:true,
+  avoidFirstLastPeriod:false,
+  holidayDays:["Sunday"]
+};
+const capacityBlocked = generateBestTimetable({
+  faculty,
+  subjects:[labSubject],
+  sections:[capacitySection],
+  rooms:[undersizedLab],
+  slots,
+  programs:[],
+  settings:capacitySettings,
+  runs:1,
+  totalMaxMillis:1000,
+  perRunMillis:750,
+  attemptsPerRun:10
+});
+assert.equal(capacityBlocked.entries.length,0,"The generator must not assign a section to a room with insufficient capacity.");
+assert.ok(
+  capacityBlocked.warnings.some(message=>/requires a Lab with capacity of at least 45/i.test(message)),
+  "The generator should explain why the undersized lab is not usable."
+);
+const suitableLab = { ...undersizedLab, name:"QA Suitable Lab", capacity:45 };
+const capacityResolved = generateBestTimetable({
+  faculty,
+  subjects:[labSubject],
+  sections:[capacitySection],
+  rooms:[suitableLab],
+  slots,
+  programs:[],
+  settings:capacitySettings,
+  runs:1,
+  totalMaxMillis:1000,
+  perRunMillis:750,
+  attemptsPerRun:10
+});
+assert.equal(capacityResolved.entries.length,1,"A lab with sufficient capacity should allow a valid class.");
+assert.equal(capacityResolved.validation?.valid,true,"The capacity-compatible class must pass hard validation.");
+console.log("PASS  Undersized rooms are excluded with actionable diagnostics");
+console.log("PASS  Capacity-compatible lab can be scheduled and validated");
+
+
 // Program-scoped generation must treat an existing class as a fixed reservation.
 const reservedFacultyClass = {
   day: "Monday",
