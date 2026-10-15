@@ -5,6 +5,7 @@ import Timetable from "../models/Timetable.js";
 import AcademicSession from "../models/AcademicSession.js";
 import { canAccessStudentSectionList } from "../services/attendanceAccess.js";
 import ExcelJS from "exceljs";
+import { assertSafeXlsxBuffer } from "../services/xlsxSafety.js";
 import multer from "multer";
 
 const router = express.Router();
@@ -124,6 +125,7 @@ router.post("/bulk", allowRoles("ADMIN", "SCHEDULER"), upload.single("file"), as
     if (!/\.xlsx$/i.test(req.file.originalname || "")) return res.status(400).json({ message: "Only .xlsx files are supported for bulk student import." });
 
     const workbook = new ExcelJS.Workbook();
+    assertSafeXlsxBuffer(req.file.buffer);
     await workbook.xlsx.load(req.file.buffer);
     const sheet = workbook.worksheets[0];
     if (!sheet) return res.status(400).json({ message: "The workbook does not contain a worksheet." });
