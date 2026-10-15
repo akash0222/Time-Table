@@ -209,7 +209,10 @@ export default function App(){
   });
   const sidebarResizeRef=useRef(null);
   const [navQuery,setNavQuery]=useState("");
+  const [searchResultsOpen,setSearchResultsOpen]=useState(false);
+  const [searchResultIndex,setSearchResultIndex]=useState(0);
   const navSearchRef=useRef(null);
+  const navSearchWrapRef=useRef(null);
   const [activeNavGroup,setActiveNavGroup]=useState(null);
   const [activeNavSubgroup,setActiveNavSubgroup]=useState(null);
   const [flyoutTop,setFlyoutTop]=useState(190);
@@ -394,10 +397,13 @@ export default function App(){
     const onKeyboardShortcut=event=>{
       if((event.ctrlKey||event.metaKey)&&event.key.toLowerCase()==="k"){
         event.preventDefault();
+        setSearchResultsOpen(true);
         if(window.matchMedia("(max-width: 1000px)").matches)setMobileNavOpen(true);
         requestAnimationFrame(()=>navSearchRef.current?.focus());
       }else if(event.key==="Escape"&&document.activeElement===navSearchRef.current){
-        if(navQuery.trim())setNavQuery("");
+        setNavQuery("");
+        setSearchResultIndex(0);
+        setSearchResultsOpen(false);
         navSearchRef.current?.blur();
       }
     };
@@ -411,6 +417,14 @@ export default function App(){
     window.addEventListener("keydown",closeOnEscape);
     return ()=>window.removeEventListener("keydown",closeOnEscape);
   },[mobileNavOpen]);
+
+  useEffect(()=>{
+    const closeSearchOutside=event=>{
+      if(!navSearchWrapRef.current?.contains(event.target))setSearchResultsOpen(false);
+    };
+    document.addEventListener("pointerdown",closeSearchOutside);
+    return ()=>document.removeEventListener("pointerdown",closeSearchOutside);
+  },[]);
 
   useEffect(()=>{
     if(!profileOpen)return;
@@ -476,6 +490,8 @@ export default function App(){
   function navigateToNavPage(page,groupLabel){
     setTab(page);
     setNavQuery("");
+    setSearchResultsOpen(false);
+    setSearchResultIndex(0);
     setActiveNavGroup(null);
     setActiveNavSubgroup(null);
     setMobileNavOpen(false);
@@ -657,10 +673,11 @@ export default function App(){
   }
 
   const normalizedNavQuery=navQuery.trim().toLowerCase();
-  const visibleNavGroups=auth?navGroupsForRole(auth.role).map(group=>({
-    ...group,
-    items:group.items.filter(item=>!normalizedNavQuery||item.name.toLowerCase().includes(normalizedNavQuery))
-  })).filter(group=>group.items.length):[];
+  const visibleNavGroups=auth?navGroupsForRole(auth.role):[];
+  const pageSearchResults=normalizedNavQuery?visibleNavGroups.flatMap(group=>group.items
+    .filter(item=>item.name.toLowerCase().includes(normalizedNavQuery))
+    .map(item=>({...item,groupLabel:group.label}))
+  ).slice(0,8):[];
 
   if(!auth) return <Suspense fallback={<PageLoading label="sign in" />}><Login onLogin={u=>{
     // Reset route + tab together and ignore one pending route-sync pass.
@@ -813,7 +830,6 @@ export default function App(){
             </button>
           </div>;
         })}
-        {normalizedNavQuery&&!visibleNavGroups.length&&<div className="nav-search-empty" role="status">No pages match “{navQuery.trim()}”.</div>}
       </nav>
       <div className="side-bottom">
         {(["ADMIN","SCHEDULER"].includes(auth.role)) && <button className="primary full" onClick={()=>{setSelectedProgramIds((data.programs||[]).filter(p=>p.active!==false).map(p=>String(p._id)));setShowGenerationDialog(true);}} disabled={loading}><WandSparkles size={17}/><span>Generate Timetable</span></button>}
@@ -839,7 +855,7 @@ export default function App(){
       // Keep role permissions authoritative while presenting submodules as nested flyouts.
       const group=navGroupsForRole(auth.role).find(item=>item.label===activeNavGroup);
       if(!group)return null;
-      const entries=buildFlyoutEntries(group,normalizedNavQuery);
+      const entries=buildFlyoutEntries(group);
       const activeSubgroup=entries.find(entry=>entry.type==="group"&&entry.label===activeNavSubgroup);
       const renderPageLink=(item,parentLabel=null) => <button type="button" key={item.name} data-nav={item.name} data-nav-group={group.label} data-nav-parent={parentLabel||undefined} aria-current={tab===item.name?"page":undefined} className={tab===item.name?"nav-flyout-item active":"nav-flyout-item"} onMouseEnter={()=>{if(!parentLabel)setActiveNavSubgroup(null);}} onFocus={()=>{if(!parentLabel)setActiveNavSubgroup(null);}} onClick={()=>navigateToNavPage(item.name,group.label)}>
         <span className="nav-flyout-marker" aria-hidden="true"/><span>{item.name}</span>{tab===item.name&&<Check size={15}/>}
@@ -924,19 +940,63 @@ export default function App(){
           </div>
         </div>
         <div className="topbar-actions">
-          <div className="nav-search topbar-search" role="search">
-            <Search size={17} aria-hidden="true"/>
-            <input
-              ref={navSearchRef}
-              className="nav-search-input"
-              type="search"
-              value={navQuery}
-              onChange={event=>setNavQuery(event.target.value)}
-              placeholder="Search pages..."
-              aria-label="Search pages"
-              aria-describedby="nav-search-shortcut"
-            />
-            <kbd id="nav-search-shortcut" className="nav-search-shortcut">Ctrl K</kbd>
+          <div className="topbar-search-wrap" ref={navSearchWrapRef}>
+            <div className="nav-search topbar-search" role="search">
+              <Search size={17} aria-hidden="true"/>
+              <input
+                ref={navSearchRef}
+                className="nav-search-input"
+                type="search"
+                role="combobox"
+                aria-autocomplete="list"
+                aria-expanded={Boolean(searchResultsOpen&&normalizedNavQuery)}
+                aria-controls="page-search-results"
+                value={navQuery}
+                onFocus={()=>setSearchResultsOpen(true)}
+                onChange={event=>{setNavQuery(event.target.value);setSearchResultIndex(0);setSearchResultsOpen(true);}}
+                onKeyDown={event=>{
+                  if(event.key==="ArrowDown"&&pageSearchResults.length){
+                    event.preventDefault();
+                    setSearchResultsOpen(true);
+                    setSearchResultIndex(index=>Math.min(index+1,pageSearchResults.length-1));
+                  }else if(event.key==="ArrowUp"&&pageSearchResults.length){
+                    event.preventDefault();
+                    setSearchResultsOpen(true);
+                    setSearchResultIndex(index=>Math.max(index-1,0));
+                  }else if(event.key==="Enter"&&normalizedNavQuery){
+                    if(pageSearchResults.length){
+                      event.preventDefault();
+                      const result=pageSearchResults[Math.min(searchResultIndex,pageSearchResults.length-1)];
+                      navigateToNavPage(result.name,result.groupLabel);
+                    }
+                  }
+                }}
+                placeholder="Search pages..."
+                aria-label="Search pages"
+                aria-describedby="nav-search-shortcut"
+                autoComplete="off"
+              />
+              <kbd id="nav-search-shortcut" className="nav-search-shortcut">Ctrl K</kbd>
+            </div>
+            {searchResultsOpen&&normalizedNavQuery&&<div id="page-search-results" className="page-search-results" role="listbox" aria-label="Matching pages">
+              {pageSearchResults.length
+                ? pageSearchResults.map((result,index)=><button
+                    type="button"
+                    key={result.name}
+                    role="option"
+                    aria-selected={index===searchResultIndex}
+                    data-search-result={result.name}
+                    className={index===searchResultIndex?"page-search-result active":"page-search-result"}
+                    onMouseEnter={()=>setSearchResultIndex(index)}
+                    onMouseDown={event=>event.preventDefault()}
+                    onClick={()=>navigateToNavPage(result.name,result.groupLabel)}
+                  >
+                    <span className="page-search-result-icon"><Search size={14}/></span>
+                    <span className="page-search-result-copy"><strong>{result.name}</strong><small>{result.groupLabel}</small></span>
+                    <ChevronRight size={15} className="page-search-result-arrow"/>
+                  </button>)
+                : <div className="page-search-empty" role="status">No pages match “{navQuery.trim()}”.</div>}
+            </div>}
           </div>
           <div className="header-profile-wrap" ref={profileMenuRef}>
             <button
