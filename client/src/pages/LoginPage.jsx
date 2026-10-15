@@ -18,9 +18,7 @@ const AUTH_NOTICE_STORAGE_KEY = "tt_auth_notice";
 
 function readAuthNotice() {
   try {
-    const notice = String(window.sessionStorage.getItem(AUTH_NOTICE_STORAGE_KEY) || "").trim();
-    window.sessionStorage.removeItem(AUTH_NOTICE_STORAGE_KEY);
-    return notice;
+    return String(window.sessionStorage.getItem(AUTH_NOTICE_STORAGE_KEY) || "").trim();
   } catch {
     return "";
   }
@@ -57,6 +55,13 @@ export default function Login({ onLogin }) {
   const [capsLockOn, setCapsLockOn] = useState(false);
   const [serviceStatus, setServiceStatus] = useState("checking");
   const signInLocked = lockoutSeconds > 0;
+
+  // Consume the one-time notice after the initial state has been committed.
+  // Reading/removing it inside a state initializer is unsafe under React
+  // StrictMode, which may invoke initializers twice during development.
+  useEffect(() => {
+    try { window.sessionStorage.removeItem(AUTH_NOTICE_STORAGE_KEY); } catch {}
+  }, []);
 
   useEffect(() => {
     if (!API) {
