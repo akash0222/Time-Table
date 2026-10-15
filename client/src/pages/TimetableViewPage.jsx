@@ -30,6 +30,29 @@ export default function TimetableView({timetable, data, onMoved, timetableStatus
     return map;
   },[sections,data?.timeslots,programs,activeSession?._id]);
 
+
+
+  useEffect(()=>{
+    const list=viewMode==="Section"?sections:viewMode==="Faculty"?faculty:rooms;
+    if(!list.length){setSelected("");return;}
+    if(!list.some(x=>idOfLocal(x)===selected)) setSelected(idOfLocal(list[0]));
+  },[viewMode,sections,faculty,rooms,selected]);
+
+  const selectedItem=useMemo(()=>{
+    const list=viewMode==="Section"?sections:viewMode==="Faculty"?faculty:rooms;
+    return list.find(x=>idOfLocal(x)===selected)||list[0];
+  },[viewMode,sections,faculty,rooms,selected]);
+
+  const rows=useMemo(()=>{
+    if(!selectedItem) return [];
+    const sid=idOfLocal(selectedItem);
+    return entries.filter(e=>{
+      if(viewMode==="Section") return idOfLocal(e.section)===sid;
+      if(viewMode==="Faculty") return idOfLocal(e.faculty)===sid;
+      return idOfLocal(e.room)===sid;
+    });
+  },[entries,viewMode,selectedItem]);
+
   const periodSlots=useMemo(()=>{
     let candidates=[];
     if(viewMode==="Section"&&selectedItem){
@@ -56,27 +79,6 @@ export default function TimetableView({timetable, data, onMoved, timetableStatus
       return minutes(a.startTime)-minutes(b.startTime)||minutes(a.endTime)-minutes(b.endTime)||Number(a.order||0)-Number(b.order||0);
     });
   },[data?.timeslots,programs,activeSession?._id,sections,rows,viewMode,selectedItem,sectionSlotsById]);
-
-  useEffect(()=>{
-    const list=viewMode==="Section"?sections:viewMode==="Faculty"?faculty:rooms;
-    if(!list.length){setSelected("");return;}
-    if(!list.some(x=>idOfLocal(x)===selected)) setSelected(idOfLocal(list[0]));
-  },[viewMode,sections,faculty,rooms,selected]);
-
-  const selectedItem=useMemo(()=>{
-    const list=viewMode==="Section"?sections:viewMode==="Faculty"?faculty:rooms;
-    return list.find(x=>idOfLocal(x)===selected)||list[0];
-  },[viewMode,sections,faculty,rooms,selected]);
-
-  const rows=useMemo(()=>{
-    if(!selectedItem) return [];
-    const sid=idOfLocal(selectedItem);
-    return entries.filter(e=>{
-      if(viewMode==="Section") return idOfLocal(e.section)===sid;
-      if(viewMode==="Faculty") return idOfLocal(e.faculty)===sid;
-      return idOfLocal(e.room)===sid;
-    });
-  },[entries,viewMode,selectedItem]);
 
   const viewLabel=viewMode==="Section"?"Section-wise":viewMode==="Faculty"?"Faculty-wise":"Room-wise";
   const selectedLabel=viewMode==="Section"
