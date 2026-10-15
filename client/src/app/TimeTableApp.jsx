@@ -16,6 +16,7 @@ function buildNavigationTree(group) {
 const SIDEBAR_MIN_WIDTH = 210;
 const SIDEBAR_MAX_WIDTH = 420;
 const SIDEBAR_DEFAULT_WIDTH = 258;
+const STUDENT_LIST_PAGES = new Set(["Students", "Student Mapping", "Student Profile"]);
 
 function clampSidebarWidth(value) {
   const width = Number(value);
@@ -157,7 +158,7 @@ export default function App(){
   const loadRef=useRef(null);
   const isLoadingDataRef=useRef(false);
 
-  async function load(){
+  async function load({verifyAccount=true}={}){
     if(!API){
       setMessage(API_CONFIGURATION_ERROR);
       return;
@@ -167,7 +168,9 @@ export default function App(){
     isLoadingDataRef.current=true;
     try{
       const loadErrors=[];
-      const keys=Object.keys(data);
+      // Student lists can be large; only fetch them when a student-list page is active.
+      // Background dashboard/focus refreshes should not download every student record.
+      const keys=Object.keys(data).filter(key=>key!=="students"||STUDENT_LIST_PAGES.has(tab));
 
     // Fetch account hydration, all master-data resources, and session data in
     // parallel. Previously /auth/me and session resolution were serial gates,
@@ -176,7 +179,7 @@ export default function App(){
       .then(response=>({ok:true,value:response.data}))
       .catch(error=>({ok:false,error}));
     const [meResult,results,sessionsResult,activeSessionResult]=await Promise.all([
-      request(axios.get(`${API}/auth/me`)),
+      verifyAccount ? request(axios.get(`${API}/auth/me`)) : Promise.resolve({ok:true,value:null,skipped:true}),
       Promise.all(keys.map(async k=>{
         const result=await request(axios.get(`${API}/${k}`));
         if(!result.ok)loadErrors.push(`${k}: ${result.error.response?.data?.message||result.error.message||"request failed"}`);
@@ -186,13 +189,15 @@ export default function App(){
       request(axios.get(`${API}/sessions/active`))
     ]);
 
-    if(meResult.ok){
-      const fresh=meResult.value?.user;
-      if(fresh){setAuth(fresh);localStorage.setItem("tt_user",JSON.stringify(fresh));}
-    }else if(meResult.error.response?.status!==401){
-      loadErrors.push(`Account check: ${meResult.error.response?.data?.message||meResult.error.message||"request failed"}`);
+    if(verifyAccount){
+      if(meResult.ok){
+        const fresh=meResult.value?.user;
+        if(fresh){setAuth(fresh);localStorage.setItem("tt_user",JSON.stringify(fresh));}
+      }else if(meResult.error.response?.status!==401){
+        loadErrors.push(`Account check: ${meResult.error.response?.data?.message||meResult.error.message||"request failed"}`);
+      }
     }
-    const next={};
+    const next={...data};
     keys.forEach((k,i)=>{
       const value=results[i]?.value;
       // Don't wipe previously loaded data just because one endpoint failed.
@@ -254,7 +259,7 @@ export default function App(){
       const now=Date.now();
       if(now-lastRefreshAt<3000) return;
       lastRefreshAt=now;
-      loadRef.current?.().catch(e=>setMessage(e.response?.data?.message||"Unable to refresh application data."));
+      loadRef.current?.({verifyAccount:false}).catch(e=>setMessage(e.response?.data?.message||"Unable to refresh application data."));
     };
     const onVisibilityChange=()=>{ if(document.visibilityState==="visible") refreshIfVisible(); };
     window.addEventListener("focus",refreshIfVisible);
@@ -265,6 +270,24 @@ export default function App(){
     };
   },[auth?.username]);
   useEffect(()=>{if(auth) load().catch(e=>setMessage(e.response?.data?.message||"Unable to load application data. Please retry."));},[auth?.username]);
+
+  // Load the potentially large student list only when a screen needs it.
+  // The request is cancelled on navigation so an old response cannot overwrite newer UI state.
+  useEffect(()=>{
+    if(!auth || !STUDENT_LIST_PAGES.has(tab)) return undefined;
+    if(!API){setMessage(API_CONFIGURATION_ERROR);return undefined;}
+    let active=true;
+    axios.get(`${API}/students`)
+      .then(response=>{
+        if(!active)return;
+        const rows=Array.isArray(response.data)?response.data:(Array.isArray(response.data?.data)?response.data.data:[]);
+        setData(current=>({...current,students:rows}));
+      })
+      .catch(error=>{
+        if(active)setMessage(error.response?.data?.message||"Unable to load student records. Please retry.");
+      });
+    return ()=>{active=false;};
+  },[auth?.username,tab]);
   useEffect(()=>{
     if(!auth || !activeSession?._id) return;
     (async()=>{
