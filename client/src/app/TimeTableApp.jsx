@@ -903,7 +903,7 @@ export default function App(){
         </div>
       </section>
     </div>}
-    {mobileNavOpen&&<button type="button" className="sidebar-backdrop" aria-label="Close navigation" onClick={()=>{setMobileNavOpen(false);setActiveNavGroup(null);setFlyoutSearch("");}}/>}
+    {mobileNavOpen&&<button type="button" className="sidebar-backdrop" aria-label="Close navigation" onClick={()=>{setMobileNavOpen(false);setActiveNavGroup(null);setActiveNavSubgroup(null);}}/>}
     <main className="erp-main">
       <header className="app-topbar">
         <div className="topbar-leading">
