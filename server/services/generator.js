@@ -474,9 +474,13 @@ export function generateTimetable({
 
       const wantedType=normalizeRoomType(sub.roomType);
 
+      const requiredCapacity=Math.max(0,Number(sec.capacity||0));
       const roomsAllowed=rooms.filter(room=>{
         const roomType=normalizeRoomType(room.type);
-        return wantedType==="Any" || roomType===wantedType;
+        const typeMatches=wantedType==="Any" || roomType===wantedType;
+        const roomCapacity=Math.max(0,Number(room.capacity||0));
+        const capacityMatches=!requiredCapacity || roomCapacity>=requiredCapacity;
+        return typeMatches && capacityMatches;
       });
 
       if(!roomsAllowed.length) return [];
