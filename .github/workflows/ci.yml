@@ -180,6 +180,8 @@ jobs:
 
           node qa/smoke.mjs
           npm run test:integration:full-workflow
+          npm run test:regression:exports
+          QA_ALLOW_EXPORT_FILTER_MUTATION=true npm run test:regression:export-filters
   production-smoke:
     name: Production read-only smoke test
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
