@@ -1025,3 +1025,118 @@ html:has(.app .erp-sidebar),body:has(.app .erp-sidebar),#root:has(.app .erp-side
   .app .nav-subflyout-panel{animation:none}
   .app .nav-flyout-submenu-chevron{transition:none}
 }
+
+
+/* Page search suggestions stay attached to the top-bar search, never the sidebar. */
+.app .topbar-search-wrap{
+  position:relative;
+  flex:0 1 auto;
+  width:min(31vw,390px);
+  min-width:190px;
+  z-index:1450;
+}
+.app .topbar-search-wrap .topbar-search{
+  width:100%;
+  min-width:0;
+}
+.app .page-search-results{
+  position:absolute;
+  top:calc(100% + 8px);
+  left:0;
+  right:0;
+  z-index:1460;
+  max-height:min(420px,calc(100dvh - 110px));
+  overflow-y:auto;
+  padding:6px;
+  border:1px solid #d8eae0;
+  border-radius:13px;
+  background:#fff;
+  color:#244f40;
+  box-shadow:0 16px 40px rgba(18,70,51,.18);
+}
+.app .page-search-result{
+  appearance:none;
+  display:flex;
+  align-items:center;
+  gap:10px;
+  width:100%;
+  min-height:54px;
+  margin:0;
+  padding:8px 10px;
+  border:1px solid transparent;
+  border-radius:9px;
+  background:transparent;
+  color:#345e50;
+  text-align:left;
+  cursor:pointer;
+}
+.app .page-search-result:hover,
+.app .page-search-result.active,
+.app .page-search-result[aria-selected="true"]{
+  border-color:#ccebdd;
+  background:#effaf4;
+  color:#12664b;
+}
+.app .page-search-result-icon{
+  display:grid;
+  place-items:center;
+  flex:0 0 32px;
+  width:32px;
+  height:32px;
+  border-radius:9px;
+  background:#e8f7ef;
+  color:#159765;
+}
+.app .page-search-result-copy{
+  display:flex;
+  flex:1 1 auto;
+  flex-direction:column;
+  gap:3px;
+  min-width:0;
+}
+.app .page-search-result-copy strong{
+  overflow:hidden;
+  color:inherit;
+  font-size:12px;
+  font-weight:750;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+.app .page-search-result-copy small{
+  overflow:hidden;
+  color:#839b90;
+  font-size:10px;
+  font-weight:600;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+.app .page-search-result-arrow{
+  flex:0 0 15px;
+  color:#80aa97;
+}
+.app .page-search-empty{
+  margin:0;
+  padding:16px 12px;
+  color:#70897d;
+  font-size:12px;
+  line-height:1.5;
+}
+@media(max-width:1000px){
+  .app .topbar-search-wrap{
+    width:min(42vw,340px);
+    min-width:140px;
+  }
+}
+@media(max-width:640px){
+  .app .topbar-search-wrap{
+    width:100%;
+    min-width:0;
+    flex:1 1 100%;
+  }
+  .app .page-search-results{
+    max-height:calc(100dvh - 150px);
+  }
+}
+@media(prefers-reduced-motion:reduce){
+  .app .page-search-result{transition:none}
+}
