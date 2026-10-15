@@ -16,6 +16,71 @@ function buildNavigationTree(group) {
 const SIDEBAR_MIN_WIDTH = 210;
 const SIDEBAR_MAX_WIDTH = 420;
 const SIDEBAR_DEFAULT_WIDTH = 258;
+
+const NAV_MENU_LAYOUT = {
+  "Academic Setup": [
+    { type: "page", name: "Academic Sessions" },
+    { type: "group", label: "Program & Section Structure", pages: ["Academic Structure", "Program & Section Mapping"] },
+    { type: "page", name: "Holiday Management" },
+    { type: "group", label: "Master Data & Mapping", pages: ["Master Data Settings", "Subject & Faculty Mapping"] }
+  ],
+  "Timetable & Scheduling": [
+    { type: "group", label: "Generation & Optimization", pages: ["Generation Readiness", "Availability", "Optimization"] },
+    { type: "group", label: "Timetable Views", pages: ["Full Session Timetable", "All Program Timetables", "Timetable", "Calendar View"] },
+    { type: "page", name: "Approval & Versions" }
+  ],
+  "Students & Operations": [
+    { type: "group", label: "Student Management", pages: ["Students", "Student Mapping", "Student Profile", "Student Promotion"] },
+    { type: "group", label: "Attendance & Fees", pages: ["Attendance", "Fees"] }
+  ],
+  "Tools & Sharing": [
+    { type: "group", label: "Import & Data Transfer", pages: ["Excel Import", "Import Center"] },
+    { type: "group", label: "Templates & Sharing", pages: ["Templates & Clone", "Public Sharing"] }
+  ],
+  "Reports & Audit": [
+    { type: "page", name: "Reports" },
+    { type: "page", name: "Analytics" },
+    { type: "group", label: "Validation & Audit History", pages: ["Validation", "Audit Logs", "Change History"] }
+  ]
+};
+
+function buildFlyoutEntries(group, query = "") {
+  const available = new Map(group.items.map(item => [item.name, item]));
+  const normalizedQuery = String(query || "").trim().toLowerCase();
+  if (normalizedQuery) {
+    const matchingNames = new Set(
+      group.items.filter(item => item.name.toLowerCase().includes(normalizedQuery)).map(item => item.name)
+    );
+    for (const rule of NAV_MENU_LAYOUT[group.label] || []) {
+      if (rule.type === "group" && rule.label.toLowerCase().includes(normalizedQuery)) {
+        rule.pages.forEach(name => { if (available.has(name)) matchingNames.add(name); });
+      }
+    }
+    return group.items.filter(item => matchingNames.has(item.name)).map(item => ({ type: "page", ...item }));
+  }
+
+  const layout = NAV_MENU_LAYOUT[group.label] || group.items.map(item => ({ type: "page", name: item.name }));
+  const entries = [];
+  const used = new Set();
+  for (const rule of layout) {
+    if (rule.type === "page") {
+      const item = available.get(rule.name);
+      if (item && !used.has(item.name)) {
+        entries.push({ type: "page", ...item });
+        used.add(item.name);
+      }
+      continue;
+    }
+    const children = (rule.pages || []).map(name => available.get(name)).filter(Boolean);
+    children.forEach(item => used.add(item.name));
+    if (children.length === 1) entries.push({ type: "page", ...children[0] });
+    else if (children.length > 1) entries.push({ type: "group", label: rule.label, items: children });
+  }
+  for (const item of group.items) {
+    if (!used.has(item.name)) entries.push({ type: "page", ...item });
+  }
+  return entries;
+}
 const STUDENT_LIST_PAGES = new Set(["Students", "Student Mapping", "Student Profile"]);
 
 function clampSidebarWidth(value) {
@@ -146,8 +211,10 @@ export default function App(){
   const [navQuery,setNavQuery]=useState("");
   const navSearchRef=useRef(null);
   const [activeNavGroup,setActiveNavGroup]=useState(null);
+  const [activeNavSubgroup,setActiveNavSubgroup]=useState(null);
   const [flyoutTop,setFlyoutTop]=useState(190);
   const [flyoutSearch,setFlyoutSearch]=useState("");
+  const [subFlyoutPosition,setSubFlyoutPosition]=useState({top:190,left:548});
 
 
   const [data,setData]=useState({faculty:[],subjects:[],sections:[],rooms:[],timeslots:[],programs:[],semesters:[],students:[]});
@@ -379,7 +446,7 @@ export default function App(){
   useEffect(()=>{
     if(!activeNavGroup)return;
     const close=event=>{
-      if(event.key==="Escape"){setActiveNavGroup(null);setFlyoutSearch("");}
+      if(event.key==="Escape"){setActiveNavGroup(null);setActiveNavSubgroup(null);setFlyoutSearch("");}
     };
     window.addEventListener("keydown",close);
     return ()=>window.removeEventListener("keydown",close);
@@ -390,6 +457,7 @@ export default function App(){
     setNavQuery("");
     setFlyoutSearch("");
     setActiveNavGroup(null);
+    setActiveNavSubgroup(null);
     setMobileNavOpen(false);
     setProfileOpen(false);
   }
@@ -515,11 +583,29 @@ export default function App(){
     const original=navGroupsForRole(auth.role).find(item=>item.label===group.label)||group;
     if(original.items.length<=1){
       setActiveNavGroup(null);
+      setActiveNavSubgroup(null);
       setFlyoutSearch("");
       return;
     }
     positionFlyout(event);
     setActiveNavGroup(group.label);
+    setActiveNavSubgroup(null);
+  }
+
+  function openNavSubgroup(event,entry){
+    const buttonRect=event.currentTarget.getBoundingClientRect();
+    const parentPanel=event.currentTarget.closest(".nav-flyout-panel");
+    const panelRect=parentPanel?.getBoundingClientRect();
+    const panelWidth=254;
+    const gap=8;
+    let left=(panelRect?.right ?? buttonRect.right)+gap;
+    if(left+panelWidth>window.innerWidth-8){
+      left=Math.max(8,(panelRect?.left ?? buttonRect.left)-panelWidth-gap);
+    }
+    const estimatedHeight=Math.min(window.innerHeight-24,entry.items.length*42+64);
+    const top=Math.max(12,Math.min(buttonRect.top,window.innerHeight-estimatedHeight-12));
+    setSubFlyoutPosition({top,left});
+    setActiveNavSubgroup(entry.label);
   }
 
   function openNavGroup(event,group){
@@ -529,12 +615,14 @@ export default function App(){
     if(original.items.length===1){
       navigateToNavPage(original.items[0].name,group.label);
       setActiveNavGroup(null);
+      setActiveNavSubgroup(null);
       return;
     }
     positionFlyout(event);
     // Hover/focus may have already opened this group before the click event.
     // Selecting the module should keep its submenu open, not immediately toggle it closed.
     setActiveNavGroup(group.label);
+    setActiveNavSubgroup(null);
     setFlyoutSearch("");
   }
 
@@ -730,26 +818,32 @@ export default function App(){
       />
     </aside>
     {activeNavGroup&&(()=>{
-      // Build the flyout from the full role-scoped navigation tree. The main
-      // sidebar search narrows the visible children, but must not prevent a
-      // selected module from rendering its submenu after click/hover.
+      // Keep role permissions authoritative while presenting submodules as nested flyouts.
       const group=navGroupsForRole(auth.role).find(item=>item.label===activeNavGroup);
       if(!group)return null;
-      const items=group.items.filter(item=>
-        (!normalizedNavQuery||item.name.toLowerCase().includes(normalizedNavQuery))&&
-        (!flyoutSearch||item.name.toLowerCase().includes(flyoutSearch.toLowerCase()))
-      );
-      return <div className="nav-flyout-backdrop" onMouseDown={event=>{if(event.target===event.currentTarget)setActiveNavGroup(null);}}>
-        <section className="nav-flyout-panel" role="dialog" aria-label={group.label+" submenu"} style={{top:flyoutTop,maxHeight:`calc(100dvh - ${flyoutTop}px - 18px)`}}>
-          <header className="nav-flyout-header"><strong>{group.label}</strong><button type="button" onClick={()=>setActiveNavGroup(null)} aria-label="Close submenu"><X size={16}/></button></header>
-          <div className="nav-flyout-search"><Search size={15}/><input value={flyoutSearch} onChange={event=>setFlyoutSearch(event.target.value)} placeholder="Search submodules..." aria-label="Search submodules"/></div>
+      const query=[normalizedNavQuery,flyoutSearch].filter(Boolean).join(" ").trim();
+      const entries=buildFlyoutEntries(group,query);
+      const activeSubgroup=entries.find(entry=>entry.type==="group"&&entry.label===activeNavSubgroup);
+      const renderPageLink=(item,parentLabel=null) => <button type="button" key={item.name} data-nav={item.name} data-nav-group={group.label} data-nav-parent={parentLabel||undefined} aria-current={tab===item.name?"page":undefined} className={tab===item.name?"nav-flyout-item active":"nav-flyout-item"} onMouseEnter={()=>setActiveNavSubgroup(null)} onFocus={()=>setActiveNavSubgroup(null)} onClick={()=>navigateToNavPage(item.name,group.label)}>
+        <span className="nav-flyout-marker" aria-hidden="true"/><span>{item.name}</span>{tab===item.name&&<Check size={15}/>}
+      </button>;
+      return <div className="nav-flyout-backdrop" onMouseDown={event=>{if(event.target===event.currentTarget){setActiveNavGroup(null);setActiveNavSubgroup(null);}}}>
+        <section className="nav-flyout-panel" role="dialog" aria-label={group.label+" submenu"} style={{top:flyoutTop,maxHeight:"calc(100dvh - "+flyoutTop+"px - 18px)"}}>
+          <header className="nav-flyout-header"><strong>{group.label}</strong><button type="button" onClick={()=>{setActiveNavGroup(null);setActiveNavSubgroup(null);}} aria-label="Close submenu"><X size={16}/></button></header>
+          <div className="nav-flyout-search"><Search size={15}/><input value={flyoutSearch} onChange={event=>{setFlyoutSearch(event.target.value);setActiveNavSubgroup(null);}} placeholder="Search submodules..." aria-label="Search submodules"/></div>
           <div className="nav-flyout-items">
-            {items.map(item=><button type="button" key={item.name} data-nav={item.name} data-nav-group={group.label} aria-current={tab===item.name?"page":undefined} className={tab===item.name?"nav-flyout-item active":"nav-flyout-item"} onClick={()=>navigateToNavPage(item.name,group.label)}>
-              <span className="nav-flyout-marker" aria-hidden="true"/><span>{item.name}</span>{tab===item.name&&<Check size={15}/>}
-            </button>)}
-            {!items.length&&<p className="nav-search-empty">No submodules found.</p>}
+            {entries.map(entry=>entry.type==="page"
+              ? renderPageLink(entry)
+              : <button type="button" key={entry.label} data-nav-submenu={entry.label} data-nav-group={group.label} aria-haspopup="dialog" aria-expanded={activeNavSubgroup===entry.label} className={"nav-flyout-item nav-flyout-submenu"+(activeNavSubgroup===entry.label?" active":"")} onMouseEnter={event=>openNavSubgroup(event,entry)} onFocus={event=>openNavSubgroup(event,entry)} onClick={event=>openNavSubgroup(event,entry)}>
+                  <span className="nav-flyout-marker" aria-hidden="true"/><span>{entry.label}</span><ChevronRight size={15} className="nav-flyout-submenu-chevron"/>
+                </button>)}
+            {!entries.length&&<p className="nav-search-empty">No submodules found.</p>}
           </div>
         </section>
+        {activeSubgroup&&<section className="nav-subflyout-panel" role="dialog" aria-label={activeSubgroup.label+" pages"} style={{top:subFlyoutPosition.top,left:subFlyoutPosition.left,maxHeight:"calc(100dvh - "+subFlyoutPosition.top+"px - 12px)"}}>
+          <header className="nav-flyout-header"><strong>{activeSubgroup.label}</strong><button type="button" onClick={()=>setActiveNavSubgroup(null)} aria-label="Close nested submenu"><X size={16}/></button></header>
+          <div className="nav-flyout-items">{activeSubgroup.items.map(item=>renderPageLink(item,activeSubgroup.label))}</div>
+        </section>}
       </div>;
     })()}
     {showPasswordModal&&<div className="modal-backdrop password-modal-backdrop" role="presentation" onClick={event=>{if(event.target===event.currentTarget&&!passwordSaving)setShowPasswordModal(false);}}>
