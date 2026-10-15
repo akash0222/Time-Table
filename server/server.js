@@ -56,13 +56,33 @@ if (env.trustProxy) {
 }
 
 const isProduction = env.isProduction;
-const configuredOrigins = env.corsOrigins;
+
+// Normalize configured entries to URL origins so a harmless trailing slash in
+// Render's CORS_ORIGINS/CLIENT_URL value cannot reject the browser's Origin.
+function normalizeOrigin(value) {
+  try {
+    const parsed = new URL(String(value || "").trim());
+    if (parsed.protocol !== "https:" && parsed.hostname !== "localhost" && parsed.hostname !== "127.0.0.1") return "";
+    return parsed.origin;
+  } catch {
+    return "";
+  }
+}
+
+const configuredOrigins = new Set([
+  ...env.corsOrigins.map(normalizeOrigin),
+  // Canonical production frontend. This explicit entry protects the deployed
+  // site from accidental Render env-var drift while the rest stay configurable.
+  "https://time-table-beige-three.vercel.app"
+].filter(Boolean));
 
 app.use(cors({
   origin(origin, callback) {
     if (!origin) return callback(null, true);
-    if (configuredOrigins.length === 0 && !isProduction) return callback(null, true);
-    if (configuredOrigins.includes(origin)) return callback(null, true);
+    if (configuredOrigins.size === 0 && !isProduction) return callback(null, true);
+    const normalized = normalizeOrigin(origin);
+    if (normalized && configuredOrigins.has(normalized)) return callback(null, true);
+    console.warn("[CORS] Rejected origin:", origin);
     return callback(new Error("CORS origin not allowed."));
   },
   credentials: false
