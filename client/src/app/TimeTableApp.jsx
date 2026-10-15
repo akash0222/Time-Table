@@ -824,7 +824,7 @@ export default function App(){
       const query=[normalizedNavQuery,flyoutSearch].filter(Boolean).join(" ").trim();
       const entries=buildFlyoutEntries(group,query);
       const activeSubgroup=entries.find(entry=>entry.type==="group"&&entry.label===activeNavSubgroup);
-      const renderPageLink=(item,parentLabel=null) => <button type="button" key={item.name} data-nav={item.name} data-nav-group={group.label} data-nav-parent={parentLabel||undefined} aria-current={tab===item.name?"page":undefined} className={tab===item.name?"nav-flyout-item active":"nav-flyout-item"} onMouseEnter={()=>setActiveNavSubgroup(null)} onFocus={()=>setActiveNavSubgroup(null)} onClick={()=>navigateToNavPage(item.name,group.label)}>
+      const renderPageLink=(item,parentLabel=null) => <button type="button" key={item.name} data-nav={item.name} data-nav-group={group.label} data-nav-parent={parentLabel||undefined} aria-current={tab===item.name?"page":undefined} className={tab===item.name?"nav-flyout-item active":"nav-flyout-item"} onMouseEnter={()=>{if(!parentLabel)setActiveNavSubgroup(null);}} onFocus={()=>{if(!parentLabel)setActiveNavSubgroup(null);}} onClick={()=>navigateToNavPage(item.name,group.label)}>
         <span className="nav-flyout-marker" aria-hidden="true"/><span>{item.name}</span>{tab===item.name&&<Check size={15}/>}
       </button>;
       return <div className="nav-flyout-backdrop" onMouseDown={event=>{if(event.target===event.currentTarget){setActiveNavGroup(null);setActiveNavSubgroup(null);}}}>
