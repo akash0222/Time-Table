@@ -244,14 +244,15 @@ export default function App(){
   loadRef.current=load;
   useEffect(()=>{
     if(!auth) return;
-    // The initial load starts as soon as auth is available. Do not launch a
-    // second full batch just because focus/visibility fires immediately after
-    // login; allow a short cooldown and coalesce any overlapping loads.
-    let lastRefreshAt=Date.now();
+    // Coalesce concurrent refreshes in load(). A short event cooldown only
+    // prevents focus + visibilitychange from firing duplicate batches; the
+    // first focus event must still refresh records that changed while the tab
+    // was open.
+    let lastRefreshAt=0;
     const refreshIfVisible=()=>{
       if(document.visibilityState==="hidden") return;
       const now=Date.now();
-      if(now-lastRefreshAt<15000) return;
+      if(now-lastRefreshAt<3000) return;
       lastRefreshAt=now;
       loadRef.current?.().catch(e=>setMessage(e.response?.data?.message||"Unable to refresh application data."));
     };
