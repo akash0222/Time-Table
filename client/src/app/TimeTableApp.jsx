@@ -116,7 +116,6 @@ const Optimization = lazy(() => import("../pages/OptimizationPage.jsx"));
 const GenerationReadiness = lazy(() => import("../pages/GenerationReadinessPage.jsx"));
 const Validation = lazy(() => import("../pages/ValidationPage.jsx"));
 const TimetableView = lazy(() => import("../pages/TimetableViewPage.jsx"));
-const TimetableVersions = lazy(() => import("../pages/TimetableVersionsPage.jsx"));
 const ApprovalVersions = lazy(() => import("../pages/ApprovalVersionsPage.jsx"));
 const SchedulerSettings = lazy(() => import("../pages/SchedulerSettingsPage.jsx"));
 const MasterDataSettings = lazy(() => import("../pages/MasterDataSettingsPage.jsx"));
@@ -1040,7 +1039,7 @@ export default function App(){
         </div>
       </header>
       {tab==="Dashboard"&&<header className="page-heading"><div><h1>{tab}</h1></div></header>}
-      {message && <div className={`message ${/error|network|failed|unable|cannot|start the backend|could not be loaded|not configured/i.test(message)?"error":"success"}`}>{message}{/some data could not be loaded|backend api is not configured/i.test(message) && <button className="secondary" type="button" onClick={()=>load()} style={{marginLeft:10}}>Retry</button>}</div>}
+      {message && <div className={`message ${/error|network|failed|unable|cannot|start the backend|could not be loaded|not configured/i.test(message)?"error":"success"}`} role={/error|network|failed|unable|cannot|start the backend|could not be loaded|not configured/i.test(message)?"alert":"status"} style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:12}}><span style={{flex:1,minWidth:0}}>{message}{/some data could not be loaded|backend api is not configured/i.test(message) && <button className="secondary" type="button" onClick={()=>load()} style={{marginLeft:10}}>Retry</button>}</span><button type="button" className="message-dismiss" aria-label="Dismiss message" title="Dismiss message" onClick={()=>setMessage("")} style={{padding:"4px 7px",flexShrink:0}}><X size={15}/></button></div>}
 
 
       <Suspense fallback={<PageLoading label={tab} />}>
@@ -1073,7 +1072,6 @@ export default function App(){
       {tab==="Validation" && <Validation/>}
       {tab==="Timetable" && <TimetableView timetable={latest} data={data} onMoved={load} timetableStatus={timetableStatus} setTimetableStatus={setTimetableStatus} setMessage={setMessage} approvalHistory={approvalHistory} activeSession={activeSession} role={auth.role}/>}
       {tab==="Approval & Versions" && <ApprovalVersions activeSession={activeSession} role={auth.role} onRefresh={load} setMessage={setMessage}/>}
-      {tab==="Timetable" && <TimetableVersions activeSession={activeSession} versionList={versionList} setVersionList={setVersionList} setLatest={setLatest} setMessage={setMessage} role={auth.role}/>}
       {tab==="Settings" && <SchedulerSettings settings={settings} setSettings={setSettings} setMessage={setMessage} activeSession={activeSession}/>} 
       {tab==="Master Data Settings" && <MasterDataSettings data={data} setData={setData} reload={load} setMessage={setMessage} sessions={sessions}/>}
       {(tab==="Subject & Faculty Mapping") && <SubjectFacultyMapping data={data} sessions={sessions} activeSession={activeSession} reload={load} setMessage={setMessage}/>}
