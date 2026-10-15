@@ -84,12 +84,9 @@ export default function App(){
     // Protected page URLs should never display the sign-in form while keeping
     // a misleading /dashboard or other module path in the address bar.
     if(!auth){
-      if(currentPath!=="/login"){
-        try {
-          sessionStorage.setItem("tt_return_to",getPathForPage(getPageForPath(currentPath)));
-        } catch {}
-        window.history.replaceState({page:"Login"},"","/login");
-      }
+      // A successful sign-in always starts from the Dashboard, regardless of
+      // which protected URL was last visited before the session expired.
+      if(currentPath!=="/login")window.history.replaceState({page:"Login"},"","/login");
       document.title="Sign in | Time Table";
       return;
     }
@@ -106,21 +103,13 @@ export default function App(){
     const pageFromUrl=getPageForPath(currentPath);
     const canonicalPath=getPathForPage(pageFromUrl);
 
-    // After successful sign-in, /login returns to the protected page originally
-    // requested. The login page itself is not in the protected route list.
+    // /login is only the authentication entry point. Once signed in, always
+    // replace it with Dashboard instead of restoring a stale previous page.
     if(currentPath==="/login"){
-      let returnPath="/dashboard";
-      try {
-        returnPath=sessionStorage.getItem("tt_return_to")||"/dashboard";
-        sessionStorage.removeItem("tt_return_to");
-      } catch {}
-      const returnPage=getPageForPath(returnPath);
-      const allowedPages=navGroupsForRole(auth.role).flatMap(group=>group.items.map(item=>item.name));
-      const destination=returnPage==="Dashboard"||allowedPages.includes(returnPage)?getPathForPage(returnPage):"/dashboard";
-      const destinationPage=getPageForPath(destination);
-      window.history.replaceState({page:destinationPage},"",destination);
-      if(destinationPage!==tab)setTabState(destinationPage);
-      document.title=destinationPage==="Dashboard"?"Time Table":`${destinationPage} | Time Table`;
+      try { sessionStorage.removeItem("tt_return_to"); } catch {}
+      window.history.replaceState({page:"Dashboard"},"",getPathForPage("Dashboard"));
+      if(tab!=="Dashboard")setTabState("Dashboard");
+      document.title="Time Table";
       return;
     }
 
@@ -174,24 +163,31 @@ export default function App(){
     }
 
     const loadErrors=[];
-    try {
-      const me=await axios.get(`${API}/auth/me`);
-      const fresh=me.data?.user;
-      if(fresh){ setAuth(fresh); localStorage.setItem("tt_user",JSON.stringify(fresh)); }
-    } catch(e) {
-      // Keep the request-specific details below; the interceptor handles expired
-      // sessions by clearing the token and reloading the page.
-      if(e.response?.status!==401) loadErrors.push(`Account check: ${e.response?.data?.message||e.message||"request failed"}`);
-    }
-
     const keys=Object.keys(data);
-    const results=await Promise.all(keys.map(async k=>{
-      try { const r=await axios.get(`${API}/${k}`); return {ok:true,value:r.data}; }
-      catch(e) {
-        loadErrors.push(`${k}: ${e.response?.data?.message||e.message||"request failed"}`);
-        return {ok:false};
-      }
-    }));
+
+    // Fetch account hydration, all master-data resources, and session data in
+    // parallel. Previously /auth/me and session resolution were serial gates,
+    // adding several avoidable network round trips after every sign-in.
+    const request = promise => promise
+      .then(response=>({ok:true,value:response.data}))
+      .catch(error=>({ok:false,error}));
+    const [meResult,results,sessionsResult,activeSessionResult]=await Promise.all([
+      request(axios.get(`${API}/auth/me`)),
+      Promise.all(keys.map(async k=>{
+        const result=await request(axios.get(`${API}/${k}`));
+        if(!result.ok)loadErrors.push(`${k}: ${result.error.response?.data?.message||result.error.message||"request failed"}`);
+        return result;
+      })),
+      request(axios.get(`${API}/sessions`)),
+      request(axios.get(`${API}/sessions/active`))
+    ]);
+
+    if(meResult.ok){
+      const fresh=meResult.value?.user;
+      if(fresh){setAuth(fresh);localStorage.setItem("tt_user",JSON.stringify(fresh));}
+    }else if(meResult.error.response?.status!==401){
+      loadErrors.push(`Account check: ${meResult.error.response?.data?.message||meResult.error.message||"request failed"}`);
+    }
     const next={};
     keys.forEach((k,i)=>{
       const value=results[i]?.value;
@@ -202,54 +198,31 @@ export default function App(){
     });
     setData(next);
 
-    // Resolve the active session before loading session-scoped timetable data.
-    // If /sessions/active is temporarily unavailable or returns null, use the
-    // active record from /sessions. This prevents the dashboard from showing
-    // "No active session" when an active session is already in the database.
-    let resolvedActiveSession=activeSession;
-    try {
-      const ss=await axios.get(`${API}/sessions`);
-      const sessionRows=Array.isArray(ss.data)?ss.data:[];
+    // The independent session endpoint responses arrived in parallel above.
+    // Context-specific timetable/settings requests are handled by one effect
+    // when activeSession changes, avoiding a second duplicate set of requests.
+    const sessionRows=sessionsResult.ok
+      ? (Array.isArray(sessionsResult.value)?sessionsResult.value:[])
+      : (Array.isArray(sessions)?sessions:[]);
+    if(sessionsResult.ok){
       setSessions(sessionRows);
-      try {
-        const as=await axios.get(`${API}/sessions/active`);
-        resolvedActiveSession=as.data || sessionRows.find(session=>session.active) || null;
-      } catch {
-        resolvedActiveSession=sessionRows.find(session=>session.active) || null;
-      }
-      setActiveSession(resolvedActiveSession);
-      if(resolvedActiveSession?._id){
-        try {
-          const vr=await axios.get(`${API}/timetable/versions?sessionId=${resolvedActiveSession._id}`);
-          setVersionList(vr.data||[]);
-        } catch(e) {
-          loadErrors.push(`Timetable versions: ${e.response?.data?.message||e.message||"request failed"}`);
-        }
-      } else {
-        setVersionList([]);
-      }
-    } catch(e) {
-      loadErrors.push(`Academic sessions: ${e.response?.data?.message||e.message||"request failed"}`);
+    }else{
+      loadErrors.push(`Academic sessions: ${sessionsResult.error.response?.data?.message||sessionsResult.error.message||"request failed"}`);
     }
-
-    try {
-      const t=await axios.get(`${API}/timetable/latest`,{params:{sessionId:resolvedActiveSession?._id||""}});
-      setLatest(t.data);
-    } catch(e) {
-      loadErrors.push(`Latest timetable: ${e.response?.data?.message||e.message||"request failed"}`);
+    const resolvedActiveSession=activeSessionResult.ok
+      ? (activeSessionResult.value||sessionRows.find(session=>session.active)||null)
+      : (sessionRows.find(session=>session.active)||null);
+    if(!activeSessionResult.ok&&sessionsResult.ok){
+      // /sessions is the compatibility fallback when /sessions/active isn't
+      // available; don't report a noisy load error when fallback resolved it.
+      if(!resolvedActiveSession)loadErrors.push(`Active session: ${activeSessionResult.error.response?.data?.message||activeSessionResult.error.message||"request failed"}`);
     }
-    try {
-      const sr=await axios.get(API + "/settings", { params: { sessionId: resolvedActiveSession?._id || "" } });
-      setSettings(sr.data);
-    } catch(e) {
-      loadErrors.push(`Scheduler settings: ${e.response?.data?.message||e.message||"request failed"}`);
-    }
-    try {
-      const st=await axios.get(`${API}/timetable/status`,{params:{sessionId:resolvedActiveSession?._id||""}});
-      setTimetableStatus(st.data?.status||"DRAFT");
-      setApprovalHistory(st.data?.approvalHistory||[]);
-    } catch(e) {
-      loadErrors.push(`Timetable status: ${e.response?.data?.message||e.message||"request failed"}`);
+    setActiveSession(resolvedActiveSession);
+    if(!resolvedActiveSession?._id){
+      setVersionList([]);
+      setLatest(null);
+      setTimetableStatus("DRAFT");
+      setApprovalHistory([]);
     }
 
     if(loadErrors.length){
@@ -280,7 +253,7 @@ export default function App(){
       document.removeEventListener("visibilitychange",onVisibilityChange);
     };
   },[auth?.username]);
-  useEffect(()=>{if(auth) load().catch(e=>setMessage(e.response?.data?.message||"Start the backend server first."));},[auth?.username]);
+  useEffect(()=>{if(auth) load().catch(e=>setMessage(e.response?.data?.message||"Unable to load application data. Please retry."));},[auth?.username]);
   useEffect(()=>{
     if(!auth || !activeSession?._id) return;
     (async()=>{
@@ -536,16 +509,10 @@ export default function App(){
 
   if(!auth) return <Suspense fallback={<PageLoading label="sign in" />}><Login onLogin={u=>{
     setAuth(u);
-    let returnPath="/dashboard";
-    try {
-      returnPath=sessionStorage.getItem("tt_return_to")||"/dashboard";
-      sessionStorage.removeItem("tt_return_to");
-    } catch {}
-    const desiredPage=getPageForPath(returnPath);
-    const allowedPages=navGroupsForRole(u.role).flatMap(group=>group.items.map(item=>item.name));
-    const destination=desiredPage==="Dashboard"||allowedPages.includes(desiredPage)?desiredPage:"Dashboard";
-    setTabState(destination);
-    window.history.replaceState({page:destination},"",getPathForPage(destination));
+    setTabState("Dashboard");
+    try { sessionStorage.removeItem("tt_return_to"); } catch {}
+    window.history.replaceState({page:"Dashboard"},"",getPathForPage("Dashboard"));
+    document.title="Time Table";
   }} /></Suspense>;
 
   async function generate(programIds=selectedProgramIds){
