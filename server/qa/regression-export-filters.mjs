@@ -2,7 +2,7 @@ import "dotenv/config";
 import process from "node:process";
 import crypto from "node:crypto";
 import mongoose from "mongoose";
-import XLSX from "xlsx";
+import ExcelJS from "exceljs";
 import { env } from "../config/env.js";
 import { connectDB } from "../config/db.js";
 import AcademicSession from "../models/AcademicSession.js";
@@ -82,9 +82,19 @@ async function exportExcel(filters = {}) {
   const validWorkbook = bytes.subarray(0, 2).toString() === "PK" && contentType.includes("spreadsheetml");
   if (validWorkbook) {
     try {
-      const workbook = XLSX.read(bytes, { type: "buffer" });
-      const sheet = workbook.Sheets[workbook.SheetNames[0]];
-      rows = XLSX.utils.sheet_to_json(sheet, { defval: "" });
+      const workbook = new ExcelJS.Workbook();
+      await workbook.xlsx.load(bytes);
+      const sheet = workbook.worksheets[0];
+      if (sheet) {
+        const headers = sheet.getRow(1).values.slice(1).map(value => String(value ?? ""));
+        sheet.eachRow((row, rowNumber) => {
+          if (rowNumber === 1) return;
+          const values = row.values;
+          const record = {};
+          headers.forEach((header, index) => { record[header] = values[index + 1] ?? ""; });
+          rows.push(record);
+        });
+      }
     } catch {}
   }
   return { response, bytes, contentType, validWorkbook, rows };
