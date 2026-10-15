@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "start": "node server.js",
-    "dev": "nodemon server.js",
+    "dev": "node --watch server.js",
     "qa": "node qa/smoke.mjs",
     "test:qa": "node qa/smoke.mjs",
     "reset:admin": "node scripts/reset-admin.mjs",
@@ -49,8 +49,9 @@
     "pdfkit": "^0.16.0",
     "qrcode": "^1.5.4"
   },
-  "devDependencies": {
-    "nodemon": "^3.1.9"
-  },
-  "description": "Production college academic timetable management API"
+  "devDependencies": {},
+  "description": "Production college academic timetable management API",
+  "overrides": {
+    "uuid": "^11.1.1"
+  }
 }
