@@ -1,3 +1,5 @@
+import { inflateRawSync } from "node:zlib";
+
 const MAX_COMPRESSED_BYTES = 10 * 1024 * 1024;
 const MAX_ENTRIES = 2000;
 const MAX_ENTRY_UNCOMPRESSED_BYTES = 25 * 1024 * 1024;
@@ -100,16 +102,6 @@ export function assertSafeXlsxBuffer(buffer) {
     if (uncompressedSize > MAX_ENTRY_UNCOMPRESSED_BYTES) {
       invalid("an entry exceeds the 25 MB decompressed size limit");
     }
-    totalUncompressed += uncompressedSize;
-    if (totalUncompressed > MAX_TOTAL_UNCOMPRESSED_BYTES) {
-      invalid("total decompressed workbook size exceeds 50 MB");
-    }
-    if (uncompressedSize > 1024 * 1024) {
-      if (compressedSize === 0 || uncompressedSize / compressedSize > MAX_COMPRESSION_RATIO) {
-        invalid("an entry has an excessive compression ratio");
-      }
-    }
-
     if (localOffset + 30 > centralOffset || readUInt32(buffer, localOffset, "ZIP local-header signature") !== SIG_LOCAL) {
       invalid("ZIP local-file header is missing or invalid");
     }
@@ -122,6 +114,36 @@ export function assertSafeXlsxBuffer(buffer) {
     }
     const localName = buffer.subarray(localOffset + 30, localNameEnd).toString("utf8");
     if (localName !== fileName) invalid("ZIP local and central file names do not match");
+
+    let actualUncompressedSize;
+    const compressedData = buffer.subarray(dataStart, dataStart + compressedSize);
+    if (method === 0) {
+      actualUncompressedSize = compressedData.length;
+    } else {
+      try {
+        const expanded = inflateRawSync(compressedData, {
+          maxOutputLength: MAX_ENTRY_UNCOMPRESSED_BYTES + 1
+        });
+        actualUncompressedSize = expanded.length;
+      } catch (error) {
+        if (error?.code === "ERR_BUFFER_TOO_LARGE") {
+          invalid("an entry exceeds the 25 MB decompressed size limit");
+        }
+        invalid("ZIP entry decompression failed");
+      }
+    }
+    if (actualUncompressedSize !== uncompressedSize) {
+      invalid("ZIP entry sizes do not match the archive directory");
+    }
+    totalUncompressed += actualUncompressedSize;
+    if (totalUncompressed > MAX_TOTAL_UNCOMPRESSED_BYTES) {
+      invalid("total decompressed workbook size exceeds 50 MB");
+    }
+    if (actualUncompressedSize > 1024 * 1024) {
+      if (compressedSize === 0 || actualUncompressedSize / compressedSize > MAX_COMPRESSION_RATIO) {
+        invalid("an entry has an excessive compression ratio");
+      }
+    }
 
     const normalizedName = fileName.toLowerCase();
     if (normalizedName === "[content_types].xml") hasContentTypes = true;
