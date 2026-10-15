@@ -510,7 +510,7 @@ test("module flyouts support nested groups and show only role-visible pages", as
     await button.click();
 
     if (entries.length === 1) {
-      await expect(page).toHaveURL(/\\/dashboard$/);
+      await expect(page).toHaveURL(/\/dashboard$/);
       continue;
     }
 
