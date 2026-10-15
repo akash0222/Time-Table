@@ -1,7 +1,7 @@
 import React, {useEffect, useMemo, useState} from "react";
 import axios from "axios";
 import {API} from "../core/api";
-import {days, refId} from "../core/utils.js";
+import {days, refId, resolveEffectiveTimeSlots} from "../core/utils.js";
 import {Check, Lock, Send, RotateCcw, ShieldCheck, History} from "lucide-react";
 
 export default function TimetableView({timetable, data, onMoved, timetableStatus, setTimetableStatus, setMessage, approvalHistory=[], activeSession, role}={}){
@@ -109,14 +109,19 @@ export default function TimetableView({timetable, data, onMoved, timetableStatus
 
   async function moveEntry(entry,day,slot){
     if(!entry || moving || timetableStatus!=="DRAFT") return;
-    if(entry.day===day && Number(entry.order||0)===Number(slot.order||0)) return;
+    const targetSlot=getSlotForEntry(entry,{...slot,day});
+    if(!targetSlot){
+      setMoveMessage("That time slot is not available for this section’s program/semester schedule.");
+      return;
+    }
+    if(String(entry.day)===String(day)&&Number(entry.order||0)===Number(targetSlot.order||0)) return;
 
     setMoving(true); setMoveMessage("");
     try{
       const r=await axios.patch(`${API}/timetable/move`,{
         entryId:entry._id,
         day,
-        startTime:slot.startTime
+        startTime:targetSlot.startTime
       });
       setMoveMessage(r.data?.message||"Class moved successfully.");
       if(onMoved) await onMoved();
@@ -256,9 +261,10 @@ export default function TimetableView({timetable, data, onMoved, timetableStatus
             const cellSlot={...slot,day};
             const e=entryForCell(day,cellSlot);
             const start=isEntryStart(e,cellSlot);
-            return <div className={`cell ${draggedEntry && timetableStatus==="DRAFT"?"drop-zone":""}`} key={`${day}-${time}`}
-              onDragOver={ev=>{if(timetableStatus!=="DRAFT")return;ev.preventDefault();ev.dataTransfer.dropEffect="move"}}
-              onDrop={ev=>{ev.preventDefault();if(draggedEntry)moveEntry(draggedEntry,day,slot)}}>
+            const validDropTarget=Boolean(draggedEntry&&timetableStatus==="DRAFT"&&getSlotForEntry(draggedEntry,cellSlot));
+            return <div className={`cell ${validDropTarget?"drop-zone":""}`} key={`${day}-${time}`}
+              onDragOver={ev=>{if(!validDropTarget)return;ev.preventDefault();ev.dataTransfer.dropEffect="move"}}
+              onDrop={ev=>{ev.preventDefault();if(validDropTarget&&draggedEntry)moveEntry(draggedEntry,day,slot)}}>
               {e && start ? <div className="tt-entry" draggable={!moving&&timetableStatus==="DRAFT"} onDragStart={ev=>{setDraggedEntry(e);setMoveMessage("");ev.dataTransfer.effectAllowed="move";ev.dataTransfer.setData("text/plain",e._id||"")}} onDragEnd={()=>setDraggedEntry(null)} title={e.duration>1?`Multi-period class: ${e.duration} periods`:"Drag to another period"}>
                 <strong>{e.subject?.name||"Subject"}</strong>
                 {e.duration>1 && <b>{e.duration} periods</b>}
