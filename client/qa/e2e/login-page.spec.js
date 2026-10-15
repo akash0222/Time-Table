@@ -12,6 +12,23 @@ test.describe("Login page", () => {
     await page.goto("/dashboard");
   });
 
+  test("explains when an expired session returns the user to sign in", async ({ page }) => {
+    await page.evaluate(() => {
+      sessionStorage.setItem(
+        "tt_auth_notice",
+        "Your session has expired or is no longer valid. Please sign in again."
+      );
+    });
+    await page.reload();
+    await expect(page.getByRole("alert")).toHaveText(
+      "Your session has expired or is no longer valid. Please sign in again."
+    );
+
+    // The one-time notice is consumed on render, not repeated on future visits.
+    await page.reload();
+    await expect(page.getByRole("alert")).toHaveCount(0);
+  });
+
   test("shows accessible sign-in controls and supports password visibility", async ({ page }) => {
     await expect(page.getByRole("heading", { name: "Sign in to your workspace" })).toBeVisible();
     await expect(page.locator("#login-username")).toBeVisible();
