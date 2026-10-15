@@ -170,7 +170,7 @@ export default function App(){
       const loadErrors=[];
       // Student lists can be large; only fetch them when a student-list page is active.
       // Background dashboard/focus refreshes should not download every student record.
-      const keys=Object.keys(data).filter(key=>key!=="students"||STUDENT_LIST_PAGES.has(tab));
+      const keys=Object.keys(data).filter(key=>key!=="students");
 
     // Fetch account hydration, all master-data resources, and session data in
     // parallel. Previously /auth/me and session resolution were serial gates,
