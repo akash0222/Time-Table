@@ -25,7 +25,10 @@ router.post("/login", loginLimiter, async (req, res) => {
   try {
     const username = String(req.body?.username || "").trim().toLowerCase();
     const password = String(req.body?.password || "");
-    const user = await User.findOne({ username }).populate("faculty").populate("section");
+    // Login only needs identity/role and the password hash. Faculty/section
+    // details are populated by /auth/me immediately after sign-in, so avoid two
+    // extra database round-trips in the latency-sensitive login request.
+    const user = await User.findOne({ username }).lean();
     if (!user || user.active === false || !(await bcrypt.compare(password, user.passwordHash))) {
       const attempt = recordFailedLogin(req);
       if (attempt?.locked) {
