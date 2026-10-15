@@ -7,4 +7,4 @@ export function Progress({value}){return <div className="progress-wrap"><div cla
 
 export function Input({label,value,onChange,type="text"}){return <div className="field"><label>{label}</label><input type={type} value={value||""} onChange={e=>onChange(e.target.value)} /></div>}
 
-export function Select({label,value,onChange,options}){return <div className="field"><label>{label}</label><select value={value||""} onChange={e=>onChange(e.target.value)}><option value="">Select...</option>{options.map(([v,l])=><option key={v} value={v}>{l}</option>)}</select></div>}
+export function Select({label,value,onChange,options=[],disabled=false,placeholder="Select..."}){const hasPlaceholder=options.some(([v])=>String(v)==="");return <div className="field"><label>{label}</label><select value={value||""} disabled={disabled} onChange={e=>onChange(e.target.value)}>{!hasPlaceholder&&<option value="">{placeholder}</option>}{options.map(([v,l],i)=><option key={`${String(v)}-${i}`} value={v}>{l}</option>)}</select></div>}
