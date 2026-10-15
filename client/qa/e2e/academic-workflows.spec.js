@@ -851,6 +851,43 @@ test("admin can generate and submit a timetable for review", async ({ page }) =>
 });
 
 
+test("section-wise timetable uses only the selected program's effective time slots", async ({ page }) => {
+  const activeSession = makeActiveSession({
+    programDates: [
+      { program: "program-1", semester: "I", startDate: "2026-04-01", endDate: "2026-11-30" },
+      { program: "program-2", semester: "I", startDate: "2026-04-01", endDate: "2026-11-30" }
+    ]
+  });
+  const secondProgram = { _id: "program-2", name: "BBA (COM)", code: "BBA-COM", active: true };
+  const secondSection = {
+    _id: "section-2", name: "B", program: secondProgram.name, programId: secondProgram._id,
+    semester: "I", academicSession: activeSession._id, maxClassesPerDay: 5, capacity: 40
+  };
+  const scopedSlots = [
+    { ...sampleSlot, _id: "slot-mba-1", academicSession: activeSession._id, program: sampleProgram._id,
+      semester: "I", startTime: "09:00", endTime: "09:50", order: 1 },
+    { ...sampleSlot, _id: "slot-bba-1", academicSession: activeSession._id, program: secondProgram._id,
+      semester: "I", startTime: "09:30", endTime: "10:20", order: 1 }
+  ];
+  const timetable = {
+    ...makeTimetable(),
+    entries: makeTimetable().entries.map(entry => ({ ...entry, startTime: "09:00", endTime: "09:50" }))
+  };
+  await signIn(page, {
+    sessions: [activeSession],
+    programs: [sampleProgram, secondProgram],
+    sections: [sampleSection, secondSection],
+    timeslots: scopedSlots,
+    timetable
+  });
+  await navigateToPage(page, "Timetable");
+
+  const grid = page.locator(".tt-grid");
+  await expect(grid.getByText("09:00-09:50", { exact: true })).toBeVisible();
+  await expect(grid.getByText("09:30-10:20", { exact: true })).toHaveCount(0);
+  await expect(grid.locator(".tt-entry")).toHaveCount(1);
+});
+
 test("Generate Timetable program selector is centered, scrollable, and accessible", async ({page})=>{
   await signIn(page);
   const openButton=page.locator(".erp-sidebar .side-bottom button.primary").filter({hasText:"Generate Timetable"});
