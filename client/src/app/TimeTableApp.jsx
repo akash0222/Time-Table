@@ -169,38 +169,54 @@ export default function App(){
     });
     setData(next);
 
-    try {
-      const t=await axios.get(`${API}/timetable/latest`,{params:{sessionId:activeSession?._id||""}});
-      setLatest(t.data);
-    } catch(e) {
-      loadErrors.push(`Latest timetable: ${e.response?.data?.message||e.message||"request failed"}`);
-    }
-    try {
-      const sr=await axios.get(API + "/settings", { params: { sessionId: activeSession?._id || "" } });
-      setSettings(sr.data);
-    } catch(e) {
-      loadErrors.push(`Scheduler settings: ${e.response?.data?.message||e.message||"request failed"}`);
-    }
-    try {
-      const st=await axios.get(`${API}/timetable/status`,{params:{sessionId:activeSession?._id||""}});
-      setTimetableStatus(st.data?.status||"DRAFT");
-      setApprovalHistory(st.data?.approvalHistory||[]);
-    } catch(e) {
-      loadErrors.push(`Timetable status: ${e.response?.data?.message||e.message||"request failed"}`);
-    }
+    // Resolve the active session before loading session-scoped timetable data.
+    // If /sessions/active is temporarily unavailable or returns null, use the
+    // active record from /sessions. This prevents the dashboard from showing
+    // "No active session" when an active session is already in the database.
+    let resolvedActiveSession=activeSession;
     try {
       const ss=await axios.get(`${API}/sessions`);
-      setSessions(ss.data||[]);
-      const as=await axios.get(`${API}/sessions/active`);
-      setActiveSession(as.data||null);
-      if(as.data){
-        const vr=await axios.get(`${API}/timetable/versions?sessionId=${as.data._id}`);
-        setVersionList(vr.data||[]);
+      const sessionRows=Array.isArray(ss.data)?ss.data:[];
+      setSessions(sessionRows);
+      try {
+        const as=await axios.get(`${API}/sessions/active`);
+        resolvedActiveSession=as.data || sessionRows.find(session=>session.active) || null;
+      } catch {
+        resolvedActiveSession=sessionRows.find(session=>session.active) || null;
+      }
+      setActiveSession(resolvedActiveSession);
+      if(resolvedActiveSession?._id){
+        try {
+          const vr=await axios.get(`${API}/timetable/versions?sessionId=${resolvedActiveSession._id}`);
+          setVersionList(vr.data||[]);
+        } catch(e) {
+          loadErrors.push(`Timetable versions: ${e.response?.data?.message||e.message||"request failed"}`);
+        }
       } else {
         setVersionList([]);
       }
     } catch(e) {
       loadErrors.push(`Academic sessions: ${e.response?.data?.message||e.message||"request failed"}`);
+    }
+
+    try {
+      const t=await axios.get(`${API}/timetable/latest`,{params:{sessionId:resolvedActiveSession?._id||""}});
+      setLatest(t.data);
+    } catch(e) {
+      loadErrors.push(`Latest timetable: ${e.response?.data?.message||e.message||"request failed"}`);
+    }
+    try {
+      const sr=await axios.get(API + "/settings", { params: { sessionId: resolvedActiveSession?._id || "" } });
+      setSettings(sr.data);
+    } catch(e) {
+      loadErrors.push(`Scheduler settings: ${e.response?.data?.message||e.message||"request failed"}`);
+    }
+    try {
+      const st=await axios.get(`${API}/timetable/status`,{params:{sessionId:resolvedActiveSession?._id||""}});
+      setTimetableStatus(st.data?.status||"DRAFT");
+      setApprovalHistory(st.data?.approvalHistory||[]);
+    } catch(e) {
+      loadErrors.push(`Timetable status: ${e.response?.data?.message||e.message||"request failed"}`);
     }
 
     if(loadErrors.length){
