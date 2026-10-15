@@ -13,7 +13,7 @@ export default function TimetableView({timetable, data, onMoved, timetableStatus
   const [moveMessage,setMoveMessage]=useState("");
   const [roomChanging,setRoomChanging]=useState(false);
 
-  const sections=data?.sections||[];
+  const sections=(data?.sections||[]).filter(section=>!activeSession?._id||!refId(section.academicSession)||refId(section.academicSession)===refId(activeSession));
   const faculty=data?.faculty||[];
   const rooms=data?.rooms||[];
   const programs=data?.programs||[];
