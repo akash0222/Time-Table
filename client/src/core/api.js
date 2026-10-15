@@ -20,6 +20,11 @@ axios.interceptors.request.use(config => {
 });
 axios.interceptors.response.use(r => r, err => {
   if (err.response?.status === 401 && localStorage.getItem("tt_token")) {
+    // Preserve a one-time explanation when an expired/invalid session sends
+    // the user back to Login. Otherwise the reload looks like a broken route.
+    try {
+      sessionStorage.setItem("tt_auth_notice", "Your session has expired or is no longer valid. Please sign in again.");
+    } catch {}
     localStorage.removeItem("tt_token");
     localStorage.removeItem("tt_user");
     window.location.reload();
