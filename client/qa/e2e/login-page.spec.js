@@ -13,13 +13,17 @@ test.describe("Login page", () => {
   });
 
   test("explains when an expired session returns the user to sign in", async ({ page }) => {
-    await page.evaluate(() => {
+    await page.addInitScript(() => {
+      // Inject before React mounts; only inject once so the reload assertion
+      // can verify that the component consumes the notice after rendering.
+      if (sessionStorage.getItem("__expired_notice_test_seeded")) return;
+      sessionStorage.setItem("__expired_notice_test_seeded", "true");
       sessionStorage.setItem(
         "tt_auth_notice",
         "Your session has expired or is no longer valid. Please sign in again."
       );
     });
-    await page.reload();
+    await page.goto("/dashboard");
     await expect(page.getByRole("alert")).toHaveText(
       "Your session has expired or is no longer valid. Please sign in again."
     );
