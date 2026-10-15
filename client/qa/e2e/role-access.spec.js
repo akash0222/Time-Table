@@ -222,6 +222,16 @@ async function openSubmodule(page, moduleName, pageName) {
   await page.locator(`.nav-flyout-panel [data-nav="${pageName}"]`).click();
 }
 
+test("successful sign-in always opens Dashboard instead of a stale last-visited page", async ({ page }) => {
+  await page.addInitScript(() => {
+    sessionStorage.setItem("tt_return_to", "/academic-sessions");
+  });
+  await installRoleApiMocks(page, "ADMIN");
+  await expect(page).toHaveURL(/\/dashboard$/);
+  await expect(page.getByRole("heading", {name:"Dashboard",exact:true})).toBeVisible();
+  expect(await page.evaluate(() => sessionStorage.getItem("tt_return_to"))).toBeNull();
+});
+
 test("Scheduler can run timetable workflows but cannot administer users", async ({ page }) => {
   await installRoleApiMocks(page, "SCHEDULER");
 
