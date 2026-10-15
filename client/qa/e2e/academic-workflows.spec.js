@@ -151,7 +151,7 @@ async function installApiMocks(page, options = {}) {
     if (path === "/timeslots" && method === "GET") return json(timeslots);
     if (path === "/students" && method === "GET") return json(students);
     if (path === "/sessions" && method === "GET") return json(sessions);
-    if (path === "/sessions/active" && method === "GET") return json(activeSession);
+    if (path === "/sessions/active" && method === "GET") return json(options.emptyActiveSessionEndpoint ? null : activeSession);
     if (path === "/sessions" && method === "POST") {
       const created = {
         _id: "session-created",
@@ -445,6 +445,15 @@ test("clears stale academic structure when backend records disappear while the t
 
   await expect(page.getByText("Create an active Program first.", { exact: true })).toBeVisible({ timeout: 8000 });
   await expect(page.getByText("MBA", { exact: true })).toHaveCount(0);
+});
+
+test("dashboard falls back to active session from session list if active endpoint returns empty", async ({ page }) => {
+  const activeSession = makeActiveSession({ name: "Demo Academic Session 2026-2027", active: true });
+  await signIn(page, { sessions: [activeSession], emptyActiveSessionEndpoint: true });
+
+  await expect(page.locator(".topbar-session-copy strong")).toHaveText("Demo Academic Session 2026-2027");
+  await expect(page.locator(".topbar-session-status")).toHaveAttribute("aria-label", "Active session");
+  await expect(page.getByText("No active academic session")).toHaveCount(0);
 });
 
 test("admin can create an academic session with program-wise dates", async ({ page }) => {
