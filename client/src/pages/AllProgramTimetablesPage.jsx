@@ -11,7 +11,7 @@ export default function AllProgramTimetables({timetable,data,activeSession}){
   const [query,setQuery]=useState("");
 
   const entries=timetable?.entries||[];
-  const sections=data?.sections||[];
+  const sections=(data?.sections||[]).filter(section=>!activeSession?._id||!refId(section.academicSession)||refId(section.academicSession)===refId(activeSession));
   const programs=data?.programs||[];
 
   const sectionMap=useMemo(()=>{
