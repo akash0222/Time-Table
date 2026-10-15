@@ -1476,6 +1476,26 @@ app.get("/api/timetable/readiness", requireAuth, allowRoles("ADMIN","SCHEDULER")
     if(!roomTypes.Classroom&&!roomTypes.Any) push("ERROR","Room Capacity","No Classroom/Any room is configured for classroom subjects.");
     if(!roomTypes.Lab&&!roomTypes.Any && (roomNeeds.get("Lab")||0)>0) push("ERROR","Room Capacity","Lab subjects are mapped, but no Lab/Any room is configured.");
 
+    // Readiness must validate both room type and section capacity; otherwise the
+    // generator can create a full candidate only for the validator to reject it.
+    for(const sub of subjects){
+      const section=sectionMap.get(String(sub.section?._id||sub.section||""));
+      if(!section) continue;
+      const wanted=String(sub.roomType||"Classroom").trim().toLowerCase();
+      const requiredCapacity=Math.max(0,Number(section.capacity||0));
+      const compatible=rooms.some(room=>{
+        const actual=String(room.type||"Classroom").trim().toLowerCase();
+        const typeMatches=wanted==="any"||actual===wanted||(wanted==="laboratory"&&actual==="lab");
+        const capacityMatches=!requiredCapacity||Number(room.capacity||0)>=requiredCapacity;
+        return typeMatches&&capacityMatches;
+      });
+      if(!compatible){
+        const roomTypeLabel=wanted==="any"?"room":wanted==="lab"||wanted==="laboratory"?"Lab":"Classroom";
+        const capacityLabel=requiredCapacity?(` with capacity of at least ${requiredCapacity}`):"";
+        push("ERROR","Room Capacity",`${sub.name||"Unnamed subject"} (${section.program||"Program"} · ${section.semester||""} · ${section.name||"Section"}) requires a compatible ${roomTypeLabel}${capacityLabel}, but none is configured.`);
+      }
+    }
+
     const blockedByFaculty=[];
     for(const sub of subjects){
       const f=facultyMap.get(String(sub.faculty||""));
