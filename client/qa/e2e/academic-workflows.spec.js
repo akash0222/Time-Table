@@ -710,7 +710,8 @@ test("dashboard action center shows real readiness blockers and links to the fix
   await actionCenter.getByRole("button", { name: "Review Subject Mapping" }).click();
   await expect(page).toHaveURL(/\/subject-and-faculty-mapping$/);
   await page.locator('.nav-module-button[data-nav-module="Academic Setup"]').click();
-  await expect(page.locator('.nav-flyout-panel [data-nav="Subject & Faculty Mapping"]')).toHaveClass(/active/);
+  await page.locator('.nav-flyout-panel [data-nav-submenu="Master Data & Mapping"]').click();
+  await expect(page.locator('.nav-subflyout-panel [data-nav="Subject & Faculty Mapping"]')).toHaveClass(/active/);
 });
 
 test("generation is stopped when pre-generation readiness reports blockers", async ({ page }) => {
