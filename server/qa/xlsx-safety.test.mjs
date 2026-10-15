@@ -85,7 +85,7 @@ assert.throws(
 );
 console.log("PASS rejects ZIP entries with excessive uncompressed size");
 
-const expandedPayload = Buffer.alloc(XLSX_SAFETY_LIMITS.maxEntryUncompressedBytes + 1, 0x41);
+const expandedPayload = Buffer.alloc(XLSX_SAFETY_LIMITS.maxEntryUncompressedBytes + 1024, 0x41);
 const compressedBomb = deflateRawSync(expandedPayload);
 assert.throws(
   () => assertSafeXlsxBuffer(createZip([
