@@ -579,7 +579,16 @@ export default function App(){
         >{mobileNavOpen?<X size={17}/>:sidebarCollapsed?<ChevronRight size={17}/>:<ChevronLeft size={17}/>}</button>
       </div>
       <div className="workspace-label">ACADEMIC WORKSPACE</div>
-      <nav className="sidebar-nav module-nav" aria-label="Main navigation">
+      <nav
+        className="sidebar-nav module-nav"
+        aria-label="Main navigation"
+        onScroll={()=>{
+          if(activeNavGroup){
+            setActiveNavGroup(null);
+            setFlyoutSearch("");
+          }
+        }}
+      >
         {visibleNavGroups.map(group=>{
           const active=activeNavGroup===group.label;
           const current=group.items.some(item=>item.name===tab);
