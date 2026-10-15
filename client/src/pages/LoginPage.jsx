@@ -14,6 +14,17 @@ import {
 } from "lucide-react";
 
 const LOGIN_LOCKOUT_STORAGE_KEY = "tt_login_locked_until_v2";
+const AUTH_NOTICE_STORAGE_KEY = "tt_auth_notice";
+
+function readAuthNotice() {
+  try {
+    const notice = String(window.sessionStorage.getItem(AUTH_NOTICE_STORAGE_KEY) || "").trim();
+    window.sessionStorage.removeItem(AUTH_NOTICE_STORAGE_KEY);
+    return notice;
+  } catch {
+    return "";
+  }
+}
 
 function readLoginLockoutUntil() {
   try {
@@ -37,9 +48,10 @@ export default function Login({ onLogin }) {
   const [form, setForm] = useState({ username: "", password: "" });
   const [lockoutUntil, setLockoutUntil] = useState(() => readLoginLockoutUntil());
   const [lockoutSeconds, setLockoutSeconds] = useState(() => Math.max(0, Math.ceil((readLoginLockoutUntil() - Date.now()) / 1000)));
-  const [error, setError] = useState(() => lockoutUntil > Date.now()
-    ? "Too many sign-in attempts. Sign-in is temporarily locked."
-    : "");
+  const [error, setError] = useState(() => {
+    if (lockoutUntil > Date.now()) return "Too many sign-in attempts. Sign-in is temporarily locked.";
+    return readAuthNotice();
+  });
   const [busy, setBusy] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [capsLockOn, setCapsLockOn] = useState(false);
