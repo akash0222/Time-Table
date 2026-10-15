@@ -105,6 +105,17 @@ try {
   );
   assert.equal(String(activatedSession._id), String(session._id));
 
+  const rejectedUnconfiguredSection = await call("POST", "/api/academic-structure/sections", {
+    programId: program._id,
+    academicSession: session._id,
+    semester: "Unconfigured Semester",
+    name: "QA-BAD",
+    maxClassesPerDay: 6,
+    capacity: 60
+  });
+  expectStatus("Reject section mapping without a semester master", rejectedUnconfiguredSection, 400);
+  assert.match(rejectedUnconfiguredSection.body?.message || "", /semester configured/i);
+
   const semester = await post("/api/semesters", {
     academicSession: session._id,
     program: program._id,
