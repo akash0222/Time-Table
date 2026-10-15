@@ -34,6 +34,7 @@ test.describe("Login page", () => {
   });
 
   test("shows accessible sign-in controls and supports password visibility", async ({ page }) => {
+    await expect(page).toHaveURL(/\/login$/);
     await expect(page.getByRole("heading", { name: "Sign in to your workspace" })).toBeVisible();
     await expect(page.locator("#login-username")).toBeVisible();
     const password = page.locator("#login-password");
