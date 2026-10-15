@@ -213,8 +213,8 @@ export default function App(){
   const [activeNavGroup,setActiveNavGroup]=useState(null);
   const [activeNavSubgroup,setActiveNavSubgroup]=useState(null);
   const [flyoutTop,setFlyoutTop]=useState(190);
-  const [flyoutSearch,setFlyoutSearch]=useState("");
   const [subFlyoutPosition,setSubFlyoutPosition]=useState({top:190,left:548});
+  const navCloseTimerRef=useRef(null);
 
 
   const [data,setData]=useState({faculty:[],subjects:[],sections:[],rooms:[],timeslots:[],programs:[],semesters:[],students:[]});
@@ -446,16 +446,36 @@ export default function App(){
   useEffect(()=>{
     if(!activeNavGroup)return;
     const close=event=>{
-      if(event.key==="Escape"){setActiveNavGroup(null);setActiveNavSubgroup(null);setFlyoutSearch("");}
+      if(event.key==="Escape"){setActiveNavGroup(null);setActiveNavSubgroup(null);}
     };
     window.addEventListener("keydown",close);
     return ()=>window.removeEventListener("keydown",close);
   },[activeNavGroup]);
 
+  useEffect(()=>()=>{
+    if(navCloseTimerRef.current)window.clearTimeout(navCloseTimerRef.current);
+  },[]);
+
+  function cancelNavClose(){
+    if(navCloseTimerRef.current){
+      window.clearTimeout(navCloseTimerRef.current);
+      navCloseTimerRef.current=null;
+    }
+  }
+
+  function scheduleNavClose(){
+    cancelNavClose();
+    // A short grace period lets the pointer cross the small gap between panels.
+    navCloseTimerRef.current=window.setTimeout(()=>{
+      setActiveNavGroup(null);
+      setActiveNavSubgroup(null);
+      navCloseTimerRef.current=null;
+    },180);
+  }
+
   function navigateToNavPage(page,groupLabel){
     setTab(page);
     setNavQuery("");
-    setFlyoutSearch("");
     setActiveNavGroup(null);
     setActiveNavSubgroup(null);
     setMobileNavOpen(false);
@@ -584,7 +604,6 @@ export default function App(){
     if(original.items.length<=1){
       setActiveNavGroup(null);
       setActiveNavSubgroup(null);
-      setFlyoutSearch("");
       return;
     }
     positionFlyout(event);
@@ -623,7 +642,6 @@ export default function App(){
     // Selecting the module should keep its submenu open, not immediately toggle it closed.
     setActiveNavGroup(group.label);
     setActiveNavSubgroup(null);
-    setFlyoutSearch("");
   }
 
   function navigateFromDashboard(page){
@@ -746,7 +764,7 @@ export default function App(){
     className={`app ${mobileNavOpen ? "mobile-nav-open" : ""} ${sidebarCollapsed ? "sidebar-collapsed" : ""} ${activeNavGroup ? "nav-flyout-open" : ""}`}
     style={{"--sidebar-width":`${sidebarCollapsed ? 76 : sidebarWidth}px`,"--sidebar-expanded-width":`${sidebarWidth}px`}}
   >
-    <aside className="erp-sidebar">
+    <aside className="erp-sidebar" onMouseEnter={cancelNavClose} onMouseLeave={scheduleNavClose}>
       <div className="sidebar-brand-row">
         <div className="brand">
           <CalendarDays size={22}/>
@@ -768,7 +786,7 @@ export default function App(){
         onScroll={()=>{
           if(activeNavGroup){
             setActiveNavGroup(null);
-            setFlyoutSearch("");
+            setActiveNavSubgroup(null);
           }
         }}
       >
@@ -821,16 +839,14 @@ export default function App(){
       // Keep role permissions authoritative while presenting submodules as nested flyouts.
       const group=navGroupsForRole(auth.role).find(item=>item.label===activeNavGroup);
       if(!group)return null;
-      const query=[normalizedNavQuery,flyoutSearch].filter(Boolean).join(" ").trim();
-      const entries=buildFlyoutEntries(group,query);
+      const entries=buildFlyoutEntries(group,normalizedNavQuery);
       const activeSubgroup=entries.find(entry=>entry.type==="group"&&entry.label===activeNavSubgroup);
       const renderPageLink=(item,parentLabel=null) => <button type="button" key={item.name} data-nav={item.name} data-nav-group={group.label} data-nav-parent={parentLabel||undefined} aria-current={tab===item.name?"page":undefined} className={tab===item.name?"nav-flyout-item active":"nav-flyout-item"} onMouseEnter={()=>{if(!parentLabel)setActiveNavSubgroup(null);}} onFocus={()=>{if(!parentLabel)setActiveNavSubgroup(null);}} onClick={()=>navigateToNavPage(item.name,group.label)}>
         <span className="nav-flyout-marker" aria-hidden="true"/><span>{item.name}</span>{tab===item.name&&<Check size={15}/>}
       </button>;
       return <div className="nav-flyout-backdrop" onMouseDown={event=>{if(event.target===event.currentTarget){setActiveNavGroup(null);setActiveNavSubgroup(null);}}}>
-        <section className="nav-flyout-panel" role="dialog" aria-label={group.label+" submenu"} style={{top:flyoutTop,maxHeight:"calc(100dvh - "+flyoutTop+"px - 18px)"}}>
+        <section className="nav-flyout-panel" role="dialog" aria-label={group.label+" submenu"} onMouseEnter={cancelNavClose} onMouseLeave={scheduleNavClose} style={{top:flyoutTop,maxHeight:"calc(100dvh - "+flyoutTop+"px - 18px)"}}>
           <header className="nav-flyout-header"><strong>{group.label}</strong><button type="button" onClick={()=>{setActiveNavGroup(null);setActiveNavSubgroup(null);}} aria-label="Close submenu"><X size={16}/></button></header>
-          <div className="nav-flyout-search"><Search size={15}/><input value={flyoutSearch} onChange={event=>{setFlyoutSearch(event.target.value);setActiveNavSubgroup(null);}} placeholder="Search submodules..." aria-label="Search submodules"/></div>
           <div className="nav-flyout-items">
             {entries.map(entry=>entry.type==="page"
               ? renderPageLink(entry)
@@ -840,7 +856,7 @@ export default function App(){
             {!entries.length&&<p className="nav-search-empty">No submodules found.</p>}
           </div>
         </section>
-        {activeSubgroup&&<section className="nav-subflyout-panel" role="dialog" aria-label={activeSubgroup.label+" pages"} style={{top:subFlyoutPosition.top,left:subFlyoutPosition.left,maxHeight:"calc(100dvh - "+subFlyoutPosition.top+"px - 12px)"}}>
+        {activeSubgroup&&<section className="nav-subflyout-panel" role="dialog" aria-label={activeSubgroup.label+" pages"} onMouseEnter={cancelNavClose} onMouseLeave={scheduleNavClose} style={{top:subFlyoutPosition.top,left:subFlyoutPosition.left,maxHeight:"calc(100dvh - "+subFlyoutPosition.top+"px - 12px)"}}>
           <header className="nav-flyout-header"><strong>{activeSubgroup.label}</strong><button type="button" onClick={()=>setActiveNavSubgroup(null)} aria-label="Close nested submenu"><X size={16}/></button></header>
           <div className="nav-flyout-items">{activeSubgroup.items.map(item=>renderPageLink(item,activeSubgroup.label))}</div>
         </section>}
