@@ -2487,7 +2487,6 @@ function exportFileBaseName(view, entries, selectedId) {
 
 app.get("/api/timetable/export/excel", requireAuth, async (req, res) => {
   try {
-    const XLSX = (await import("xlsx")).default;
     const t = await currentTimetableFor(req);
     if (!t) return res.status(404).json({message:"No generated timetable found."});
     const { view, entries } = filterTimetableExportEntries(t, req);
@@ -2506,10 +2505,12 @@ app.get("/api/timetable/export/excel", requireAuth, async (req, res) => {
       Room: e.room?.name || ""
     }));
 
-    const wb = XLSX.utils.book_new();
-    const ws = XLSX.utils.json_to_sheet(rows);
-    XLSX.utils.book_append_sheet(wb, ws, "Timetable");
-    const buffer = XLSX.write(wb, {type:"buffer", bookType:"xlsx"});
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet("Timetable");
+    const columns = [...new Set(rows.flatMap(row => Object.keys(row)))];
+    ws.columns = columns.map(key => ({header:key, key}));
+    ws.addRows(rows);
+    const buffer = Buffer.from(await wb.xlsx.writeBuffer());
     const baseName = exportFileBaseName(view, entries, String(req.query.selectedId || ""));
     res.setHeader("Content-Disposition", `attachment; filename="${baseName}.xlsx"`);
     res.type("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet").send(buffer);
