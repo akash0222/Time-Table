@@ -12,6 +12,24 @@ test.describe("Login page", () => {
     await page.goto("/dashboard");
   });
 
+  test("does not show the dashboard when a cached user has no access token", async ({ page }) => {
+    await page.addInitScript(() => {
+      localStorage.removeItem("tt_token");
+      localStorage.setItem("tt_user", JSON.stringify({
+        id: "stale-user",
+        name: "Cached Admin",
+        username: "admin",
+        role: "ADMIN"
+      }));
+    });
+    await page.goto("/dashboard");
+
+    await expect(page).toHaveURL(/login$/);
+    await expect(page.getByRole("heading", { name: "Sign in to your workspace" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Dashboard" })).toHaveCount(0);
+    expect(await page.evaluate(() => localStorage.getItem("tt_user"))).toBeNull();
+  });
+
   test("explains when an expired session returns the user to sign in", async ({ page }) => {
     await page.addInitScript(() => {
       // Inject before React mounts; only inject once so the reload assertion
