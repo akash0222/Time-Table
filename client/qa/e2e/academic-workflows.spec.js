@@ -565,7 +565,7 @@ test("student mapping resets selection and scopes semester filters when the acad
   const pgdm = { _id: "program-2", name: "PGDM", code: "PGDM", active: true };
   const sections = [
     { _id: "section-1", name: "A", program: "MBA", programId: "program-1", semester: "I", academicSession: "session-1" },
-    { _id: "section-1b", name: "B", program: "MBA", programId: "program-1", semester: "I", academicSession: "session-1" },
+    { _id: "section-1b", name: "B", program: "MBA", programId: null, semester: "I", academicSession: "session-1" },
     { _id: "section-2", name: "A", program: "PGDM", programId: "program-2", semester: "II", academicSession: "session-2" }
   ];
   const students = [
@@ -591,6 +591,7 @@ test("student mapping resets selection and scopes semester filters when the acad
   await sessionSelect.selectOption("session-1");
   await expect(semesterSelect.locator("option").filter({ hasText: "II" })).toHaveCount(0);
   await programSelect.selectOption("program-1");
+  await expect(sectionSelect.locator("option").filter({ hasText: "MBA · I · B" })).toHaveCount(1);
   await semesterSelect.selectOption("I");
   await sectionSelect.selectOption("section-1");
   await expect(page.getByText("Alpha Student", { exact: true })).toBeVisible();
