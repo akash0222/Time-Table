@@ -330,8 +330,9 @@ app.post("/api/sessions/:id/holidays/preview-import", requireAuth, allowRoles("A
     const hasHeader = detectedDateColumn >= 0;
     const headings = hasHeader ? firstRowHeadings : [];
     const dateColumn = hasHeader ? detectedDateColumn : 0;
-    const nameColumn = hasHeader ? headings.findIndex(value => /holiday\s*name|name|occasion|holiday/.test(value) && !/date/.test(value)) : -1;
+    const nameColumn = hasHeader ? headings.findIndex(value => /holiday\s*name|name|occasion|holiday/.test(value) && !/date|type/.test(value)) : -1;
     const descriptionColumn = hasHeader ? headings.findIndex(value => /description|notes?/.test(value)) : -1;
+    const holidayTypeColumn = hasHeader ? headings.findIndex(value => /holiday\s*type|^type$/.test(value)) : -1;
     const firstDataRow = hasHeader ? 1 : 0;
     const academicSession = await AcademicSession.findById(req.params.id).lean();
     if (!academicSession) return res.status(404).json({ message: "Academic session not found." });
@@ -347,15 +348,20 @@ app.post("/api/sessions/:id/holidays/preview-import", requireAuth, allowRoles("A
       const rawDate = holidayImportCell(values[dateColumn]);
       const holidayName = nameColumn >= 0 ? String(holidayImportCell(values[nameColumn]) ?? "").trim() : "";
       const description = descriptionColumn >= 0 ? String(holidayImportCell(values[descriptionColumn]) ?? "").trim() : "";
+      const rawHolidayType = holidayTypeColumn >= 0 ? String(holidayImportCell(values[holidayTypeColumn]) ?? "").trim() : "";
+      const holidayType = rawHolidayType ? (rawHolidayType.toLowerCase() === "optional" ? "Optional" : rawHolidayType.toLowerCase() === "mandatory" ? "Mandatory" : "INVALID") : "Mandatory";
       const hasAnyValue = values.some(value => String(value ?? "").trim());
       if (!hasAnyValue) continue;
       const displayValue = rawDate instanceof Date ? rawDate.toISOString().slice(0, 10) : String(rawDate ?? "").trim();
       const date = parseHolidayImportDate(rawDate);
-      const result = { rowNumber: index + 1, sourceDate: displayValue, date: date || "", holidayName, description, status: "valid", reason: "" };
+      const result = { rowNumber: index + 1, sourceDate: displayValue, date: date || "", holidayName, description, holidayType: holidayType === "INVALID" ? "Mandatory" : holidayType, status: "valid", reason: "" };
 
       if (!date) {
         result.status = "invalid";
         result.reason = "Invalid or missing date. Use YYYY-MM-DD or DD-MM-YYYY.";
+      } else if (holidayType === "INVALID") {
+        result.status = "invalid";
+        result.reason = "Holiday type must be Mandatory or Optional.";
       } else if (existing.has(date)) {
         result.status = "skipped";
         result.reason = "This holiday is already configured for the selected session.";
@@ -412,9 +418,12 @@ app.patch("/api/sessions/:id/holidays", requireAuth, async (req,res)=>{
       if (!allowedDates.has(date)) continue;
       const name = String(item?.name || "").trim().slice(0,160);
       const description = String(item?.description || "").trim().slice(0,400);
-      const requestedType = String(item?.holidayType || item?.type || "Mandatory").trim().toLowerCase();
-      const holidayType = requestedType === "optional" ? "Optional" : "Mandatory";
-      if (name || description) detailByDate.set(date, {date, name, description, holidayType});
+      const requestedType = String(item?.holidayType || item?.type || "Mandatory").trim();
+      if (!["Mandatory", "Optional"].includes(requestedType)) {
+        return res.status(400).json({message:`Invalid holiday type for ${date}. Use Mandatory or Optional.`});
+      }
+      const holidayType = requestedType;
+      if (name || description || holidayType === "Optional") detailByDate.set(date, {date, name, description, holidayType});
     }
     row.holidayDates=holidays;
     row.holidayDetails=[...detailByDate.values()];
