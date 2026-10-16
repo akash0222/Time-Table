@@ -626,9 +626,10 @@ test("admin can configure a holiday for an academic session", async ({ page }) =
   await navigateToPage(page, "Holiday Management");
   await expect(page.locator("h2", { hasText: "Holiday Management" })).toBeVisible();
   await expect(page.getByText("Configured Holiday Dates")).toBeVisible();
+  await page.getByRole("button", { name: "Add Holiday" }).click();
   await page.locator("#holiday-name").fill("Independence Day");
   await page.locator("#holiday-date").fill("2026-08-15");
-  await page.getByRole("button", { name: "Add Holiday" }).click();
+  await page.getByRole("button", { name: "Save Holiday" }).click();
   await expect(page.getByRole("columnheader", { name: "Title" })).toBeVisible();
   await expect(page.getByRole("columnheader", { name: "Holiday Type" })).toBeVisible();
   await expect(page.getByRole("columnheader", { name: "From" })).toBeVisible();
@@ -644,11 +645,13 @@ test("admin can configure a holiday for an academic session", async ({ page }) =
 
   await page.getByRole("button", { name: "Actions for holiday 2026-08-15" }).click();
   await page.getByRole("menuitem", { name: "Edit" }).click();
-  await page.getByRole("textbox", { name: "Holiday name for 2026-08-15" }).fill("Independence Day 2026");
-  await page.getByRole("textbox", { name: "Description for 2026-08-15" }).fill("Campus closed for the national holiday.");
-  await page.getByRole("button", { name: "Save changes" }).click();
+  await page.locator("#holiday-name").fill("Independence Day 2026");
+  await page.locator("#holiday-description").fill("Campus closed for the national holiday.");
+  await page.getByLabel("Holiday Type").selectOption("Optional");
+  await page.getByRole("button", { name: "Save Changes" }).click();
   await expect(page.getByText("Independence Day 2026", { exact: true })).toBeVisible();
   await expect(page.getByText("Campus closed for the national holiday.", { exact: true })).toBeVisible();
+  await expect(page.getByText("Optional", { exact: true })).toBeVisible();
 
   await page.reload();
   await expect(page.locator("h2", { hasText: "Holiday Management" })).toBeVisible();
@@ -662,10 +665,11 @@ test("holiday management adds and displays a multi-day holiday range", async ({ 
   await signIn(page, { sessions: [activeSession] });
   await navigateToPage(page, "Holiday Management");
 
+  await page.getByRole("button", { name: "Add Holiday" }).click();
   await page.locator("#holiday-name").fill("Holi Holidays");
   await page.locator("#holiday-date").fill("2026-08-10");
   await page.locator("#holiday-to-date").fill("2026-08-14");
-  await page.getByRole("button", { name: "Add Holiday" }).click();
+  await page.getByRole("button", { name: "Save Holiday" }).click();
 
   const row = page.locator(".holiday-list-table tbody tr").filter({ hasText: "Holi Holidays" });
   await expect(row).toHaveCount(1);
@@ -675,8 +679,8 @@ test("holiday management adds and displays a multi-day holiday range", async ({ 
 
   await row.getByRole("button", { name: "Actions for holiday 2026-08-10" }).click();
   await row.getByRole("menuitem", { name: "Edit" }).click();
-  await page.getByRole("textbox", { name: "Holiday name for 2026-08-10" }).fill("Holi Break");
-  await page.getByRole("button", { name: "Save changes" }).click();
+  await page.locator("#holiday-name").fill("Holi Break");
+  await page.getByRole("button", { name: "Save Changes" }).click();
   await expect(page.locator(".holiday-list-table tbody tr")).toHaveCount(1);
   const renamedRow = page.locator(".holiday-list-table tbody tr").filter({ hasText: "Holi Break" });
   await expect(renamedRow).toHaveCount(1);
@@ -689,6 +693,7 @@ test("admin can preview and import a holiday list from a CSV file", async ({ pag
   await signIn(page, { sessions: [activeSession] });
   await navigateToPage(page, "Holiday Management");
   await expect(page.locator("h2", { hasText: "Holiday Management" })).toBeVisible();
+  await page.getByRole("button", { name: "Import Holidays" }).click();
 
   await page.locator("#holiday-upload-file").setInputFiles({
     name: "holidays.csv",
