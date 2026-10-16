@@ -70,6 +70,13 @@ function normalizedRoll(value) {
   return String(value ?? "").trim().toLowerCase();
 }
 
+function escapeRegex(value) {
+  return String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\function normalizedRoll(value) {
+  return String(value ?? "").trim().toLowerCase();
+}
+");
+}
+
 function isActiveValue(value, fallback = true) {
   if (typeof value === "boolean") return value;
   return parseBoolean(value, fallback);
@@ -258,6 +265,7 @@ router.post("/bulk", allowRoles("ADMIN", "SCHEDULER"), upload.single("file"), as
       const admissionKey = admissionNo.toLowerCase();
       if (admissionNo && existingAdmissions.has(admissionKey)) rowErrors.push("Admission No already exists");
       if (admissionNo && seenAdmissions.has(admissionKey)) rowErrors.push("Duplicate Admission No in uploaded file");
+      if (admissionNo) seenAdmissions.add(admissionKey);
 
       let section = null;
       const sectionId = value("sectionId");
@@ -280,6 +288,7 @@ router.post("/bulk", allowRoles("ADMIN", "SCHEDULER"), upload.single("file"), as
       const rollKey = section ? String(section._id) + "|" + normalizedRoll(rollNo) : "";
       if (section && rollNo && rollKeys.has(rollKey)) rowErrors.push("Roll No already exists in this section");
       if (section && rollNo && seenRolls.has(rollKey)) rowErrors.push("Duplicate Roll No in uploaded file for this section");
+      if (section && rollNo) seenRolls.add(rollKey);
       if (section && academicSessionId && String(section.academicSession || "") !== academicSessionId) {
         rowErrors.push("Section does not belong to the selected academic session");
       }
@@ -510,6 +519,8 @@ router.post("/", allowRoles("ADMIN", "SCHEDULER"), async (req, res) => {
     if (!admissionNo || !rollNo || !name || !sectionId) {
       return res.status(400).json({ message: "Admission No, Roll No, Name and Section are required." });
     }
+    const duplicateAdmission = await Student.findOne({ admissionNo: new RegExp("^" + escapeRegex(admissionNo) + "$", "i") }).select("_id").lean();
+    if (duplicateAdmission) return res.status(400).json({ message: "Admission No must be unique regardless of letter case." });
     const active = isActiveValue(body.active, true);
     const placement = await validateStudentPlacement({
       sectionId,
@@ -560,6 +571,10 @@ router.put("/:id", allowRoles("ADMIN", "SCHEDULER"), async (req, res) => {
     }
     delete body._id; delete body.createdAt; delete body.updatedAt;
 
+    const nextAdmissionNo = String(body.admissionNo ?? current.admissionNo).trim();
+    const duplicateAdmission = await Student.findOne({ admissionNo: new RegExp("^" + escapeRegex(nextAdmissionNo) + "$", "i"), _id: { $ne: current._id } }).select("_id").lean();
+    if (duplicateAdmission) return res.status(400).json({ message: "Admission No must be unique regardless of letter case." });
+    if (Object.prototype.hasOwnProperty.call(body, "admissionNo")) body.admissionNo = nextAdmissionNo;
     const targetSectionId = String(body.section || current.section?._id || "");
     if (!targetSectionId) return res.status(400).json({ message: "Student must be assigned to a section." });
     const targetSessionId = String(req.body?.academicSessionId || "");
