@@ -2034,3 +2034,14 @@ button.danger:hover{background:#fff1f2}
  .holiday-modal-field.full,.holiday-modal-help,.holiday-modal .holiday-error,.holiday-modal-footer{grid-column:1}
  .holiday-modal-footer{display:grid;grid-template-columns:1fr 1fr}
 }
+
+
+/* Annual holiday recurrence control */
+.holiday-recurring-field{padding:11px 12px;border:1px solid #e8e5f2;border-radius:7px;background:#faf9ff}
+.holiday-recurring-toggle{display:flex!important;align-items:center;gap:10px;cursor:pointer}
+.holiday-recurring-toggle input[type=checkbox]{appearance:auto!important;width:16px!important;height:16px!important;min-width:16px;margin:0;accent-color:#39208e;box-shadow:none!important}
+.holiday-recurring-toggle>span{display:grid;gap:4px}
+.holiday-recurring-toggle strong{font-size:12px;color:#2c2e3c}
+.holiday-recurring-toggle small,.holiday-recurring-note{font-size:10px;color:#777d8c;font-weight:400;line-height:1.45}
+.holiday-recurring-note{display:block;margin:4px 0 0 26px}
+.holiday-recurring-row-label{color:#3c2a8b!important;font-weight:650}
