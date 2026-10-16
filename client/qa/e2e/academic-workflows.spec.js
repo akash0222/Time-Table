@@ -560,14 +560,21 @@ test("admin can configure a holiday for an academic session", async ({ page }) =
   await page.locator("#holiday-name").fill("Independence Day");
   await page.locator("#holiday-date").fill("2026-08-15");
   await page.getByRole("button", { name: "Add Holiday" }).click();
-  await expect(page.getByText("2026-08-15")).toBeVisible();
-  await expect(page.getByText("Independence Day", { exact: true })).toBeVisible();
+  await expect(page.getByRole("columnheader", { name: "Title" })).toBeVisible();
+  await expect(page.getByRole("columnheader", { name: "Holiday Type" })).toBeVisible();
+  await expect(page.getByRole("columnheader", { name: "From" })).toBeVisible();
+  await expect(page.getByRole("columnheader", { name: "To" })).toBeVisible();
+  const holidayRow = page.locator(".holiday-list-table tbody tr").filter({ hasText: "Independence Day" });
+  await expect(holidayRow).toHaveCount(1);
+  await expect(holidayRow.locator("td").nth(2)).toHaveText("August 15, 2026");
+  await expect(holidayRow.locator("td").nth(3)).toHaveText("August 15, 2026");
   await expect(page.getByText("Configured Holidays").locator("..").getByText("1")).toBeVisible();
   await page.reload();
   await expect(page.locator("h2", { hasText: "Holiday Management" })).toBeVisible();
   await expect(page.getByText("Independence Day", { exact: true })).toBeVisible();
 
-  await page.getByRole("button", { name: "Edit holiday 2026-08-15" }).click();
+  await page.getByRole("button", { name: "Actions for holiday 2026-08-15" }).click();
+  await page.getByRole("menuitem", { name: "Edit" }).click();
   await page.getByRole("textbox", { name: "Holiday name for 2026-08-15" }).fill("Independence Day 2026");
   await page.getByRole("textbox", { name: "Description for 2026-08-15" }).fill("Campus closed for the national holiday.");
   await page.getByRole("button", { name: "Save changes" }).click();
@@ -580,6 +587,33 @@ test("admin can configure a holiday for an academic session", async ({ page }) =
   await expect(page.getByText("Campus closed for the national holiday.", { exact: true })).toBeVisible();
 });
 
+
+test("holiday management adds and displays a multi-day holiday range", async ({ page }) => {
+  const activeSession = makeActiveSession();
+  await signIn(page, { sessions: [activeSession] });
+  await navigateToPage(page, "Holiday Management");
+
+  await page.locator("#holiday-name").fill("Holi Holidays");
+  await page.locator("#holiday-date").fill("2026-08-10");
+  await page.locator("#holiday-to-date").fill("2026-08-14");
+  await page.getByRole("button", { name: "Add Holiday" }).click();
+
+  const row = page.locator(".holiday-list-table tbody tr").filter({ hasText: "Holi Holidays" });
+  await expect(row).toHaveCount(1);
+  await expect(row.locator("td").nth(2)).toHaveText("August 10, 2026");
+  await expect(row.locator("td").nth(3)).toHaveText("August 14, 2026");
+  await expect(row.getByText("Mandatory", { exact: true })).toBeVisible();
+
+  await row.getByRole("button", { name: "Actions for holiday 2026-08-10" }).click();
+  await row.getByRole("menuitem", { name: "Edit" }).click();
+  await row.getByRole("textbox", { name: "Holiday name for 2026-08-10" }).fill("Holi Break");
+  await row.getByRole("button", { name: "Save changes" }).click();
+  await expect(page.locator(".holiday-list-table tbody tr")).toHaveCount(1);
+  const renamedRow = page.locator(".holiday-list-table tbody tr").filter({ hasText: "Holi Break" });
+  await expect(renamedRow).toHaveCount(1);
+  await expect(renamedRow.locator("td").nth(2)).toHaveText("August 10, 2026");
+  await expect(renamedRow.locator("td").nth(3)).toHaveText("August 14, 2026");
+});
 
 test("admin can preview and import a holiday list from a CSV file", async ({ page }) => {
   const activeSession = makeActiveSession();
