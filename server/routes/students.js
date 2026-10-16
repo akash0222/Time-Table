@@ -355,7 +355,7 @@ router.post("/bulk-map", allowRoles("ADMIN", "SCHEDULER"), async (req, res) => {
     }
 
     const students = await Student.find({ _id: { $in: studentIds } })
-      .select("_id name active section")
+      .select("_id name rollNo active section")
       .populate("section", "academicSession")
       .lean();
     if (students.length !== studentIds.length) {
@@ -384,9 +384,27 @@ router.post("/bulk-map", allowRoles("ADMIN", "SCHEDULER"), async (req, res) => {
       }
     }
 
-    const movingIds = students
-      .filter(student => String(student.section?._id || student.section || "") !== String(section._id))
-      .map(student => student._id);
+    const movingStudents = students
+      .filter(student => String(student.section?._id || student.section || "") !== String(section._id));
+    const movingIds = movingStudents.map(student => student._id);
+
+    if (movingStudents.length) {
+      const destinationRows = await Student.find({
+        section: section._id,
+        _id: { $nin: movingIds }
+      }).select("rollNo").lean();
+      const destinationRolls = new Set(destinationRows.map(student => normalizedRoll(student.rollNo)));
+      for (const student of movingStudents) {
+        const rollKey = normalizedRoll(student.rollNo);
+        if (rollKey && destinationRolls.has(rollKey)) {
+          return res.status(400).json({
+            message: `Roll No ${student.rollNo} already exists in destination section ${section.name}.`
+          });
+        }
+        if (rollKey) destinationRolls.add(rollKey);
+      }
+    }
+
     const capacity = Number(section.capacity || section.maxStudents || 0);
     if (capacity > 0 && movingIds.length) {
       const currentCount = await Student.countDocuments({
