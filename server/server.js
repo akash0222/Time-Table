@@ -436,9 +436,12 @@ app.patch("/api/sessions/:id/holidays", requireAuth, async (req,res)=>{
       const occursEveryYear = item?.occursEveryYear === true || String(item?.occursEveryYear || "").toLowerCase() === "true";
       if (name || description || holidayType === "Optional" || occursEveryYear) detailByDate.set(date, {date, name, description, holidayType, occursEveryYear});
     }
+    const explicitOverrideDates=new Set([...detailByDate.values()]
+      .filter(item=>item.occursEveryYear!==true && (item.name || item.description || item.holidayType==="Optional"))
+      .map(item=>String(item.date).slice(0,10)));
     const persistedHolidayDates=holidays.filter(date=>{
       const recurring=recurringCandidates.get(date);
-      return !recurring || (String(recurring.sourceSessionId||"")===String(row._id) && String(recurring.sourceDate||"")===date);
+      return !recurring || explicitOverrideDates.has(date) || (String(recurring.sourceSessionId||"")===String(row._id) && String(recurring.sourceDate||"")===date);
     });
     row.holidayDates=persistedHolidayDates;
     row.holidayDetails=[...detailByDate.values()];
