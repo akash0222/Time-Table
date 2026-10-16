@@ -714,6 +714,9 @@ export default function HolidayManagement({sessions = [], activeSession, role, s
               </tbody>
             </table>
           </div>
+        )}
+      </section>
+
       <section className="panel holiday-rule-panel">
         <div className="holiday-panel-heading">
           <div>
