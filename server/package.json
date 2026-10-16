@@ -22,6 +22,7 @@
     "test:regression:faculty-portal": "node qa/regression-faculty-portal.mjs",
     "test:holiday-import": "node qa/holiday-import.test.mjs",
     "test:session-plan-holiday-dates": "node qa/session-plan-holiday-dates.test.mjs",
+    "test:recurring-holiday-calendar": "node qa/recurring-holiday-calendar.test.mjs",
     "test:attendance-access": "node qa/attendance-access.test.mjs",
     "test:notification-access": "node qa/notification-access.test.mjs",
     "test:timetable-access": "node qa/timetable-access.test.mjs",
