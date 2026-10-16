@@ -71,17 +71,9 @@ function normalizedRoll(value) {
 }
 
 function escapeRegex(value) {
-  return String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\function normalizedRoll(value) {
-  return String(value ?? "").trim().toLowerCase();
+  const special = new Set(["\\", ".", "*", "+", "?", "^", "$", "{", "}", "(", ")", "|", "[", "]"]);
+  return [...String(value)].map(char => special.has(char) ? "\\" + char : char).join("");
 }
-");
-}
-
-function isActiveValue(value, fallback = true) {
-  if (typeof value === "boolean") return value;
-  return parseBoolean(value, fallback);
-}
-
 async function validateStudentPlacement({ sectionId, rollNo, excludeStudentId = null, active = true, academicSessionId = null }) {
   const section = await Section.findById(sectionId).populate("programId", "name code").lean();
   if (!section) return { error: "Selected section does not exist." };
