@@ -548,7 +548,7 @@ export default function HolidayManagement({sessions = [], activeSession, role, s
             </button>
           </div>
           <div className="holiday-upload-hint">
-            <strong>Expected format:</strong> a <code>Date</code> or <code>Holiday Date</code> column; optional <code>Holiday Name</code> and <code>Description</code> columns are supported. Dates can use YYYY-MM-DD or DD-MM-YYYY.
+            <strong>Expected format:</strong> a <code>Date</code> or <code>Holiday Date</code> column; optional <code>Holiday Name</code>, <code>Description</code>, and <code>Holiday Type</code> columns are supported. Type must be Mandatory or Optional; dates can use YYYY-MM-DD or DD-MM-YYYY.
           </div>
 
           {importPreview && (
