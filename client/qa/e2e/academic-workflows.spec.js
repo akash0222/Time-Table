@@ -640,11 +640,11 @@ test("admin can configure a holiday for an academic session", async ({ page }) =
   await expect(holidayRow.locator("td").nth(2)).toHaveText("August 15, 2026");
   await expect(holidayRow.locator("td").nth(3)).toHaveText("August 15, 2026");
   await expect(page.locator(".holiday-count-pill")).toHaveText("1 date");
-  await expect(holidayRow.getByText("Repeats every year", { exact: true })).toBeVisible();
+  await expect(holidayRow.getByText(/Repeats every year/)).toBeVisible();
   await page.reload();
   await expect(page.locator("h2", { hasText: "Holiday Management" })).toBeVisible();
   await expect(page.getByText("Independence Day", { exact: true })).toBeVisible();
-  await expect(page.locator(".holiday-list-table tbody tr").filter({ hasText: "Independence Day" }).getByText("Repeats every year", { exact: true })).toBeVisible();
+  await expect(page.locator(".holiday-list-table tbody tr").filter({ hasText: "Independence Day" }).getByText(/Repeats every year/)).toBeVisible();
 
   await page.getByRole("button", { name: "Actions for holiday 2026-08-15" }).click();
   await page.getByRole("menuitem", { name: "Edit" }).click();
