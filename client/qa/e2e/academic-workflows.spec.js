@@ -551,6 +551,66 @@ test("admin can create an academic session with program-wise dates", async ({ pa
   await expect(page.getByRole("cell", { name: "2028-2029" })).toBeVisible();
 });
 
+test("student mapping resets selection and scopes semester filters when the academic session changes", async ({ page }) => {
+  const firstSession = makeActiveSession();
+  const secondSession = {
+    _id: "session-2",
+    name: "Academic Year 2027-28",
+    startDate: "2027-04-01",
+    endDate: "2028-03-31",
+    holidayDates: [],
+    holidayDetails: [],
+    active: false
+  };
+  const pgdm = { _id: "program-2", name: "PGDM", code: "PGDM", active: true };
+  const sections = [
+    { _id: "section-1", name: "A", program: "MBA", programId: "program-1", semester: "I", academicSession: "session-1" },
+    { _id: "section-1b", name: "B", program: "MBA", programId: "program-1", semester: "I", academicSession: "session-1" },
+    { _id: "section-2", name: "A", program: "PGDM", programId: "program-2", semester: "II", academicSession: "session-2" }
+  ];
+  const students = [
+    { _id: "student-1", name: "Alpha Student", admissionNo: "ADM-001", rollNo: "1", active: true, section: { _id: "section-1", name: "A", program: "MBA", semester: "I", academicSession: "session-1" } },
+    { _id: "student-2", name: "Beta Student", admissionNo: "ADM-002", rollNo: "2", active: true, section: { _id: "section-2", name: "A", program: "PGDM", semester: "II", academicSession: "session-2" } }
+  ];
+
+  await signIn(page, {
+    sessions: [firstSession, secondSession],
+    programs: [sampleProgram, pgdm],
+    sections,
+    students
+  });
+  await navigateToPage(page, "Student Mapping");
+
+  const sessionSelect = page.getByLabel("Academic Session");
+  const programSelect = page.getByLabel("Current Program");
+  const semesterSelect = page.getByLabel("Current Semester");
+  const sectionSelect = page.getByLabel("Current Section");
+  const destinationSelect = page.getByLabel("Destination Section");
+
+  await sessionSelect.selectOption("session-1");
+  await expect(semesterSelect.locator("option").filter({ hasText: "II" })).toHaveCount(0);
+  await programSelect.selectOption("program-1");
+  await semesterSelect.selectOption("I");
+  await sectionSelect.selectOption("section-1");
+  await expect(page.getByText("Alpha Student", { exact: true })).toBeVisible();
+  await expect(page.getByText("Beta Student", { exact: true })).toHaveCount(0);
+  await destinationSelect.selectOption("section-1b");
+  const alphaRow = page.locator("tr").filter({ hasText: "Alpha Student" });
+  await alphaRow.locator('input[type="checkbox"]').check();
+  await expect(page.getByText("1 selected", { exact: false })).toBeVisible();
+
+  await sessionSelect.selectOption("session-2");
+  await expect(programSelect).toHaveValue("");
+  await expect(semesterSelect).toHaveValue("");
+  await expect(sectionSelect).toHaveValue("");
+  await expect(destinationSelect).toHaveValue("");
+  await expect(semesterSelect.locator("option").filter({ hasText: "I" })).toHaveCount(0);
+  await expect(semesterSelect.locator("option").filter({ hasText: "II" })).toHaveCount(1);
+  await expect(page.getByText("Beta Student", { exact: true })).toBeVisible();
+  await expect(page.getByText("Alpha Student", { exact: true })).toHaveCount(0);
+  await expect(page.getByText("0 selected", { exact: false })).toBeVisible();
+});
+
 test("admin can configure a holiday for an academic session", async ({ page }) => {
   const activeSession = makeActiveSession();
   await signIn(page, { sessions: [activeSession] });
