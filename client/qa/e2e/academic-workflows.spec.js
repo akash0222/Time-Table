@@ -589,7 +589,7 @@ test("student mapping resets selection and scopes semester filters when the acad
   const destinationSelect = page.getByLabel("Destination Section");
 
   await sessionSelect.selectOption("session-1");
-  await expect(semesterSelect.locator("option").filter({ hasText: "II" })).toHaveCount(0);
+  await expect(semesterSelect.locator('option[value="II"]')).toHaveCount(0);
   await programSelect.selectOption("program-1");
   await expect(sectionSelect.locator("option").filter({ hasText: "MBA · I · B" })).toHaveCount(1);
   await semesterSelect.selectOption("I");
@@ -612,8 +612,8 @@ test("student mapping resets selection and scopes semester filters when the acad
   await expect(semesterSelect).toHaveValue("");
   await expect(sectionSelect).toHaveValue("");
   await expect(destinationSelect).toHaveValue("");
-  await expect(semesterSelect.locator("option").filter({ hasText: "I" })).toHaveCount(0);
-  await expect(semesterSelect.locator("option").filter({ hasText: "II" })).toHaveCount(1);
+  await expect(semesterSelect.locator('option[value="I"]')).toHaveCount(0);
+  await expect(semesterSelect.locator('option[value="II"]')).toHaveCount(1);
   await expect(page.getByText("Beta Student", { exact: true })).toBeVisible();
   await expect(page.getByText("Alpha Student", { exact: true })).toHaveCount(0);
   await expect(page.getByText("Gamma Student", { exact: true })).toHaveCount(0);
