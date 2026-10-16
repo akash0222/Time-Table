@@ -606,8 +606,8 @@ test("holiday management adds and displays a multi-day holiday range", async ({ 
 
   await row.getByRole("button", { name: "Actions for holiday 2026-08-10" }).click();
   await row.getByRole("menuitem", { name: "Edit" }).click();
-  await row.getByRole("textbox", { name: "Holiday name for 2026-08-10" }).fill("Holi Break");
-  await row.getByRole("button", { name: "Save changes" }).click();
+  await page.getByRole("textbox", { name: "Holiday name for 2026-08-10" }).fill("Holi Break");
+  await page.getByRole("button", { name: "Save changes" }).click();
   await expect(page.locator(".holiday-list-table tbody tr")).toHaveCount(1);
   const renamedRow = page.locator(".holiday-list-table tbody tr").filter({ hasText: "Holi Break" });
   await expect(renamedRow).toHaveCount(1);
@@ -634,8 +634,12 @@ test("admin can preview and import a holiday list from a CSV file", async ({ pag
   await expect(page.getByRole("button", { name: "Import 2 Valid Dates" })).toBeEnabled();
 
   await page.getByRole("button", { name: "Import 2 Valid Dates" }).click();
-  await expect(page.getByText("2026-08-15")).toBeVisible();
-  await expect(page.getByText("2026-12-25")).toBeVisible();
+  const importedHoliday = page.locator(".holiday-list-table tbody tr").filter({ hasText: "Independence Day Observed" });
+  await expect(importedHoliday).toHaveCount(1);
+  await expect(importedHoliday.locator("td").nth(2)).toHaveText("August 15, 2026");
+  const christmasRow = page.locator(".holiday-list-table tbody tr").filter({ hasText: "Christmas" });
+  await expect(christmasRow).toHaveCount(1);
+  await expect(christmasRow.locator("td").nth(2)).toHaveText("December 25, 2026");
   await expect(page.getByText("Christmas", { exact: true })).toBeVisible();
   await expect(page.getByText("Independence Day Observed", { exact: true })).toBeVisible();
   await expect(page.getByText("2 holiday date(s) imported into Academic Year 2026-27. Duplicates and Sunday dates were skipped.")).toBeVisible();
