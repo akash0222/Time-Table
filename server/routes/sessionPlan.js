@@ -14,6 +14,7 @@ import {allowRoles} from '../middleware/auth.js';
 import {subjectTarget, subjectEligibleWeeks, requiredSessionCount} from '../services/sessionPlanTargets.js';
 import {createCurrentSessionPlan} from '../services/sessionPlanVersioning.js';
 import {resolveTimeSlotsForSection, resolveProgramCalendar} from '../services/timetable/academicCalendar.js';
+import {holidayDateRangeIssue} from '../services/sessionPlanHolidayDates.js';
 
 const router=Router();
 const pad=n=>String(n).padStart(2,'0');
@@ -630,12 +631,8 @@ router.post('/generate',allowRoles('ADMIN','SCHEDULER'),async(req,res)=>{
     const requestedHolidays=Array.isArray(req.body.holidays)?req.body.holidays.map(String).filter(Boolean):[];
     const sessionHolidays=Array.isArray(session.holidayDates)?session.holidayDates.map(String).filter(Boolean):[];
     let holidays=[...new Set([...sessionHolidays,...requestedHolidays])];
-    for(const d of holidays){
-       const holidayDate=parseDate(d);
-       if(holidayDate<start||holidayDate>end){
-         return res.status(400).json({message:`Holiday ${d} is outside the selected academic session range ${dateKey(start)} to ${dateKey(end)}.`});
-       }
-     }
+    const holidayIssue=holidayDateRangeIssue(holidays,start,end);
+    if(holidayIssue)return res.status(400).json({message:holidayIssue});
     // Sunday is always a holiday. Persisting it here makes the generated
     // academic calendar explicit even when the user does not enter it.
     const sessionHolidaySet=new Set(holidays);
