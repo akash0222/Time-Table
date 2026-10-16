@@ -412,7 +412,9 @@ app.patch("/api/sessions/:id/holidays", requireAuth, async (req,res)=>{
       if (!allowedDates.has(date)) continue;
       const name = String(item?.name || "").trim().slice(0,160);
       const description = String(item?.description || "").trim().slice(0,400);
-      if (name || description) detailByDate.set(date, {date, name, description});
+      const requestedType = String(item?.holidayType || item?.type || "Mandatory").trim().toLowerCase();
+      const holidayType = requestedType === "optional" ? "Optional" : "Mandatory";
+      if (name || description) detailByDate.set(date, {date, name, description, holidayType});
     }
     row.holidayDates=holidays;
     row.holidayDetails=[...detailByDate.values()];
