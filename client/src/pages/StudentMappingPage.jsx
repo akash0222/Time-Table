@@ -29,7 +29,16 @@ export default function StudentMapping({data,sessions=[],activeSession,reload,se
     }
   },[sessions,activeSession?._id]);
   const programs=data.programs||[];
-  const semesters=[...new Set(sections.filter(s=>!sourceProgram||String(s.programId?._id||s.programId||'')===sourceProgram||s.program===sourceProgram).map(s=>s.semester))];
+  const semesters=[...new Set(sections.filter(s=>sessionMatches(s)&&(!sourceProgram||String(s.programId?._id||s.programId||'')===sourceProgram||s.program===sourceProgram)).map(s=>s.semester).filter(Boolean))];
+  function changeSession(nextSessionId){
+    setSessionId(nextSessionId);
+    setSourceProgram("");
+    setSourceSemester("");
+    setSourceSection("");
+    setTargetSection("");
+    setSelected([]);
+    setQ("");
+  }
   async function mapStudents(){
     if(!selected.length)return setMessage("Select at least one student.");
     if(!targetSection)return setMessage("Select a destination section.");
@@ -42,7 +51,7 @@ export default function StudentMapping({data,sessions=[],activeSession,reload,se
   return <div>
     <section className="panel"><div className="panel-head"><div><h3>Student Mapping</h3><p>Move students in bulk. Section is the source of truth for Program and Semester.</p></div><span className="status-badge approved">{students.length} Students</span></div>
       <div className="form-grid">
-        <Select label="Academic Session" value={sessionId} options={[['','Current / Any Session'],...sessions.map(s=>[s._id,`${s.name}${s.active?' · Active':''}`])]} onChange={setSessionId}/>
+        <Select label="Academic Session" value={sessionId} options={[['','Current / Any Session'],...sessions.map(s=>[s._id,`${s.name}${s.active?' · Active':''}`])]} onChange={changeSession}/>
         <Select label="Current Program" value={sourceProgram} options={[['','All Programs'],...programs.map(p=>[p._id,p.name])]} onChange={v=>{setSourceProgram(v);setSourceSemester('');setSourceSection('')}}/>
         <Select label="Current Semester" value={sourceSemester} options={[['','All Semesters'],...semesters.map(v=>[v,v])]} onChange={v=>{setSourceSemester(v);setSourceSection('')}}/>
         <Select label="Current Section" value={sourceSection} options={[['','All Sections'],...sourceSections.map(s=>[s._id,`${s.program} · ${s.semester} · ${s.name}`])]} onChange={setSourceSection}/>
