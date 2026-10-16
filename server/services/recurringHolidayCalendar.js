@@ -1,5 +1,3 @@
-const pad = value => String(value).padStart(2, "0");
-
 function toDateKey(value) {
   if (!value) return "";
   if (typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
