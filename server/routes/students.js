@@ -212,11 +212,32 @@ router.post("/bulk", allowRoles("ADMIN", "SCHEDULER"), upload.single("file"), as
       return res.status(400).json({ message: "Section is required. Provide Section ID, or Program + Semester + Section Name." });
     }
 
-    const sections = await Section.find({}).lean();
+    const academicSessionId = String(req.body?.academicSessionId || "").trim();
+    const sectionFilter = academicSessionId ? { academicSession: academicSessionId } : {};
+    if (academicSessionId && !await AcademicSession.exists({ _id: academicSessionId })) {
+      return res.status(400).json({ message: "Selected academic session does not exist." });
+    }
+    const sections = await Section.find(sectionFilter).lean();
     const sectionById = new Map(sections.map(s => [String(s._id), s]));
-    const sectionByKey = new Map(sections.map(s => [sectionKey(s.program, s.semester, s.name), s]));
-    const existing = new Set((await Student.find({}, { admissionNo: 1 }).lean()).map(s => String(s.admissionNo).trim().toLowerCase()));
-    const seen = new Set();
+    const sectionByKey = new Map();
+    for (const section of sections) {
+      const key = sectionKey(section.program, section.semester, section.name);
+      const matches = sectionByKey.get(key) || [];
+      matches.push(section);
+      sectionByKey.set(key, matches);
+    }
+    const existingStudents = await Student.find({}, { admissionNo: 1, rollNo: 1, section: 1, active: 1 }).lean();
+    const existingAdmissions = new Set(existingStudents.map(s => String(s.admissionNo).trim().toLowerCase()));
+    const rollKeys = new Set(existingStudents.map(s => String(s.section) + "|" + normalizedRoll(s.rollNo)));
+    const activeCounts = new Map();
+    for (const student of existingStudents) {
+      if (student.active !== false) {
+        const key = String(student.section);
+        activeCounts.set(key, (activeCounts.get(key) || 0) + 1);
+      }
+    }
+    const seenAdmissions = new Set();
+    const seenRolls = new Set();
     const rows = [];
     const errors = [];
 
@@ -235,35 +256,55 @@ router.post("/bulk", allowRoles("ADMIN", "SCHEDULER"), upload.single("file"), as
       if (!name) rowErrors.push("Name is required");
 
       const admissionKey = admissionNo.toLowerCase();
-      if (admissionNo && existing.has(admissionKey)) rowErrors.push("Admission No already exists");
-      if (admissionNo && seen.has(admissionKey)) rowErrors.push("Duplicate Admission No in uploaded file");
+      if (admissionNo && existingAdmissions.has(admissionKey)) rowErrors.push("Admission No already exists");
+      if (admissionNo && seenAdmissions.has(admissionKey)) rowErrors.push("Duplicate Admission No in uploaded file");
 
       let section = null;
       const sectionId = value("sectionId");
       if (sectionId) section = sectionById.get(sectionId);
       if (!section && value("program") && value("semester") && value("sectionName")) {
-        section = sectionByKey.get(sectionKey(value("program"), value("semester"), value("sectionName")));
+        const matches = sectionByKey.get(sectionKey(value("program"), value("semester"), value("sectionName"))) || [];
+        if (matches.length === 1) section = matches[0];
+        else if (matches.length > 1) rowErrors.push("Section mapping is ambiguous across academic sessions. Provide Section ID or select an Academic Session.");
       }
-      if (!section) rowErrors.push("Section not found");
+      if (!section) rowErrors.push("Section not found for the selected academic session.");
 
       const dateOfBirthRaw = value("dateOfBirth");
       const admissionDateRaw = value("admissionDate");
       const dateOfBirth = parseDate(dateOfBirthRaw);
       const admissionDate = parseDate(admissionDateRaw);
+      const active = parseBoolean(value("active"), true);
       if (dateOfBirthRaw && !dateOfBirth) rowErrors.push("Invalid Date of Birth");
       if (admissionDateRaw && !admissionDate) rowErrors.push("Invalid Admission Date");
+
+      const rollKey = section ? String(section._id) + "|" + normalizedRoll(rollNo) : "";
+      if (section && rollNo && rollKeys.has(rollKey)) rowErrors.push("Roll No already exists in this section");
+      if (section && rollNo && seenRolls.has(rollKey)) rowErrors.push("Duplicate Roll No in uploaded file for this section");
+      if (section && academicSessionId && String(section.academicSession || "") !== academicSessionId) {
+        rowErrors.push("Section does not belong to the selected academic session");
+      }
+      if (section && active) {
+        const capacity = Math.max(0, Number(section.capacity || section.maxStudents || 0));
+        const currentCount = activeCounts.get(String(section._id)) || 0;
+        if (capacity > 0 && currentCount >= capacity) {
+          rowErrors.push(`Section capacity exceeded (${currentCount}/${capacity})`);
+        }
+      }
 
       if (rowErrors.length) {
         errors.push({ row: rowNo, admissionNo, name, errors: rowErrors });
         continue;
       }
 
-      seen.add(admissionKey);
+      seenAdmissions.add(admissionKey);
+      seenRolls.add(rollKey);
+      rollKeys.add(rollKey);
+      if (active) activeCounts.set(String(section._id), (activeCounts.get(String(section._id)) || 0) + 1);
       rows.push({
         admissionNo, rollNo, name, email: value("email"), phone: value("phone"), gender: value("gender"),
         dateOfBirth, fatherName: value("fatherName"), motherName: value("motherName"), category: value("category"),
         address: value("address"), city: value("city"), state: value("state"), pincode: value("pincode"),
-        section: section._id, program: section.program || value("program") || "", semester: section.semester || value("semester") || "", active: parseBoolean(value("active"), true), admissionDate
+        section: section._id, program: section.program || value("program") || "", semester: section.semester || value("semester") || "", active, admissionDate
       });
     }
 
