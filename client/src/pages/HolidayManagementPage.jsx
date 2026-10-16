@@ -246,7 +246,8 @@ export default function HolidayManagement({sessions = [], activeSession, role, s
       if (!cleanIncoming.includes(item.date)) continue;
       const name = String(item.holidayName || "").trim();
       const description = String(item.description || "").trim();
-      if (name || description) detailByDate.set(item.date, {date:item.date, name, description, holidayType: String(item.holidayType || "Mandatory")});
+      const holidayType = ["Mandatory", "Optional"].includes(String(item.holidayType || "Mandatory")) ? String(item.holidayType || "Mandatory") : "Mandatory";
+      if (name || description || holidayType === "Optional") detailByDate.set(item.date, {date:item.date, name, description, holidayType});
     }
     const targetDates = [...holidays, ...cleanIncoming];
     const detailsToSave = [...detailByDate.values()].filter(item => targetDates.includes(isoDate(item.date)));
