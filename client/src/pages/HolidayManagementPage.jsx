@@ -389,7 +389,7 @@ export default function HolidayManagement({sessions = [], activeSession, role, s
           <div className="holiday-page-title">
             <span className="holiday-title-icon" aria-hidden="true"><CalendarDays size={24}/></span>
             <div>
-              <h2>Holidays</h2>
+              <h2>Holiday Management</h2>
               <p>Manage campus holidays for each academic session.</p>
             </div>
           </div>
@@ -595,8 +595,7 @@ export default function HolidayManagement({sessions = [], activeSession, role, s
           <span className="holiday-count-pill">{holidays.length} {holidays.length === 1 ? "date" : "dates"}</span>
         </div>
 
-        {true && (
-          <label className="holiday-search">
+        <label className="holiday-search">
             <Search size={17} aria-hidden="true"/>
             <input
               type="search"
@@ -605,8 +604,7 @@ export default function HolidayManagement({sessions = [], activeSession, role, s
               value={searchTerm}
               onChange={event => setSearchTerm(event.target.value)}
             />
-          </label>
-        )}
+        </label>
 
         {!sessionId ? (
           <div className="holiday-empty-state">
