@@ -47,7 +47,13 @@ export default function StudentMapping({data,sessions=[],activeSession,reload,se
       setMessage(r.data?.message||`Mapped ${selected.length} student(s).`);setSelected([]);await reload();
     }catch(e){setMessage(e.response?.data?.message||e.message)}
   }
-  function selectAll(){setSelected(selected.length===students.length?[]:students.map(s=>s._id))}
+  const visibleStudentIds=students.map(student=>student._id);
+  const allVisibleSelected=visibleStudentIds.length>0&&visibleStudentIds.every(id=>selected.includes(id));
+  function selectAll(){
+    setSelected(current=>allVisibleSelected
+      ? current.filter(id=>!visibleStudentIds.includes(id))
+      : [...new Set([...current,...visibleStudentIds])]);
+  }
   return <div>
     <section className="panel"><div className="panel-head"><div><h3>Student Mapping</h3><p>Move students in bulk. Section is the source of truth for Program and Semester.</p></div><span className="status-badge approved">{students.length} Students</span></div>
       <div className="form-grid">
@@ -58,7 +64,7 @@ export default function StudentMapping({data,sessions=[],activeSession,reload,se
         <Input label="Search Student" value={q} onChange={setQ} placeholder="Name / Admission / Roll"/>
       </div>
     </section>
-    <section className="panel"><div className="panel-head"><div><h3>Student Roster</h3><p>{selected.length} selected · {students.length} matching active students</p></div><button className="secondary" onClick={selectAll}>{selected.length===students.length&&students.length?'Clear Selection':'Select All'}</button></div>
+    <section className="panel"><div className="panel-head"><div><h3>Student Roster</h3><p>{selected.length} selected · {students.length} matching active students</p></div><button className="secondary" onClick={selectAll}>{allVisibleSelected?'Clear Visible Selection':'Select Visible'}</button></div>
       <div className="table-wrap"><table><thead><tr><th></th><th>Student</th><th>Admission / Roll</th><th>Current Mapping</th></tr></thead><tbody>{students.map(s=><tr key={s._id}><td><input type="checkbox" checked={selected.includes(s._id)} onChange={()=>setSelected(a=>a.includes(s._id)?a.filter(x=>x!==s._id):[...a,s._id])}/></td><td><strong>{s.name}</strong><div className="muted">{s.email||s.phone||''}</div></td><td>{s.admissionNo} · {s.rollNo}</td><td>{s.section?.program||s.program||''} · {s.section?.semester||s.semester||''} · {s.section?.name||''}</td></tr>)}{!students.length&&<tr><td colSpan="4">No students match the selected filters.</td></tr>}</tbody></table></div></section>
     <section className="panel"><div className="panel-head"><div><h3>Map Selected Students</h3><p>Destination mapping changes the student's Section; Program and Semester follow the destination Section.</p></div></div><div className="form-grid"><Select label="Destination Section" value={targetSection} options={[['','Select Destination'],...targetOptions.map(s=>[s._id,`${s.program} · ${s.semester} · ${s.name}`])]} onChange={setTargetSection}/><div className="form-actions"><button className="primary" disabled={!selected.length||!targetSection} onClick={mapStudents}>Map {selected.length} Student{selected.length===1?'':'s'}</button></div></div></section>
   </div>;
