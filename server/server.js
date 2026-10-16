@@ -14,6 +14,7 @@ import TimeSlot from "./models/TimeSlot.js";
 import Program from "./models/Program.js";
 import Semester from "./models/Semester.js";
 import AcademicSession from "./models/AcademicSession.js";
+import { applyRecurringHolidayCalendar, recurringHolidayOccurrences } from "./services/recurringHolidayCalendar.js";
 import Timetable from "./models/Timetable.js";
 import SessionPlan from "./models/SessionPlan.js";
 import SchedulerSetting from "./models/SchedulerSetting.js";
@@ -234,7 +235,8 @@ app.get("/api/academic-sessions/:id", requireAuth, async (req,res)=>{
   try{
     const row=await AcademicSession.findById(req.params.id).populate("programDates.program","name code").lean();
     if(!row)return res.status(404).json({message:"Academic session not found."});
-    res.json(row);
+    const recurringSources=await AcademicSession.find({"holidayDetails.occursEveryYear":true}).select("name updatedAt holidayDetails").sort({updatedAt:1}).lean();
+    res.json(applyRecurringHolidayCalendar(row,recurringSources));
   }catch(e){res.status(400).json({message:e.message});}
 });
 
@@ -405,6 +407,14 @@ app.patch("/api/sessions/:id/holidays", requireAuth, async (req,res)=>{
     const row=await AcademicSession.findById(req.params.id);
     if(!row)return res.status(404).json({message:"Academic session not found."});
     const holidays=cleanHolidayDates(req.body?.holidayDates);
+    const recurringSources=await AcademicSession.find({"holidayDetails.occursEveryYear":true}).select("name updatedAt holidayDetails").sort({updatedAt:1}).lean();
+    const recurringCandidates=recurringHolidayOccurrences(row,recurringSources);
+    const exceptions=new Set((row.holidayExceptions||[]).map(value=>String(value).slice(0,10)));
+    for(const date of recurringCandidates.keys()){
+      if(holidays.includes(date))exceptions.delete(date);
+      else exceptions.add(date);
+    }
+    row.holidayExceptions=[...exceptions].sort();
     if(row.startDate&&row.endDate){
       const start=row.startDate.toISOString().slice(0,10), end=row.endDate.toISOString().slice(0,10);
       const outside=holidays.find(d=>d<start||d>end);
@@ -423,12 +433,15 @@ app.patch("/api/sessions/:id/holidays", requireAuth, async (req,res)=>{
         return res.status(400).json({message:`Invalid holiday type for ${date}. Use Mandatory or Optional.`});
       }
       const holidayType = requestedType;
-      if (name || description || holidayType === "Optional") detailByDate.set(date, {date, name, description, holidayType});
+      const occursEveryYear = item?.occursEveryYear === true || String(item?.occursEveryYear || "").toLowerCase() === "true";
+      if (name || description || holidayType === "Optional" || occursEveryYear) detailByDate.set(date, {date, name, description, holidayType, occursEveryYear});
     }
     row.holidayDates=holidays;
     row.holidayDetails=[...detailByDate.values()];
     await row.save();
-    res.json(await AcademicSession.findById(row._id).populate("programDates.program","name code").lean());
+    const updated=await AcademicSession.findById(row._id).populate("programDates.program","name code").lean();
+    const updatedSources=await AcademicSession.find({"holidayDetails.occursEveryYear":true}).select("name updatedAt holidayDetails").sort({updatedAt:1}).lean();
+    res.json(applyRecurringHolidayCalendar(updated,updatedSources));
   }catch(e){res.status(400).json({message:e.message});}
 });
 
