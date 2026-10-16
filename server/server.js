@@ -436,7 +436,11 @@ app.patch("/api/sessions/:id/holidays", requireAuth, async (req,res)=>{
       const occursEveryYear = item?.occursEveryYear === true || String(item?.occursEveryYear || "").toLowerCase() === "true";
       if (name || description || holidayType === "Optional" || occursEveryYear) detailByDate.set(date, {date, name, description, holidayType, occursEveryYear});
     }
-    row.holidayDates=holidays;
+    const persistedHolidayDates=holidays.filter(date=>{
+      const recurring=recurringCandidates.get(date);
+      return !recurring || (String(recurring.sourceSessionId||"")===String(row._id) && String(recurring.sourceDate||"")===date);
+    });
+    row.holidayDates=persistedHolidayDates;
     row.holidayDetails=[...detailByDate.values()];
     await row.save();
     const updated=await AcademicSession.findById(row._id).populate("programDates.program","name code").lean();
