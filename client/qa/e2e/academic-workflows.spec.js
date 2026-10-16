@@ -714,6 +714,79 @@ test("admin can preview and import a holiday list from a CSV file", async ({ pag
 });
 
 
+test("full-session timetable resets filters and ad hoc holidays when changing sessions", async ({ page }) => {
+  const firstSession = makeActiveSession();
+  const secondSession = {
+    _id: "session-2",
+    name: "Academic Year 2027-28",
+    startDate: "2027-04-01",
+    endDate: "2028-03-31",
+    holidayDates: [],
+    holidayDetails: [],
+    active: false
+  };
+  const createPlan = (id, sessionId, year, sectionId, sectionName, facultyId, facultyName) => ({
+    _id: id,
+    academicSession: sessionId,
+    version: 1,
+    status: "DRAFT",
+    totalEntries: 1,
+    weeks: [{
+      weekNumber: 1,
+      startDate: `${year}-04-01`,
+      endDate: `${year}-04-07`,
+      workingDates: [`${year}-04-01`],
+      calendarDates: [{ date: `${year}-04-01`, day: "Thursday", status: "WORKING" }],
+      entries: [{
+        date: `${year}-04-01`,
+        day: "Thursday",
+        startTime: "09:00",
+        endTime: "10:00",
+        order: 1,
+        duration: 1,
+        subject: { _id: `subject-${sectionId}`, code: "SUB101", name: "Mathematics" },
+        faculty: { _id: facultyId, name: facultyName },
+        section: { _id: sectionId, name: sectionName, program: "MBA", semester: "I" },
+        room: { _id: `room-${sectionId}`, name: "Room 101" }
+      }]
+    }]
+  });
+  const plans = {
+    "session-plan-1": createPlan("session-plan-1", "session-1", 2026, "section-1", "Section A", "faculty-1", "Faculty One"),
+    "session-plan-2": createPlan("session-plan-2", "session-2", 2027, "section-2", "Section B", "faculty-2", "Faculty Two")
+  };
+
+  await signIn(page, { sessions: [firstSession, secondSession] });
+  await page.route("**/api/session-plans**", async route => {
+    const request = route.request();
+    const url = new URL(request.url());
+    const path = url.pathname.replace(/^\/api/, "");
+    if (request.method() === "GET" && path === "/session-plans") {
+      const sessionId = url.searchParams.get("sessionId");
+      const id = sessionId === "session-2" ? "session-plan-2" : "session-plan-1";
+      return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify([{ _id: id, version: 1, status: "DRAFT", weeks: [{ weekNumber: 1 }] }]) });
+    }
+    const detail = path.match(/^\/session-plans\/(session-plan-[12])$/);
+    if (request.method() === "GET" && detail) {
+      return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(plans[detail[1]]) });
+    }
+    return route.fulfill({ status: 404, contentType: "application/json", body: JSON.stringify({ message: "Unexpected session plan request: " + request.method() + " " + path }) });
+  });
+
+  await navigateToPage(page, "Full Session Timetable");
+  await page.getByRole("button", { name: "Version 1 · DRAFT · 1 weeks" }).click();
+  await page.getByLabel("Section").selectOption("section-1");
+  await page.getByLabel("Faculty").selectOption("faculty-1");
+  const holidayDatesInput = page.locator("textarea").first();
+  await holidayDatesInput.fill("2026-08-15");
+  await page.getByLabel("Academic Session").selectOption("session-2");
+  await expect(holidayDatesInput).toHaveValue("");
+  await page.getByRole("button", { name: "Version 1 · DRAFT · 1 weeks" }).click();
+  await expect(page.getByLabel("Section")).toHaveValue("");
+  await expect(page.getByLabel("Faculty")).toHaveValue("");
+  await expect(page.getByText("Section B · Room 101", { exact: false })).toBeVisible();
+});
+
 test("admin can download saved full-session timetable as Excel and PDF", async ({ page }) => {
   const activeSession = makeActiveSession();
   const plan = {
