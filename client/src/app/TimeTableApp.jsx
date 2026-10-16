@@ -88,6 +88,30 @@ function clampSidebarWidth(value) {
   return Math.min(SIDEBAR_MAX_WIDTH, Math.max(SIDEBAR_MIN_WIDTH, Number.isFinite(width) && width > 0 ? width : SIDEBAR_DEFAULT_WIDTH));
 }
 
+// A cached user profile is not proof of an active session. The access token
+// must exist too, otherwise the shell can render while every protected API
+// call fails with "Authentication required".
+function readStoredAuth() {
+  try {
+    const token = localStorage.getItem("tt_token");
+    const storedUser = localStorage.getItem("tt_user");
+    if (!token || !storedUser) {
+      localStorage.removeItem("tt_user");
+      return null;
+    }
+    const user = JSON.parse(storedUser);
+    if (!user || typeof user !== "object" || !user.username || !user.role) {
+      localStorage.removeItem("tt_token");
+      localStorage.removeItem("tt_user");
+      return null;
+    }
+    return user;
+  } catch {
+    try { localStorage.removeItem("tt_token"); localStorage.removeItem("tt_user"); } catch {}
+    return null;
+  }
+}
+
 const Attendance = lazy(() => import("../pages/AttendancePage.jsx"));
 const Students = lazy(() => import("../pages/StudentsPage.jsx"));
 const StudentMapping = lazy(() => import("../pages/StudentMappingPage.jsx"));
@@ -132,7 +156,7 @@ function PageLoading({label="page"}) {
 }
 
 export default function App(){
-  const [auth,setAuth]=useState(()=>{try{return JSON.parse(localStorage.getItem("tt_user")||"null")}catch{return null}});
+  const [auth,setAuth]=useState(readStoredAuth);
   const [tab,setTabState]=useState(()=>getPageForPath(window.location.pathname));
   const setTab=(nextTab)=>setTabState(nextTab);
   const skipNextRouteSyncRef=useRef(false);
@@ -235,6 +259,22 @@ export default function App(){
   const isLoadingDataRef=useRef(false);
 
   async function load({verifyAccount=true}={}){
+    // Another tab, a stale browser storage entry, or a previous 401 may have
+    // removed the token while this shell still holds the cached user in React.
+    // Stop before firing a batch of guaranteed-401 requests and return to login.
+    if(!localStorage.getItem("tt_token")){
+      try { localStorage.removeItem("tt_user"); } catch {}
+      setAuth(null);
+      setMessage("");
+      setData({faculty:[],subjects:[],sections:[],rooms:[],timeslots:[],programs:[],semesters:[],students:[]});
+      setActiveSession(null);
+      setSessions([]);
+      setLatest(null);
+      setVersionList([]);
+      setApprovalHistory([]);
+      setTimetableStatus("DRAFT");
+      return;
+    }
     if(!API){
       setMessage(API_CONFIGURATION_ERROR);
       return;
