@@ -682,7 +682,7 @@ test("holiday management adds and displays a multi-day holiday range", async ({ 
   await expect(row.locator("td").nth(3)).toHaveText("August 17, 2026");
   await expect(row.getByText("Mandatory", { exact: true })).toBeVisible();
 
-  await row.getByRole("button", { name: "Actions for holiday 2026-08-10" }).click();
+  await row.getByRole("button", { name: "Actions for holiday 2026-08-13" }).click();
   await row.getByRole("menuitem", { name: "Edit" }).click();
   await page.locator("#holiday-name").fill("Holi Break");
   await page.locator("#holiday-date").fill("2026-08-14");
