@@ -558,6 +558,8 @@ test("admin can configure a holiday for an academic session", async ({ page }) =
   await expect(page.locator("h2", { hasText: "Holiday Management" })).toBeVisible();
   await expect(page.getByText("Configured Holiday Dates")).toBeVisible();
   await page.locator("#holiday-name").fill("Independence Day");
+  await page.locator("#holiday-description").fill("National holiday; campus will remain closed.");
+  await page.locator("#holiday-type").selectOption("Optional");
   await page.locator("#holiday-date").fill("2026-08-15");
   await page.getByRole("button", { name: "Add Holiday" }).click();
   await expect(page.getByRole("columnheader", { name: "Title" })).toBeVisible();
@@ -566,25 +568,32 @@ test("admin can configure a holiday for an academic session", async ({ page }) =
   await expect(page.getByRole("columnheader", { name: "To" })).toBeVisible();
   const holidayRow = page.locator(".holiday-list-table tbody tr").filter({ hasText: "Independence Day" });
   await expect(holidayRow).toHaveCount(1);
+  await expect(holidayRow.getByText("Optional", { exact: true })).toBeVisible();
+  await expect(holidayRow.getByText("National holiday; campus will remain closed.", { exact: true })).toBeVisible();
   await expect(holidayRow.locator("td").nth(2)).toHaveText("August 15, 2026");
   await expect(holidayRow.locator("td").nth(3)).toHaveText("August 15, 2026");
   await expect(page.getByText("Configured Holidays").locator("..").getByText("1")).toBeVisible();
   await page.reload();
   await expect(page.locator("h2", { hasText: "Holiday Management" })).toBeVisible();
   await expect(page.getByText("Independence Day", { exact: true })).toBeVisible();
+  await expect(page.getByText("National holiday; campus will remain closed.", { exact: true })).toBeVisible();
+  await expect(page.locator(".holiday-list-table tbody tr").filter({ hasText: "Independence Day" }).getByText("Optional", { exact: true })).toBeVisible();
 
   await page.getByRole("button", { name: "Actions for holiday 2026-08-15" }).click();
   await page.getByRole("menuitem", { name: "Edit" }).click();
   await page.getByRole("textbox", { name: "Holiday name for 2026-08-15" }).fill("Independence Day 2026");
   await page.getByRole("textbox", { name: "Description for 2026-08-15" }).fill("Campus closed for the national holiday.");
+  await page.getByRole("combobox", { name: "Holiday type for 2026-08-15" }).selectOption("Mandatory");
   await page.getByRole("button", { name: "Save changes" }).click();
   await expect(page.getByText("Independence Day 2026", { exact: true })).toBeVisible();
   await expect(page.getByText("Campus closed for the national holiday.", { exact: true })).toBeVisible();
+  await expect(page.locator(".holiday-list-table tbody tr").filter({ hasText: "Independence Day 2026" }).getByText("Mandatory", { exact: true })).toBeVisible();
 
   await page.reload();
   await expect(page.locator("h2", { hasText: "Holiday Management" })).toBeVisible();
   await expect(page.getByText("Independence Day 2026", { exact: true })).toBeVisible();
   await expect(page.getByText("Campus closed for the national holiday.", { exact: true })).toBeVisible();
+  await expect(page.locator(".holiday-list-table tbody tr").filter({ hasText: "Independence Day 2026" }).getByText("Mandatory", { exact: true })).toBeVisible();
 });
 
 
