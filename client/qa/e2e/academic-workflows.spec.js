@@ -672,27 +672,27 @@ test("holiday management adds and displays a multi-day holiday range", async ({ 
 
   await page.getByRole("button", { name: "Add Holiday" }).click();
   await page.locator("#holiday-name").fill("Holi Holidays");
-  await page.locator("#holiday-date").fill("2026-08-10");
-  await page.locator("#holiday-to-date").fill("2026-08-14");
+  await page.locator("#holiday-date").fill("2026-08-13");
+  await page.locator("#holiday-to-date").fill("2026-08-17");
   await page.getByRole("button", { name: "Save Holiday" }).click();
 
   const row = page.locator(".holiday-list-table tbody tr").filter({ hasText: "Holi Holidays" });
   await expect(row).toHaveCount(1);
-  await expect(row.locator("td").nth(2)).toHaveText("August 10, 2026");
-  await expect(row.locator("td").nth(3)).toHaveText("August 14, 2026");
+  await expect(row.locator("td").nth(2)).toHaveText("August 13, 2026");
+  await expect(row.locator("td").nth(3)).toHaveText("August 17, 2026");
   await expect(row.getByText("Mandatory", { exact: true })).toBeVisible();
 
   await row.getByRole("button", { name: "Actions for holiday 2026-08-10" }).click();
   await row.getByRole("menuitem", { name: "Edit" }).click();
   await page.locator("#holiday-name").fill("Holi Break");
-  await page.locator("#holiday-date").fill("2026-08-11");
-  await page.locator("#holiday-to-date").fill("2026-08-15");
+  await page.locator("#holiday-date").fill("2026-08-14");
+  await page.locator("#holiday-to-date").fill("2026-08-18");
   await page.getByRole("button", { name: "Save Changes" }).click();
   await expect(page.locator(".holiday-list-table tbody tr")).toHaveCount(1);
   const renamedRow = page.locator(".holiday-list-table tbody tr").filter({ hasText: "Holi Break" });
   await expect(renamedRow).toHaveCount(1);
-  await expect(renamedRow.locator("td").nth(2)).toHaveText("August 11, 2026");
-  await expect(renamedRow.locator("td").nth(3)).toHaveText("August 15, 2026");
+  await expect(renamedRow.locator("td").nth(2)).toHaveText("August 14, 2026");
+  await expect(renamedRow.locator("td").nth(3)).toHaveText("August 18, 2026");
 });
 
 test("admin can preview and import a holiday list from a CSV file", async ({ page }) => {
