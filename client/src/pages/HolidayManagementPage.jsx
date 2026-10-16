@@ -372,18 +372,6 @@ export default function HolidayManagement({sessions = [], activeSession, role, s
 
   return (
     <div className="holiday-management">
-      <div className="analytics-toolbar holiday-page-header">
-        <div className="holiday-page-title">
-          <span className="holiday-title-icon" aria-hidden="true"><CalendarDays size={25}/></span>
-          <div>
-            
-            <h2>Holiday Management</h2>
-            
-          </div>
-        </div>
-        <span className="holiday-sunday-badge"><CalendarOff size={16}/> Sunday is a default holiday</span>
-      </div>
-
       <section className="holiday-reference-toolbar">
         <div className="holiday-reference-toolbar-top">
           <div className="holiday-page-title">
@@ -498,7 +486,7 @@ export default function HolidayManagement({sessions = [], activeSession, role, s
         </div>
       )}
 
-            {canEdit && showImport && (
+      {canEdit && showImport && (
         <section className="panel holiday-upload-panel">
           <div className="holiday-panel-heading holiday-upload-heading">
             <div className="holiday-upload-title">
