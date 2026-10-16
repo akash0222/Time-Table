@@ -42,6 +42,10 @@ export default function HolidayManagement({sessions = [], activeSession, role, s
   const [holidayDate, setHolidayDate] = useState("");
   const [holidayToDate, setHolidayToDate] = useState("");
   const [holidayName, setHolidayName] = useState("");
+  const [holidayDescription, setHolidayDescription] = useState("");
+  const [holidayType, setHolidayType] = useState("Mandatory");
+  const [holidayModalOpen, setHolidayModalOpen] = useState(false);
+  const [showImport, setShowImport] = useState(false);
   const [editingHolidayDate, setEditingHolidayDate] = useState("");
   const [editingHolidayName, setEditingHolidayName] = useState("");
   const [editingHolidayDescription, setEditingHolidayDescription] = useState("");
@@ -180,13 +184,9 @@ export default function HolidayManagement({sessions = [], activeSession, role, s
     }
 
     const nextDetails = [...(session?.holidayDetails || [])];
-    for (const date of nextDates) nextDetails.push({date, name: cleanHolidayName, description: ""});
+    for (const date of nextDates) nextDetails.push({date, name: cleanHolidayName, description: holidayDescription.trim(), holidayType});
     const saved = await saveDates([...holidays, ...nextDates], nextDetails);
-    if (saved) {
-      setHolidayDate("");
-      setHolidayToDate("");
-      setHolidayName("");
-    }
+    if (saved) closeHolidayModal();
   }
 
   function downloadHolidayTemplate() {
@@ -249,51 +249,88 @@ export default function HolidayManagement({sessions = [], activeSession, role, s
     }
   }
 
-  function beginEditHoliday(date, detail) {
-    setEditingHolidayDate(date);
-    setEditingHolidayName(String(detail?.name || ""));
-    setEditingHolidayDescription(String(detail?.description || ""));
+  function beginEditHoliday(group) {
+    if (!group) return;
+    const detail = group.detail || {};
+    setEditingHolidayDate(group.fromDate);
+    setHolidayDate(group.fromDate);
+    setHolidayToDate(group.toDate);
+    setHolidayName(String(detail.name || group.name || ""));
+    setHolidayDescription(String(detail.description || group.description || ""));
+    setHolidayType(String(detail.holidayType || detail.type || group.holidayType || "Mandatory"));
+    setEditingHolidayName(String(detail.name || group.name || ""));
+    setEditingHolidayDescription(String(detail.description || group.description || ""));
+    setHolidayModalOpen(true);
     setError("");
   }
 
-  function cancelEditHoliday() {
+  function closeHolidayModal() {
+    setHolidayModalOpen(false);
     setEditingHolidayDate("");
+    setHolidayDate("");
+    setHolidayToDate("");
+    setHolidayName("");
+    setHolidayDescription("");
+    setHolidayType("Mandatory");
     setEditingHolidayName("");
     setEditingHolidayDescription("");
+    setError("");
   }
+
+  function cancelEditHoliday() { closeHolidayModal(); }
 
   async function saveEditedHoliday(event, date) {
     event?.preventDefault?.();
     if (!date || !canEdit || saving) return;
-    const cleanName = editingHolidayName.trim();
-    if (!cleanName) {
-      setError("Enter a holiday name before saving.");
-      return;
+    const cleanName = holidayName.trim();
+    const cleanDescription = holidayDescription.trim();
+    if (!cleanName) return setError("Enter a holiday name before saving.");
+    if (cleanName.length > 160 || cleanDescription.length > 400) {
+      return setError("Holiday name must be 160 characters or fewer and description must be 400 characters or fewer.");
     }
-    if (cleanName.length > 160 || editingHolidayDescription.trim().length > 400) {
-      setError("Holiday name must be 160 characters or fewer and description must be 400 characters or fewer.");
-      return;
+    if (!holidayDate || !holidayToDate || holidayToDate < holidayDate) {
+      return setError("Choose a valid From and To date. The To date must be on or after the From date.");
     }
+    const sessionStart = isoDate(session?.startDate);
+    const sessionEnd = isoDate(session?.endDate);
+    if ((sessionStart && holidayDate < sessionStart) || (sessionEnd && holidayToDate > sessionEnd)) {
+      return setError("Holiday range must fall inside the selected academic session (" + sessionStart + " to " + sessionEnd + ").");
+    }
+    const group = holidayGroups.find(item => item.fromDate === date);
+    const oldDates = group?.dates || [date];
+    const nextDates = [];
+    const cursor = new Date(holidayDate + "T00:00:00Z");
+    const last = new Date(holidayToDate + "T00:00:00Z");
+    while (cursor <= last) {
+      if (cursor.getUTCDay() !== 0) nextDates.push(cursor.toISOString().slice(0, 10));
+      cursor.setUTCDate(cursor.getUTCDate() + 1);
+    }
+    if (!nextDates.length) return setError("This range contains only Sunday dates, which are already automatic holidays.");
+    const duplicate = nextDates.find(value => holidays.includes(value) && !oldDates.includes(value));
+    if (duplicate) return setError("The edited range overlaps another configured holiday date: " + duplicate + ".");
 
+    const targetDates = [...new Set([...holidays.filter(value => !oldDates.includes(value)), ...nextDates])].sort();
     const detailMap = new Map((session?.holidayDetails || []).map(item => [
       isoDate(item.date),
-      {date: isoDate(item.date), name: String(item.name || ""), description: String(item.description || "")}
+      {date:isoDate(item.date), name:String(item.name || ""), description:String(item.description || ""), holidayType:String(item.holidayType || item.type || "Mandatory")}
     ]));
-    const group = holidayGroups.find(item => item.fromDate === date);
-    for (const targetDate of (group?.dates || [date])) {
-      detailMap.set(targetDate, {
-        date: targetDate,
-        name: cleanName,
-        description: editingHolidayDescription.trim()
-      });
-    }
-    const saved = await saveDates(holidays, [...detailMap.values()]);
+    for (const oldDate of oldDates) detailMap.delete(oldDate);
+    for (const targetDate of nextDates) detailMap.set(targetDate, {
+      date:targetDate,
+      name:cleanName,
+      description:cleanDescription,
+      holidayType
+    });
+    const saved = await saveDates(targetDates, [...detailMap.values()]);
     if (saved) {
-      cancelEditHoliday();
-      if (typeof setMessage === "function") {
-        setMessage("Holiday details updated for " + dateLabel(date, {day:"numeric", month:"long", year:"numeric"}) + ".");
-      }
+      closeHolidayModal();
+      if (typeof setMessage === "function") setMessage("Holiday updated for " + tableDateLabel(holidayDate) + (holidayToDate !== holidayDate ? " to " + tableDateLabel(holidayToDate) : "") + ".");
     }
+  }
+
+  function saveHolidayForm(event) {
+    if (editingHolidayDate) return saveEditedHoliday(event, editingHolidayDate);
+    return addHoliday(event);
   }
 
   function removeHoliday(date) {
@@ -612,7 +649,7 @@ export default function HolidayManagement({sessions = [], activeSession, role, s
                 {filteredHolidays.map(group => {
                   const date = group.fromDate;
                   const detail = group.detail;
-                  const isEditing = editingHolidayDate === group.fromDate;
+                  const isEditing = editingHolidayDate === group.fromDate && !holidayModalOpen;
                   const holidayType = group.holidayType;
                   return (
                     <tr key={group.key} className={isEditing ? "holiday-list-editing-row" : ""}>
