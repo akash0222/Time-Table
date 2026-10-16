@@ -629,6 +629,7 @@ test("admin can configure a holiday for an academic session", async ({ page }) =
   await page.getByRole("button", { name: "Add Holiday" }).click();
   await page.locator("#holiday-name").fill("Independence Day");
   await page.locator("#holiday-date").fill("2026-08-15");
+  await page.getByLabel("Occurs Every Year").check();
   await page.getByRole("button", { name: "Save Holiday" }).click();
   await expect(page.getByRole("columnheader", { name: "Title" })).toBeVisible();
   await expect(page.getByRole("columnheader", { name: "Holiday Type" })).toBeVisible();
@@ -639,13 +640,16 @@ test("admin can configure a holiday for an academic session", async ({ page }) =
   await expect(holidayRow.locator("td").nth(2)).toHaveText("August 15, 2026");
   await expect(holidayRow.locator("td").nth(3)).toHaveText("August 15, 2026");
   await expect(page.locator(".holiday-count-pill")).toHaveText("1 date");
+  await expect(holidayRow.getByText("Repeats every year", { exact: true })).toBeVisible();
   await page.reload();
   await expect(page.locator("h2", { hasText: "Holiday Management" })).toBeVisible();
   await expect(page.getByText("Independence Day", { exact: true })).toBeVisible();
+  await expect(page.locator(".holiday-list-table tbody tr").filter({ hasText: "Independence Day" }).getByText("Repeats every year", { exact: true })).toBeVisible();
 
   await page.getByRole("button", { name: "Actions for holiday 2026-08-15" }).click();
   await page.getByRole("menuitem", { name: "Edit" }).click();
   await page.locator("#holiday-name").fill("Independence Day 2026");
+  await expect(page.getByLabel("Occurs Every Year")).toBeChecked();
   await page.locator("#holiday-description").fill("Campus closed for the national holiday.");
   await page.getByLabel("Holiday Type").selectOption("Optional");
   await page.getByRole("button", { name: "Save Changes" }).click();
