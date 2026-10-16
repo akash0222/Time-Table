@@ -1,9 +1,16 @@
 import React, {useEffect, useState} from "react";
 import axios from "axios";
 import {API} from "../core/api";
-import {CalendarDays, CalendarOff, Clock3, Search, ShieldCheck, Trash2, FileSpreadsheet, Upload, Download, CheckCircle2, AlertTriangle, Pencil, Save, X} from "lucide-react";
+import {CalendarDays, CalendarOff, Clock3, Search, ShieldCheck, Trash2, FileSpreadsheet, Upload, Download, CheckCircle2, AlertTriangle, Pencil, Save, X, MoreVertical} from "lucide-react";
 
 const isoDate = value => String(value || "").slice(0, 10);
+
+function tableDateLabel(value) {
+  if (!value) return "—";
+  return new Date(value + "T00:00:00Z").toLocaleDateString("en-US", {
+    timeZone: "UTC", month: "long", day: "2-digit", year: "numeric"
+  });
+}
 
 function dateLabel(value, options = {}) {
   if (!value) return "—";
@@ -39,6 +46,7 @@ export default function HolidayManagement({sessions = [], activeSession, role, s
   const [editingHolidayDescription, setEditingHolidayDescription] = useState("");
   const [holidays, setHolidays] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
+  const [openActionDate, setOpenActionDate] = useState("");
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -78,6 +86,7 @@ export default function HolidayManagement({sessions = [], activeSession, role, s
     setSession(null);
     setHolidays([]);
     setSearchTerm("");
+    setOpenActionDate("");
     setImportPreview(null);
     setUploadFile(null);
     setHolidayDate("");
@@ -536,92 +545,123 @@ export default function HolidayManagement({sessions = [], activeSession, role, s
             <span>Try a different date or weekday.</span>
           </div>
         ) : (
-          <div className="holiday-date-list">
-            {filteredHolidays.map(date => {
-              const detail = (session?.holidayDetails || []).find(item => isoDate(item.date) === date);
-              const isEditing = editingHolidayDate === date;
-              return (
-                <div className={"holiday-date-row" + (isEditing ? " is-editing" : "")} key={date}>
-                  <div className="holiday-date-main">
-                    <span className="holiday-date-tile" aria-hidden="true">
-                      <strong>{dateLabel(date, {day: "2-digit"})}</strong>
-                      <small>{dateLabel(date, {month: "short"}).toUpperCase()}</small>
-                    </span>
-                    <div className="holiday-date-copy">
-                      {!isEditing && <strong>{detail?.name || dateLabel(date, {weekday: "long"})}</strong>}
-                      <span className="holiday-iso-date">{date}</span>
-                      <small>{dateLabel(date, {day: "numeric", month: "long", year: "numeric"})}</small>
-                      {!isEditing && detail?.name && <small className="holiday-detail-weekday">{dateLabel(date, {weekday: "long"})}</small>}
-                      {!isEditing && detail?.description && <small className="holiday-detail-description">{detail.description}</small>}
-                      {isEditing && (
-                        <form className="holiday-edit-form" onSubmit={event => saveEditedHoliday(event, date)}>
-                          <label>
-                            Holiday name <span aria-hidden="true">*</span>
-                            <input
-                              type="text"
-                              aria-label={"Holiday name for " + date}
-                              value={editingHolidayName}
-                              maxLength={160}
-                              required
-                              autoFocus
-                              onChange={event => { setEditingHolidayName(event.target.value); setError(""); }}
-                              disabled={saving}
-                            />
-                          </label>
-                          <label>
-                            Description <span className="holiday-edit-optional">(optional)</span>
-                            <textarea
-                              aria-label={"Description for " + date}
-                              value={editingHolidayDescription}
-                              maxLength={400}
-                              rows={2}
-                              onChange={event => setEditingHolidayDescription(event.target.value)}
-                              disabled={saving}
-                            />
-                          </label>
-                          <div className="holiday-edit-hint">The holiday date stays unchanged.</div>
-                          <div className="holiday-edit-form-actions">
-                            <button className="primary holiday-edit-save" type="submit" disabled={saving || !editingHolidayName.trim()}>
-                              <Save size={14}/>{saving ? "Saving…" : "Save changes"}
-                            </button>
-                            <button className="secondary holiday-edit-cancel" type="button" onClick={cancelEditHoliday} disabled={saving}>
-                              <X size={14}/> Cancel
-                            </button>
+          <div className="holiday-table-wrap">
+            <table className="holiday-list-table">
+              <thead>
+                <tr>
+                  <th scope="col">Title</th>
+                  <th scope="col">Holiday Type</th>
+                  <th scope="col">From</th>
+                  <th scope="col">To</th>
+                  <th scope="col">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredHolidays.map(date => {
+                  const detail = (session?.holidayDetails || []).find(item => isoDate(item.date) === date);
+                  const isEditing = editingHolidayDate === date;
+                  const holidayType = String(detail?.holidayType || detail?.type || "Mandatory");
+                  return (
+                    <tr key={date} className={isEditing ? "holiday-list-editing-row" : ""}>
+                      <td className="holiday-title-cell">
+                        {isEditing ? (
+                          <form className="holiday-edit-form holiday-table-edit-form" onSubmit={event => saveEditedHoliday(event, date)}>
+                            <label>
+                              Holiday name <span aria-hidden="true">*</span>
+                              <input
+                                type="text"
+                                aria-label={"Holiday name for " + date}
+                                value={editingHolidayName}
+                                maxLength={160}
+                                required
+                                autoFocus
+                                onChange={event => { setEditingHolidayName(event.target.value); setError(""); }}
+                                disabled={saving}
+                              />
+                            </label>
+                            <label>
+                              Description <span className="holiday-edit-optional">(optional)</span>
+                              <textarea
+                                aria-label={"Description for " + date}
+                                value={editingHolidayDescription}
+                                maxLength={400}
+                                rows={2}
+                                onChange={event => setEditingHolidayDescription(event.target.value)}
+                                disabled={saving}
+                              />
+                            </label>
+                            <div className="holiday-edit-hint">The holiday date stays unchanged.</div>
+                            <div className="holiday-edit-form-actions">
+                              <button className="primary holiday-edit-save" type="submit" disabled={saving || !editingHolidayName.trim()}>
+                                <Save size={14}/>{saving ? "Saving…" : "Save changes"}
+                              </button>
+                              <button className="secondary holiday-edit-cancel" type="button" onClick={cancelEditHoliday} disabled={saving}>
+                                <X size={14}/> Cancel
+                              </button>
+                            </div>
+                          </form>
+                        ) : (
+                          <div className="holiday-table-title-copy">
+                            <strong>{detail?.name || dateLabel(date, {weekday:"long"})}</strong>
+                            {detail?.description && <small>{detail.description}</small>}
+                            <small className="holiday-table-iso-date">{date}</small>
                           </div>
-                        </form>
-                      )}
-                    </div>
-                  </div>
-                  {canEdit && !isEditing && (
-                    <div className="holiday-row-actions">
-                      <button
-                        className="secondary holiday-edit-button"
-                        type="button"
-                        onClick={() => beginEditHoliday(date, detail)}
-                        disabled={saving || loading || Boolean(editingHolidayDate)}
-                        aria-label={"Edit holiday " + date}
-                      >
-                        <Pencil size={14}/> Edit
-                      </button>
-                      <button
-                        className="secondary danger holiday-remove-button"
-                        type="button"
-                        onClick={() => removeHoliday(date)}
-                        disabled={saving || loading || Boolean(editingHolidayDate)}
-                        aria-label={"Remove holiday " + date}
-                      >
-                        <Trash2 size={15}/> Remove
-                      </button>
-                    </div>
-                  )}
-                  {canEdit && isEditing && <span className="holiday-editing-badge">Editing</span>}
-                </div>
-              );
-            })}
+                        )}
+                      </td>
+                      <td>
+                        <span className={"holiday-type-badge " + (holidayType.toLowerCase() === "optional" ? "optional" : "mandatory")}>
+                          {holidayType}
+                        </span>
+                      </td>
+                      <td className="holiday-table-date">{tableDateLabel(date)}</td>
+                      <td className="holiday-table-date">{tableDateLabel(date)}</td>
+                      <td className="holiday-table-actions">
+                        {canEdit && !isEditing ? (
+                          <div className="holiday-action-wrap">
+                            <button
+                              className="holiday-actions-trigger"
+                              type="button"
+                              aria-label={"Actions for holiday " + date}
+                              aria-haspopup="menu"
+                              aria-expanded={openActionDate === date}
+                              onClick={() => setOpenActionDate(current => current === date ? "" : date)}
+                              disabled={saving || loading || Boolean(editingHolidayDate)}
+                            >
+                              <MoreVertical size={19}/>
+                            </button>
+                            {openActionDate === date && (
+                              <div className="holiday-action-menu" role="menu" aria-label={"Holiday actions for " + date}>
+                                <button
+                                  type="button"
+                                  role="menuitem"
+                                  className="holiday-action-item"
+                                  onClick={() => { setOpenActionDate(""); beginEditHoliday(date, detail); }}
+                                  disabled={saving || loading || Boolean(editingHolidayDate)}
+                                >
+                                  <Pencil size={15}/> Edit
+                                </button>
+                                <button
+                                  type="button"
+                                  role="menuitem"
+                                  className="holiday-action-item remove"
+                                  onClick={() => { setOpenActionDate(""); removeHoliday(date); }}
+                                  disabled={saving || loading || Boolean(editingHolidayDate)}
+                                >
+                                  <Trash2 size={15}/> Remove
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        ) : isEditing ? (
+                          <span className="holiday-editing-badge">Editing</span>
+                        ) : <span className="holiday-readonly-dash">—</span>}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
-        )}
-      </section>
-
       <section className="panel holiday-rule-panel">
         <div className="holiday-panel-heading">
           <div>
