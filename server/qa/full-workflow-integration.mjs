@@ -167,6 +167,41 @@ try {
   assert.equal(String(updatedStudent.body?.program || ""), program.name);
   assert.equal(String(updatedStudent.body?.semester || ""), "Semester I");
 
+  const sourceSection = await post("/api/academic-structure/sections", {
+    programId: program._id,
+    academicSession: session._id,
+    semester: "Semester I",
+    name: "QA-SOURCE",
+    maxClassesPerDay: 6,
+    capacity: 10
+  }, "Create a second section for student movement tests");
+  const sameRollSourceStudent = await post("/api/students", {
+    admissionNo: "QA-MOVE-001",
+    rollNo: "QA-ROLL-001",
+    name: "QA Source Student",
+    section: sourceSection._id,
+    academicSessionId: session._id
+  }, "Create student in source section with a target-conflicting roll number");
+
+  const bulkMapDuplicateRoll = await call("POST", "/api/students/bulk-map", {
+    studentIds: [sameRollSourceStudent._id],
+    toSection: section._id,
+    academicSessionId: session._id
+  });
+  expectStatus("Reject bulk mapping that duplicates a destination section roll number", bulkMapDuplicateRoll, 400);
+  assert.match(bulkMapDuplicateRoll.body?.message || "", /Roll No .* already exists/i);
+
+  const promotionDuplicateRoll = await call("POST", "/api/student-promotions/bulk", {
+    studentIds: [sameRollSourceStudent._id],
+    toSection: section._id,
+    academicSessionId: session._id,
+    sourceAcademicSessionId: session._id,
+    action: "TRANSFERRED",
+    remarks: "QA duplicate roll-number test"
+  });
+  expectStatus("Reject promotion that duplicates a destination section roll number", promotionDuplicateRoll, 400);
+  assert.match(promotionDuplicateRoll.body?.message || "", /Roll No .* already exists/i);
+
   const capacitySection = await post("/api/academic-structure/sections", {
     programId: program._id,
     academicSession: session._id,
