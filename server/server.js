@@ -424,6 +424,7 @@ app.patch("/api/sessions/:id/holidays", requireAuth, async (req,res)=>{
     const allowedDates = new Set(holidays);
     const detailByDate = new Map();
     for (const item of detailInput) {
+      if (item?.recurringProjection === true) continue;
       const date = String(item?.date || "").slice(0,10);
       if (!allowedDates.has(date)) continue;
       const name = String(item?.name || "").trim().slice(0,160);
@@ -437,7 +438,7 @@ app.patch("/api/sessions/:id/holidays", requireAuth, async (req,res)=>{
       if (name || description || holidayType === "Optional" || occursEveryYear) detailByDate.set(date, {date, name, description, holidayType, occursEveryYear});
     }
     const explicitOverrideDates=new Set([...detailByDate.values()]
-      .filter(item=>item.occursEveryYear!==true && (item.name || item.description || item.holidayType==="Optional"))
+      .filter(item=>item.recurringProjection!==true && item.occursEveryYear!==true && (item.name || item.description || item.holidayType==="Optional"))
       .map(item=>String(item.date).slice(0,10)));
     const persistedHolidayDates=holidays.filter(date=>{
       const recurring=recurringCandidates.get(date);
