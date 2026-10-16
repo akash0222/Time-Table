@@ -186,7 +186,7 @@ export default function HolidayManagement({sessions = [], activeSession, role, s
   }
 
   function downloadHolidayTemplate() {
-    const template = "Date,Holiday Name,Description\r\n";
+    const template = "Date,Holiday Name,Description,Holiday Type\r\n";
     const blob = new Blob([template], {type: "text/csv;charset=utf-8;"});
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
@@ -229,7 +229,8 @@ export default function HolidayManagement({sessions = [], activeSession, role, s
       if (!cleanIncoming.includes(item.date)) continue;
       const name = String(item.holidayName || "").trim();
       const description = String(item.description || "").trim();
-      if (name || description) detailByDate.set(item.date, {date:item.date, name, description});
+      const holidayType = ["Mandatory", "Optional"].includes(String(item.holidayType || "Mandatory")) ? String(item.holidayType || "Mandatory") : "Mandatory";
+      if (name || description || holidayType === "Optional") detailByDate.set(item.date, {date:item.date, name, description, holidayType});
     }
     const targetDates = [...holidays, ...cleanIncoming];
     const detailsToSave = [...detailByDate.values()].filter(item => targetDates.includes(isoDate(item.date)));
@@ -516,7 +517,7 @@ export default function HolidayManagement({sessions = [], activeSession, role, s
             </button>
           </div>
           <div className="holiday-upload-hint">
-            <strong>Expected format:</strong> a <code>Date</code> or <code>Holiday Date</code> column; optional <code>Holiday Name</code> and <code>Description</code> columns are supported. Dates can use YYYY-MM-DD or DD-MM-YYYY.
+            <strong>Expected format:</strong> a <code>Date</code> or <code>Holiday Date</code> column; optional <code>Holiday Name</code>, <code>Description</code>, and <code>Holiday Type</code> columns are supported. Type must be Mandatory or Optional; dates can use YYYY-MM-DD or DD-MM-YYYY.
           </div>
 
           {importPreview && (
@@ -529,13 +530,14 @@ export default function HolidayManagement({sessions = [], activeSession, role, s
               </div>
               <div className="holiday-preview-table-wrap">
                 <table className="holiday-preview-table">
-                  <thead><tr><th>Row</th><th>Date in file</th><th>Holiday name</th><th>Result</th></tr></thead>
+                  <thead><tr><th>Row</th><th>Date in file</th><th>Holiday name</th><th>Holiday type</th><th>Result</th></tr></thead>
                   <tbody>
                     {(importPreview.rows || []).map(item => (
                       <tr key={item.rowNumber + "-" + item.sourceDate}>
                         <td>{item.rowNumber}</td>
                         <td>{item.date || item.sourceDate || "—"}</td>
                         <td>{item.holidayName || "—"}</td>
+                        <td>{item.holidayType || "Mandatory"}</td>
                         <td>
                           <span className={"holiday-row-status " + (item.status || "invalid")}>
                             {item.status === "valid" ? <CheckCircle2 size={14}/> : <AlertTriangle size={14}/>}
