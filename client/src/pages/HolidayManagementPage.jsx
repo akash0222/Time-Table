@@ -498,7 +498,7 @@ export default function HolidayManagement({sessions = [], activeSession, role, s
         </div>
       )}
 
-            {canEdit && (
+            {canEdit && showImport && (
         <section className="panel holiday-upload-panel">
           <div className="holiday-panel-heading holiday-upload-heading">
             <div className="holiday-upload-title">
@@ -595,7 +595,7 @@ export default function HolidayManagement({sessions = [], activeSession, role, s
           <span className="holiday-count-pill">{holidays.length} {holidays.length === 1 ? "date" : "dates"}</span>
         </div>
 
-        {holidays.length > 3 && (
+        {true && (
           <label className="holiday-search">
             <Search size={17} aria-hidden="true"/>
             <input
@@ -723,7 +723,7 @@ export default function HolidayManagement({sessions = [], activeSession, role, s
                                   type="button"
                                   role="menuitem"
                                   className="holiday-action-item"
-                                  onClick={() => { setOpenActionDate(""); beginEditHoliday(group.fromDate, group.detail || {name:group.name,description:group.description}); }}
+                                  onClick={() => { setOpenActionDate(""); beginEditHoliday(group); }}
                                   disabled={saving || loading || Boolean(editingHolidayDate)}
                                 >
                                   <Pencil size={15}/> Edit
