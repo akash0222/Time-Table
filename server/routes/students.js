@@ -70,6 +70,11 @@ function normalizedRoll(value) {
   return String(value ?? "").trim().toLowerCase();
 }
 
+function isActiveValue(value, fallback = true) {
+  if (typeof value === "boolean") return value;
+  return parseBoolean(value, fallback);
+}
+
 function escapeRegex(value) {
   const special = new Set(["\\", ".", "*", "+", "?", "^", "$", "{", "}", "(", ")", "|", "[", "]"]);
   return [...String(value)].map(char => special.has(char) ? "\\" + char : char).join("");
