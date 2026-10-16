@@ -20,7 +20,8 @@ const holidayDetailSchema = new mongoose.Schema({
   date: {type:String, required:true},
   name: {type:String, default:""},
   description: {type:String, default:""},
-  holidayType: {type:String, enum:["Mandatory","Optional"], default:"Mandatory"}
+  holidayType: {type:String, enum:["Mandatory","Optional"], default:"Mandatory"},
+  occursEveryYear: {type:Boolean, default:false}
 }, {_id:false});
 
 const schema = new mongoose.Schema({
@@ -33,7 +34,8 @@ const schema = new mongoose.Schema({
   active:{type:Boolean,default:false},
   description:{type:String,default:""},
   holidayDates:{type:[String],default:[]},
-  holidayDetails:{type:[holidayDetailSchema],default:[]}
+  holidayDetails:{type:[holidayDetailSchema],default:[]},
+  holidayExceptions:{type:[String],default:[]}
 },{timestamps:true});
 
 schema.pre("validate", function(next) {
