@@ -72,8 +72,9 @@ export default function HolidayManagement({sessions = [], activeSession, role, s
       setImportPreview(null);
       setUploadFile(null);
       setEditingHolidayDate("");
-      setEditingHolidayName("");
-      setEditingHolidayDescription("");
+      setHolidayModalOpen(false);
+      setHolidayOccursEveryYear(false);
+      setEditingInheritedRecurring(false);
     }
   }, [sessions, activeSession?._id]);
 
@@ -97,7 +98,12 @@ export default function HolidayManagement({sessions = [], activeSession, role, s
     setHolidayDate("");
     setHolidayToDate("");
     setHolidayName("");
+    setHolidayDescription("");
+    setHolidayType("Mandatory");
+    setHolidayOccursEveryYear(false);
+    setEditingInheritedRecurring(false);
     setEditingHolidayDate("");
+    setHolidayModalOpen(false);
 
     try {
       const response = await axios.get(API + "/academic-sessions/" + id);
@@ -309,7 +315,7 @@ export default function HolidayManagement({sessions = [], activeSession, role, s
     const targetDates = [...new Set([...holidays.filter(value => !oldDates.includes(value)), ...nextDates])].sort();
     const detailMap = new Map((session?.holidayDetails || []).map(item => [
       isoDate(item.date),
-      {date:isoDate(item.date), name:String(item.name || ""), description:String(item.description || ""), holidayType:String(item.holidayType || item.type || "Mandatory"), occursEveryYear:item.occursEveryYear===true}
+      {date:isoDate(item.date), name:String(item.name || ""), description:String(item.description || ""), holidayType:String(item.holidayType || item.type || "Mandatory"), occursEveryYear:item.occursEveryYear===true, recurringProjection:item.recurringProjection===true}
     ]));
     for (const oldDate of oldDates) detailMap.delete(oldDate);
     for (const targetDate of nextDates) detailMap.set(targetDate, {
