@@ -19,7 +19,8 @@ programDateSchema.pre("validate", function(next) {
 const holidayDetailSchema = new mongoose.Schema({
   date: {type:String, required:true},
   name: {type:String, default:""},
-  description: {type:String, default:""}
+  description: {type:String, default:""},
+  holidayType: {type:String, enum:["Mandatory", "Optional"], default:"Mandatory"}
 }, {_id:false});
 
 const schema = new mongoose.Schema({
