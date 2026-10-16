@@ -146,6 +146,16 @@ try {
   assert.equal(String(firstStudent.section?.academicSession?._id || firstStudent.section?.academicSession || ""), String(session._id));
   pass("Student section mapping is session-scoped");
 
+  const caseDuplicateAdmission = await call("POST", "/api/students", {
+    admissionNo: "qa-stu-001",
+    rollNo: "QA-ROLL-CASE",
+    name: "QA Duplicate Admission Case",
+    section: section._id,
+    academicSessionId: session._id
+  });
+  expectStatus("Reject admission numbers that differ only by letter case", caseDuplicateAdmission, 400);
+  assert.match(caseDuplicateAdmission.body?.message || "", /Admission No must be unique regardless of letter case/i);
+
   const duplicateRoll = await call("POST", "/api/students", {
     admissionNo: "QA-STU-002",
     rollNo: "qa-roll-001",
