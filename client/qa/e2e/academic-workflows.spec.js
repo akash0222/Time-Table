@@ -855,6 +855,45 @@ test("admin can generate and submit a timetable for review", async ({ page }) =>
 });
 
 
+test("student roster filters include inactive records and remain scoped by academic session", async ({ page }) => {
+  const activeSession = makeActiveSession();
+  const previousSession = { ...makeActiveSession(), _id: "session-previous", name: "Academic Year 2025-26", active: false };
+  const oldProgram = { _id: "program-old", name: "BBA (COM)", code: "BBA-COM", active: true };
+  const currentStudentSection = { ...sampleSection, academicSession: activeSession._id };
+  const previousStudentSection = {
+    _id: "section-old", name: "Old A", program: oldProgram.name, programId: oldProgram._id,
+    semester: "I", academicSession: previousSession._id, maxClassesPerDay: 5, capacity: 40
+  };
+  const students = [
+    { _id: "student-active", admissionNo: "ADM-001", rollNo: "001", name: "Current Active", active: true, section: currentStudentSection },
+    { _id: "student-inactive", admissionNo: "ADM-002", rollNo: "002", name: "Current Inactive", active: false, section: currentStudentSection },
+    { _id: "student-old", admissionNo: "ADM-003", rollNo: "003", name: "Previous Session", active: true, section: previousStudentSection }
+  ];
+  await signIn(page, {
+    sessions: [activeSession, previousSession],
+    programs: [sampleProgram, oldProgram],
+    sections: [currentStudentSection, previousStudentSection],
+    students
+  });
+  await navigateToPage(page, "Students");
+
+  const roster = page.locator(".panel").last();
+  await expect(roster.getByText("Current Active", { exact: true })).toBeVisible();
+  await expect(roster.getByText("Current Inactive", { exact: true })).toHaveCount(0);
+  await expect(roster.getByText("Previous Session", { exact: true })).toHaveCount(0);
+
+  await roster.getByLabel("Student status").selectOption("ALL");
+  await expect(roster.getByText("Current Inactive", { exact: true })).toBeVisible();
+  await expect(roster.getByText("Current Active", { exact: true })).toBeVisible();
+  await expect(roster.getByText("Previous Session", { exact: true })).toHaveCount(0);
+
+  await roster.getByLabel("Student list academic session").selectOption("");
+  await expect(roster.getByText("Previous Session", { exact: true })).toBeVisible();
+  await roster.getByLabel("Student status").selectOption("INACTIVE");
+  await expect(roster.getByText("Current Inactive", { exact: true })).toBeVisible();
+  await expect(roster.getByText("Current Active", { exact: true })).toHaveCount(0);
+});
+
 test("section-wise timetable uses only the selected program's effective time slots", async ({ page }) => {
   const activeSession = makeActiveSession({
     programDates: [
