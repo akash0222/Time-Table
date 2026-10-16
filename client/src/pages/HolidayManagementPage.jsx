@@ -625,7 +625,7 @@ export default function HolidayManagement({sessions = [], activeSession, role, s
                   const date = group.fromDate;
                   const holidayType = group.holidayType;
                   return (
-                    <tr key={group.key} className={isEditing ? "holiday-list-editing-row" : ""}>
+                    <tr key={group.key}>
                       <td className="holiday-title-cell">
                         <div className="holiday-table-title-copy">
                           <strong>{group.name}</strong>
