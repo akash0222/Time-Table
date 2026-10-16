@@ -197,8 +197,8 @@ export default function HolidayManagement({sessions = [], activeSession, role, s
       setHolidayDate("");
       setHolidayToDate("");
       setHolidayName("");
-    setHolidayDescription("");
-    setHolidayType("Mandatory");
+      setHolidayDescription("");
+      setHolidayType("Mandatory");
     }
   }
 
