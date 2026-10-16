@@ -40,6 +40,7 @@ export default function HolidayManagement({sessions = [], activeSession, role, s
   const [sessionId, setSessionId] = useState(activeSession?._id || "");
   const [session, setSession] = useState(null);
   const [holidayDate, setHolidayDate] = useState("");
+  const [holidayToDate, setHolidayToDate] = useState("");
   const [holidayName, setHolidayName] = useState("");
   const [editingHolidayDate, setEditingHolidayDate] = useState("");
   const [editingHolidayName, setEditingHolidayName] = useState("");
@@ -90,6 +91,7 @@ export default function HolidayManagement({sessions = [], activeSession, role, s
     setImportPreview(null);
     setUploadFile(null);
     setHolidayDate("");
+    setHolidayToDate("");
     setHolidayName("");
     setEditingHolidayDate("");
     setEditingHolidayName("");
@@ -142,41 +144,50 @@ export default function HolidayManagement({sessions = [], activeSession, role, s
 
   async function addHoliday(event) {
     event?.preventDefault?.();
-    if (!sessionId || !session || !holidayDate || !canEdit || saving) return;
+    if (!sessionId || !session || !holidayDate || !holidayToDate || !canEdit || saving) return;
     const cleanHolidayName = holidayName.trim();
     if (!cleanHolidayName) {
-      setError("Enter a holiday name before adding the date.");
+      setError("Enter a holiday name before adding the date range.");
       return;
     }
-
-    const chosenDate = new Date(holidayDate + "T00:00:00Z");
-    if (chosenDate.getUTCDay() === 0) {
-      setError("Sunday is already a default holiday. Choose another date.");
+    if (holidayToDate < holidayDate) {
+      setError("The To date must be on or after the From date.");
       return;
     }
 
     const sessionStart = isoDate(session.startDate);
     const sessionEnd = isoDate(session.endDate);
-    if ((sessionStart && holidayDate < sessionStart) || (sessionEnd && holidayDate > sessionEnd)) {
-      setError("Holiday date must fall inside the selected academic session (" + sessionStart + " to " + sessionEnd + ").");
+    if ((sessionStart && holidayDate < sessionStart) || (sessionEnd && holidayToDate > sessionEnd)) {
+      setError("Holiday range must fall inside the selected academic session (" + sessionStart + " to " + sessionEnd + ").");
       return;
     }
 
-    if (holidays.includes(holidayDate)) {
-      setError("This date is already configured as a holiday.");
+    const nextDates = [];
+    const cursor = new Date(holidayDate + "T00:00:00Z");
+    const last = new Date(holidayToDate + "T00:00:00Z");
+    while (cursor <= last) {
+      if (cursor.getUTCDay() !== 0) nextDates.push(cursor.toISOString().slice(0, 10));
+      cursor.setUTCDate(cursor.getUTCDate() + 1);
+    }
+    const duplicates = nextDates.filter(date => holidays.includes(date));
+    if (duplicates.length) {
+      setError("This range includes already configured holiday date(s): " + duplicates.join(", ") + ". Choose a range without duplicates.");
+      return;
+    }
+    if (!nextDates.length) {
+      setError("This range contains only Sunday dates, which are already automatic holidays.");
       return;
     }
 
-    const nextDetails = (session?.holidayDetails || [])
-      .filter(item => isoDate(item.date) !== holidayDate);
-    nextDetails.push({date: holidayDate, name: cleanHolidayName, description: ""});
-    const saved = await saveDates([...holidays, holidayDate], nextDetails);
+    const nextDetails = [...(session?.holidayDetails || [])];
+    for (const date of nextDates) nextDetails.push({date, name: cleanHolidayName, description: ""});
+    const saved = await saveDates([...holidays, ...nextDates], nextDetails);
     if (saved) {
       setHolidayDate("");
+      setHolidayToDate("");
       setHolidayName("");
     }
   }
-
 
   function downloadHolidayTemplate() {
     const template = "Date,Holiday Name,Description\r\n";
@@ -268,11 +279,14 @@ export default function HolidayManagement({sessions = [], activeSession, role, s
       isoDate(item.date),
       {date: isoDate(item.date), name: String(item.name || ""), description: String(item.description || "")}
     ]));
-    detailMap.set(date, {
-      date,
-      name: cleanName,
-      description: editingHolidayDescription.trim()
-    });
+    const group = holidayGroups.find(item => item.fromDate === date);
+    for (const targetDate of (group?.dates || [date])) {
+      detailMap.set(targetDate, {
+        date: targetDate,
+        name: cleanName,
+        description: editingHolidayDescription.trim()
+      });
+    }
     const saved = await saveDates(holidays, [...detailMap.values()]);
     if (saved) {
       cancelEditHoliday();
@@ -283,18 +297,40 @@ export default function HolidayManagement({sessions = [], activeSession, role, s
   }
 
   function removeHoliday(date) {
-    if (!window.confirm("Remove " + date + " from this session's holiday calendar?")) return;
-    saveDates(holidays.filter(value => value !== date));
+    const group = holidayGroups.find(item => item.fromDate === date);
+    const datesToRemove = group?.dates || [date];
+    const rangeLabel = datesToRemove.length > 1
+      ? tableDateLabel(datesToRemove[0]) + " to " + tableDateLabel(datesToRemove[datesToRemove.length - 1])
+      : tableDateLabel(date);
+    if (!window.confirm("Remove " + (group?.name || "holiday") + " (" + rangeLabel + ") from this session's holiday calendar?")) return;
+    saveDates(holidays.filter(value => !datesToRemove.includes(value)));
   }
 
   const sundayCount = countSundays(session?.startDate, session?.endDate);
   const selectedSessionName = session?.name || sessions.find(item => item._id === sessionId)?.name || "—";
   const normalizedSearch = searchTerm.trim().toLowerCase();
-  const filteredHolidays = holidays.filter(date => {
-    if (!normalizedSearch) return true;
-    const friendlyDate = dateLabel(date, {weekday: "long", day: "numeric", month: "long", year: "numeric"});
+  const holidayGroups = [];
+  for (const date of holidays) {
     const detail = (session?.holidayDetails || []).find(item => isoDate(item.date) === date);
-    return (date + " " + friendlyDate + " " + (detail?.name || "") + " " + (detail?.description || "")).toLowerCase().includes(normalizedSearch);
+    const name = String(detail?.name || dateLabel(date, {weekday:"long"})).trim();
+    const description = String(detail?.description || "").trim();
+    const holidayType = String(detail?.holidayType || detail?.type || "Mandatory");
+    const previous = holidayGroups[holidayGroups.length - 1];
+    const previousDay = previous ? new Date(previous.toDate + "T00:00:00Z") : null;
+    const currentDay = new Date(date + "T00:00:00Z");
+    const consecutive = previousDay && currentDay.getTime() - previousDay.getTime() === 86400000;
+    if (previous && consecutive && previous.name === name && previous.description === description && previous.holidayType === holidayType) {
+      previous.toDate = date;
+      previous.dates.push(date);
+    } else {
+      holidayGroups.push({key:date, fromDate:date, toDate:date, dates:[date], name, description, holidayType, detail});
+    }
+  }
+  const filteredHolidays = holidayGroups.filter(group => {
+    if (!normalizedSearch) return true;
+    const friendlyFrom = dateLabel(group.fromDate, {weekday:"long", day:"numeric", month:"long", year:"numeric"});
+    const friendlyTo = dateLabel(group.toDate, {weekday:"long", day:"numeric", month:"long", year:"numeric"});
+    return (group.dates.join(" ") + " " + friendlyFrom + " " + friendlyTo + " " + group.name + " " + group.description).toLowerCase().includes(normalizedSearch);
   });
 
   return (
@@ -354,30 +390,46 @@ export default function HolidayManagement({sessions = [], activeSession, role, s
           </div>
 
           <div className="field holiday-date-field">
-            <label htmlFor="holiday-date">Add a holiday date</label>
-            <div className="holiday-date-control">
+            <label htmlFor="holiday-date">From</label>
+            <div className="holiday-date-range-control">
               <input
                 id="holiday-date"
                 type="date"
                 value={holidayDate}
                 min={session?.startDate ? isoDate(session.startDate) : undefined}
                 max={session?.endDate ? isoDate(session.endDate) : undefined}
-                onChange={event => { setHolidayDate(event.target.value); setError(""); }}
+                onChange={event => {
+                  const value = event.target.value;
+                  setHolidayDate(value);
+                  setHolidayToDate(current => !current || current < value ? value : current);
+                  setError("");
+                }}
                 disabled={!sessionId || !session || !canEdit || loading || saving}
+                aria-describedby="holiday-date-help"
+              />
+              <label htmlFor="holiday-to-date">To</label>
+              <input
+                id="holiday-to-date"
+                type="date"
+                value={holidayToDate}
+                min={holidayDate || (session?.startDate ? isoDate(session.startDate) : undefined)}
+                max={session?.endDate ? isoDate(session.endDate) : undefined}
+                onChange={event => { setHolidayToDate(event.target.value); setError(""); }}
+                disabled={!sessionId || !session || !canEdit || loading || saving || !holidayDate}
                 aria-describedby="holiday-date-help"
               />
               <button
                 className="primary holiday-add-button"
                 type="submit"
-                disabled={!sessionId || !session || !holidayName.trim() || !holidayDate || !canEdit || loading || saving}
+                disabled={!sessionId || !session || !holidayName.trim() || !holidayDate || !holidayToDate || !canEdit || loading || saving}
               >
                 {saving ? "Saving…" : "Add Holiday"}
               </button>
             </div>
             <small className="field-help" id="holiday-date-help">
               {session?.startDate && session?.endDate
-                ? "Select a date from " + isoDate(session.startDate) + " to " + isoDate(session.endDate) + ". Sundays are excluded automatically."
-                : "Select an academic session first. Sundays are excluded automatically."}
+                ? "Select dates from " + isoDate(session.startDate) + " to " + isoDate(session.endDate) + ". Sundays are skipped automatically within the range."
+                : "Select an academic session first. Sundays are skipped automatically within the range."}
             </small>
           </div>
         </form>
@@ -557,12 +609,13 @@ export default function HolidayManagement({sessions = [], activeSession, role, s
                 </tr>
               </thead>
               <tbody>
-                {filteredHolidays.map(date => {
-                  const detail = (session?.holidayDetails || []).find(item => isoDate(item.date) === date);
-                  const isEditing = editingHolidayDate === date;
-                  const holidayType = String(detail?.holidayType || detail?.type || "Mandatory");
+                {filteredHolidays.map(group => {
+                  const date = group.fromDate;
+                  const detail = group.detail;
+                  const isEditing = editingHolidayDate === group.fromDate;
+                  const holidayType = group.holidayType;
                   return (
-                    <tr key={date} className={isEditing ? "holiday-list-editing-row" : ""}>
+                    <tr key={group.key} className={isEditing ? "holiday-list-editing-row" : ""}>
                       <td className="holiday-title-cell">
                         {isEditing ? (
                           <form className="holiday-edit-form holiday-table-edit-form" onSubmit={event => saveEditedHoliday(event, date)}>
@@ -602,9 +655,8 @@ export default function HolidayManagement({sessions = [], activeSession, role, s
                           </form>
                         ) : (
                           <div className="holiday-table-title-copy">
-                            <strong>{detail?.name || dateLabel(date, {weekday:"long"})}</strong>
-                            {detail?.description && <small>{detail.description}</small>}
-                            <small className="holiday-table-iso-date">{date}</small>
+                            <strong>{group.name}</strong>
+                            {group.description && <small>{group.description}</small>}
                           </div>
                         )}
                       </td>
@@ -613,8 +665,8 @@ export default function HolidayManagement({sessions = [], activeSession, role, s
                           {holidayType}
                         </span>
                       </td>
-                      <td className="holiday-table-date">{tableDateLabel(date)}</td>
-                      <td className="holiday-table-date">{tableDateLabel(date)}</td>
+                      <td className="holiday-table-date">{tableDateLabel(group.fromDate)}</td>
+                      <td className="holiday-table-date">{tableDateLabel(group.toDate)}</td>
                       <td className="holiday-table-actions">
                         {canEdit && !isEditing ? (
                           <div className="holiday-action-wrap">
@@ -635,7 +687,7 @@ export default function HolidayManagement({sessions = [], activeSession, role, s
                                   type="button"
                                   role="menuitem"
                                   className="holiday-action-item"
-                                  onClick={() => { setOpenActionDate(""); beginEditHoliday(date, detail); }}
+                                  onClick={() => { setOpenActionDate(""); beginEditHoliday(group.fromDate, group.detail || {name:group.name,description:group.description}); }}
                                   disabled={saving || loading || Boolean(editingHolidayDate)}
                                 >
                                   <Pencil size={15}/> Edit
@@ -644,7 +696,7 @@ export default function HolidayManagement({sessions = [], activeSession, role, s
                                   type="button"
                                   role="menuitem"
                                   className="holiday-action-item remove"
-                                  onClick={() => { setOpenActionDate(""); removeHoliday(date); }}
+                                  onClick={() => { setOpenActionDate(""); removeHoliday(group.fromDate); }}
                                   disabled={saving || loading || Boolean(editingHolidayDate)}
                                 >
                                   <Trash2 size={15}/> Remove
