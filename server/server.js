@@ -330,7 +330,7 @@ app.post("/api/sessions/:id/holidays/preview-import", requireAuth, allowRoles("A
     const hasHeader = detectedDateColumn >= 0;
     const headings = hasHeader ? firstRowHeadings : [];
     const dateColumn = hasHeader ? detectedDateColumn : 0;
-    const nameColumn = hasHeader ? headings.findIndex(value => /holiday\s*name|name|occasion|holiday/.test(value) && !/date/.test(value)) : -1;
+    const nameColumn = hasHeader ? headings.findIndex(value => /holiday\s*name|name|occasion|holiday/.test(value) && !/date|type/.test(value)) : -1;
     const descriptionColumn = hasHeader ? headings.findIndex(value => /description|notes?/.test(value)) : -1;
     const holidayTypeColumn = hasHeader ? headings.findIndex(value => /holiday\s*type|^type$/.test(value)) : -1;
     const firstDataRow = hasHeader ? 1 : 0;
