@@ -66,6 +66,46 @@ function sectionKey(program, semester, name) {
   return [program, semester, name].map(v => String(v || "").trim().toLowerCase()).join("|");
 }
 
+function normalizedRoll(value) {
+  return String(value ?? "").trim().toLowerCase();
+}
+
+function isActiveValue(value, fallback = true) {
+  if (typeof value === "boolean") return value;
+  return parseBoolean(value, fallback);
+}
+
+async function validateStudentPlacement({ sectionId, rollNo, excludeStudentId = null, active = true, academicSessionId = null }) {
+  const section = await Section.findById(sectionId).populate("programId", "name code").lean();
+  if (!section) return { error: "Selected section does not exist." };
+
+  if (academicSessionId && String(section.academicSession || "") !== String(academicSessionId)) {
+    return { error: "Selected section does not belong to the chosen academic session." };
+  }
+
+  const rollKey = normalizedRoll(rollNo);
+  if (rollKey) {
+    const rollFilter = { section: section._id };
+    if (excludeStudentId) rollFilter._id = { $ne: excludeStudentId };
+    const sectionStudents = await Student.find(rollFilter).select("rollNo").lean();
+    if (sectionStudents.some(student => normalizedRoll(student.rollNo) === rollKey)) {
+      return { error: `Roll No ${String(rollNo).trim()} already exists in section ${section.name}.` };
+    }
+  }
+
+  const capacity = Math.max(0, Number(section.capacity || section.maxStudents || 0));
+  if (active && capacity > 0) {
+    const countFilter = { section: section._id, active: true };
+    if (excludeStudentId) countFilter._id = { $ne: excludeStudentId };
+    const activeCount = await Student.countDocuments(countFilter);
+    if (activeCount >= capacity) {
+      return { error: `Section ${section.name} is at capacity (${activeCount}/${capacity}). Increase capacity or choose another section.` };
+    }
+  }
+
+  return { section };
+}
+
 router.get("/bulk-template", allowRoles("ADMIN", "SCHEDULER"), async (_req, res) => {
   const workbook = new ExcelJS.Workbook();
   const sheet = workbook.addWorksheet("Students");
@@ -403,24 +443,93 @@ router.get("/", async (req, res) => {
 
 router.post("/", allowRoles("ADMIN", "SCHEDULER"), async (req, res) => {
   try {
-    const { admissionNo, rollNo, name, email = "", phone = "", gender = "", dateOfBirth = null, fatherName = "", motherName = "", category = "", address = "", city = "", state = "", pincode = "", section, program = "", semester = "", active = true, admissionDate = null } = req.body || {};
-    if (!admissionNo || !rollNo || !name || !section) return res.status(400).json({ message: "Admission No, Roll No, Name and Section are required." });
-    if (!await Section.exists({ _id: section })) return res.status(400).json({ message: "Selected section does not exist." });
-    const sectionDoc = await Section.findById(section).populate("programId", "name code").lean();
-    const created = await Student.create({ admissionNo, rollNo, name, email, phone, gender, dateOfBirth: dateOfBirth || null, fatherName, motherName, category, address, city, state, pincode, section, program: sectionDoc?.program || sectionDoc?.programId?.name || program || "", semester: sectionDoc?.semester || semester || "", active, admissionDate: admissionDate || null });
-    res.status(201).json(await Student.findById(created._id).populate("section", "name program programId semester"));
-  } catch (e) { res.status(400).json({ message: e.code === 11000 ? "Admission No must be unique." : e.message }); }
+    const body = req.body || {};
+    const admissionNo = String(body.admissionNo || "").trim();
+    const rollNo = String(body.rollNo || "").trim();
+    const name = String(body.name || "").trim();
+    const sectionId = String(body.section || "").trim();
+    if (!admissionNo || !rollNo || !name || !sectionId) {
+      return res.status(400).json({ message: "Admission No, Roll No, Name and Section are required." });
+    }
+    const active = isActiveValue(body.active, true);
+    const placement = await validateStudentPlacement({
+      sectionId,
+      rollNo,
+      active,
+      academicSessionId: body.academicSessionId || null
+    });
+    if (placement.error) return res.status(400).json({ message: placement.error });
+    const sectionDoc = placement.section;
+    const created = await Student.create({
+      admissionNo, rollNo, name,
+      email: String(body.email || "").trim(),
+      phone: String(body.phone || "").trim(),
+      gender: String(body.gender || "").trim(),
+      dateOfBirth: body.dateOfBirth || null,
+      fatherName: String(body.fatherName || "").trim(),
+      motherName: String(body.motherName || "").trim(),
+      category: String(body.category || "").trim(),
+      address: String(body.address || "").trim(),
+      city: String(body.city || "").trim(),
+      state: String(body.state || "").trim(),
+      pincode: String(body.pincode || "").trim(),
+      section: sectionDoc._id,
+      program: sectionDoc.program || sectionDoc.programId?.name || "",
+      semester: sectionDoc.semester || "",
+      active,
+      admissionDate: body.admissionDate || null
+    });
+    res.status(201).json(await Student.findById(created._id).populate("section", "name program programId semester academicSession"));
+  } catch (e) {
+    res.status(400).json({ message: e.code === 11000 ? "Admission No must be unique." : e.message });
+  }
 });
 
 router.put("/:id", allowRoles("ADMIN", "SCHEDULER"), async (req, res) => {
   try {
-    const body = { ...req.body };
+    const current = await Student.findById(req.params.id).populate("section", "name program programId semester academicSession").lean();
+    if (!current) return res.status(404).json({ message: "Student not found." });
+
+    const allowedFields = [
+      "admissionNo", "rollNo", "name", "email", "phone", "gender", "dateOfBirth",
+      "fatherName", "motherName", "category", "address", "city", "state", "pincode",
+      "section", "active", "admissionDate"
+    ];
+    const body = {};
+    for (const key of allowedFields) {
+      if (Object.prototype.hasOwnProperty.call(req.body || {}, key)) body[key] = req.body[key];
+    }
     delete body._id; delete body.createdAt; delete body.updatedAt;
-    if (body.section && !await Section.exists({ _id: body.section })) return res.status(400).json({ message: "Selected section does not exist." });
-    const updated = await Student.findByIdAndUpdate(req.params.id, body, { new: true, runValidators: true }).populate("section", "name program programId semester");
-    if (!updated) return res.status(404).json({ message: "Student not found." });
+
+    const targetSectionId = String(body.section || current.section?._id || "");
+    if (!targetSectionId) return res.status(400).json({ message: "Student must be assigned to a section." });
+    const targetSessionId = String(req.body?.academicSessionId || "");
+    const placement = await validateStudentPlacement({
+      sectionId: targetSectionId,
+      rollNo: body.rollNo ?? current.rollNo,
+      excludeStudentId: current._id,
+      active: isActiveValue(body.active, current.active !== false),
+      academicSessionId: targetSessionId || null
+    });
+    if (placement.error) return res.status(400).json({ message: placement.error });
+
+    const oldSessionId = String(current.section?.academicSession || "");
+    const newSessionId = String(placement.section.academicSession || "");
+    if (oldSessionId && newSessionId && oldSessionId !== newSessionId) {
+      return res.status(400).json({ message: "Changing a student's academic session must use Student Promotion, which records movement history." });
+    }
+
+    body.section = placement.section._id;
+    body.program = placement.section.program || placement.section.programId?.name || "";
+    body.semester = placement.section.semester || "";
+    if (Object.prototype.hasOwnProperty.call(body, "active")) body.active = isActiveValue(body.active, current.active !== false);
+
+    const updated = await Student.findByIdAndUpdate(req.params.id, body, { new: true, runValidators: true })
+      .populate("section", "name program programId semester academicSession");
     res.json(updated);
-  } catch (e) { res.status(400).json({ message: e.code === 11000 ? "Admission No must be unique." : e.message }); }
+  } catch (e) {
+    res.status(400).json({ message: e.code === 11000 ? "Admission No must be unique." : e.message });
+  }
 });
 
 router.delete("/:id", allowRoles("ADMIN", "SCHEDULER"), async (req, res) => {
