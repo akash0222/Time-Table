@@ -14,8 +14,17 @@ export default function StudentMapping({data,sessions=[],activeSession,reload,se
   const [selected,setSelected]=useState([]);
   const [q,setQ]=useState("");
   const sections=data.sections||[];
+  const programs=data.programs||[];
   const sessionMatches=section=>!sessionId||String(section?.academicSession?._id||section?.academicSession||"")===String(sessionId);
-  const sourceSections=sections.filter(s=>sessionMatches(s)&&(!sourceProgram||String(s.programId?._id||s.programId||'')===sourceProgram||s.program===sourceProgram)&&(!sourceSemester||String(s.semester)===sourceSemester));
+  const sectionMatchesProgram=section=>{
+    if(!sourceProgram)return true;
+    const programId=refId(section?.programId);
+    if(programId)return programId===sourceProgram;
+    const selectedProgram=programs.find(program=>refId(program)===sourceProgram);
+    const legacyName=String(section?.program||"").trim().toLowerCase();
+    return Boolean(selectedProgram&&[selectedProgram.name,selectedProgram.code].some(value=>String(value||"").trim().toLowerCase()===legacyName));
+  };
+  const sourceSections=sections.filter(s=>sessionMatches(s)&&sectionMatchesProgram(s)&&(!sourceSemester||String(s.semester)===sourceSemester));
   const students=(data.students||[]).filter(s=>sessionMatches(s.section)).filter(s=>!sourceSection||refId(s.section)===sourceSection).filter(s=>!q||`${s.name} ${s.admissionNo} ${s.rollNo}`.toLowerCase().includes(q.toLowerCase()));
   const targetOptions=sections.filter(s=>sessionMatches(s)&&refId(s)!==sourceSection);
   useEffect(()=>{setSelected([])},[sourceProgram,sourceSemester,sourceSection]);
@@ -28,8 +37,7 @@ export default function StudentMapping({data,sessions=[],activeSession,reload,se
       setSourceProgram("");setSourceSemester("");setSourceSection("");setTargetSection("");setSelected([]);
     }
   },[sessions,activeSession?._id]);
-  const programs=data.programs||[];
-  const semesters=[...new Set(sections.filter(s=>sessionMatches(s)&&(!sourceProgram||String(s.programId?._id||s.programId||'')===sourceProgram||s.program===sourceProgram)).map(s=>s.semester).filter(Boolean))];
+  const semesters=[...new Set(sections.filter(s=>sessionMatches(s)&&sectionMatchesProgram(s)).map(s=>s.semester).filter(Boolean))];
   function changeSession(nextSessionId){
     setSessionId(nextSessionId);
     setSourceProgram("");
