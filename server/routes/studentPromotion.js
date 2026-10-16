@@ -13,6 +13,7 @@ function sectionLabel(s){
 function sessionIdOfSection(s){ return s?.academicSession ? String(s.academicSession) : ""; }
 function sourceSessionIdOfStudent(section){ return sessionIdOfSection(section); }
 function normalizeIds(ids){ return [...new Set((Array.isArray(ids)?ids:[]).map(String).filter(Boolean))]; }
+function normalizeRollNo(value){ return String(value??"").trim().toLowerCase(); }
 
 router.get("/history", allowRoles("ADMIN","SCHEDULER"), async (req,res)=>{
   try{
@@ -122,6 +123,20 @@ router.post("/bulk", allowRoles("ADMIN","SCHEDULER"), async (req,res)=>{
     if(noSource) return res.status(400).json({message:`${noSource.name} has no valid current section assignment.`});
 
     const moving=allStudents.filter(s=>String(s.section?._id||"")!==String(target._id));
+    if(moving.length){
+      const destinationStudents=await Student.find({
+        section:target._id,
+        _id:{$nin:moving.map(s=>s._id)}
+      }).select("rollNo").lean();
+      const destinationRolls=new Set(destinationStudents.map(s=>normalizeRollNo(s.rollNo)));
+      for(const student of moving){
+        const rollKey=normalizeRollNo(student.rollNo);
+        if(rollKey&&destinationRolls.has(rollKey)){
+          return res.status(400).json({message:`Roll No ${student.rollNo} already exists in destination section ${target.name}.`});
+        }
+        if(rollKey)destinationRolls.add(rollKey);
+      }
+    }
     const capacity=Number(target.capacity||target.maxStudents||0);
     if(capacity>0 && moving.length){
       const currentCount=await Student.countDocuments({section:target._id,active:true,_id:{$nin:moving.map(s=>s._id)}});
@@ -212,6 +227,10 @@ router.post("/rollback/:id", allowRoles("ADMIN"), async (req,res)=>{
     if(String(student.section)!==String(history.toSection)) return res.status(409).json({message:"Rollback blocked because the student's current section has changed since this movement."});
     const from=await Section.findById(history.fromSection).populate("programId","name code").lean();
     if(!from) return res.status(409).json({message:"Original section no longer exists; rollback cannot be completed."});
+    const destinationRolls=await Student.find({section:from._id,_id:{$ne:student._id}}).select("rollNo").lean();
+    if(destinationRolls.some(row=>normalizeRollNo(row.rollNo)===normalizeRollNo(student.rollNo))){
+      return res.status(409).json({message:`Rollback blocked because Roll No ${student.rollNo} already exists in the original section.`});
+    }
     const capacity=Number(from.capacity||from.maxStudents||0);
     if(capacity>0){
       const currentCount=await Student.countDocuments({section:from._id,active:true,_id:{$ne:student._id}});
