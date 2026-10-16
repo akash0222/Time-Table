@@ -360,7 +360,8 @@ export default function HolidayManagement({sessions = [], activeSession, role, s
     const previous = holidayGroups[holidayGroups.length - 1];
     const previousDay = previous ? new Date(previous.toDate + "T00:00:00Z") : null;
     const currentDay = new Date(date + "T00:00:00Z");
-    const consecutive = previousDay && currentDay.getTime() - previousDay.getTime() === 86400000;
+    const dayGap = previousDay ? currentDay.getTime() - previousDay.getTime() : 0;
+    const consecutive = previousDay && (dayGap === 86400000 || (dayGap === 2 * 86400000 && previousDay.getUTCDay() === 6 && currentDay.getUTCDay() === 1));
     if (previous && consecutive && previous.name === name && previous.description === description && previous.holidayType === holidayType && previous.occursEveryYear === occursEveryYear) {
       previous.toDate = date;
       previous.dates.push(date);
