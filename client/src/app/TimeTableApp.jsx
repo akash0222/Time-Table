@@ -1044,7 +1044,7 @@ export default function App(){
 
       <Suspense fallback={<PageLoading label={tab} />}>
       {tab==="Attendance" && <Attendance data={data} auth={auth} setMessage={setMessage}/>}
-      {tab==="Students" && <Students data={data} reload={reloadStudentData} setMessage={setMessage}/>}
+      {tab==="Students" && <Students data={data} sessions={sessions} activeSession={activeSession} reload={reloadStudentData} setMessage={setMessage}/>}
       {tab==="Student Mapping" && <StudentMapping data={data} sessions={sessions} activeSession={activeSession} reload={reloadStudentData} setMessage={setMessage}/>}
       {tab==="Student Profile" && <StudentProfile data={data} setMessage={setMessage}/>}
       {tab==="Student Promotion" && <StudentPromotion data={data} sessions={sessions} activeSession={activeSession} reload={load} setMessage={setMessage}/>}
