@@ -135,6 +135,63 @@ try {
     capacity: 60
   }, "Create program/session/semester/section mapping");
 
+  const firstStudent = await post("/api/students", {
+    admissionNo: "QA-STU-001",
+    rollNo: "QA-ROLL-001",
+    name: "QA Student One",
+    section: section._id,
+    academicSessionId: session._id
+  }, "Create a student with a valid section mapping");
+  assert.equal(String(firstStudent.section?._id || firstStudent.section), String(section._id));
+  assert.equal(String(firstStudent.section?.academicSession?._id || firstStudent.section?.academicSession || ""), String(session._id));
+  pass("Student section mapping is session-scoped");
+
+  const duplicateRoll = await call("POST", "/api/students", {
+    admissionNo: "QA-STU-002",
+    rollNo: "qa-roll-001",
+    name: "QA Student Duplicate Roll",
+    section: section._id,
+    academicSessionId: session._id
+  });
+  expectStatus("Reject duplicate roll numbers within a section", duplicateRoll, 400);
+  assert.match(duplicateRoll.body?.message || "", /Roll No .* already exists/i);
+
+  const updatedStudent = await call("PUT", `/api/students/${firstStudent._id}`, {
+    name: "QA Student One Updated",
+    section: section._id,
+    program: "Wrong Program",
+    semester: "Wrong Semester",
+    academicSessionId: session._id
+  });
+  expectStatus("Update student without overwriting section-derived academic mapping", updatedStudent, 200);
+  assert.equal(String(updatedStudent.body?.program || ""), program.name);
+  assert.equal(String(updatedStudent.body?.semester || ""), "Semester I");
+
+  const capacitySection = await post("/api/academic-structure/sections", {
+    programId: program._id,
+    academicSession: session._id,
+    semester: "Semester I",
+    name: "QA-CAPACITY",
+    maxClassesPerDay: 6,
+    capacity: 1
+  }, "Create one-seat section for capacity validation");
+  await post("/api/students", {
+    admissionNo: "QA-CAP-001",
+    rollNo: "CAP-ROLL-001",
+    name: "QA Capacity Student",
+    section: capacitySection._id,
+    academicSessionId: session._id
+  }, "Create student within section capacity");
+  const overCapacity = await call("POST", "/api/students", {
+    admissionNo: "QA-CAP-002",
+    rollNo: "CAP-ROLL-002",
+    name: "QA Over Capacity Student",
+    section: capacitySection._id,
+    academicSessionId: session._id
+  });
+  expectStatus("Reject active student creation beyond section capacity", overCapacity, 400);
+  assert.match(overCapacity.body?.message || "", /capacity/i);
+
   const facultyA = await post("/api/faculty", {
     name: "QA Faculty Alpha",
     code: "QA-FA",
