@@ -363,6 +363,139 @@
 .holiday-name-field label span{color:#dc2626}
 @media(max-width:760px){.holiday-date-field{grid-column:auto}}
 
+/* Compact holiday table matching the date-range list layout. */
+.holiday-date-range-control{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) auto minmax(0,1fr) auto;
+  align-items:center;
+  gap:10px;
+}
+.holiday-date-range-control input{
+  width:100%;
+  min-width:0;
+}
+.holiday-date-range-control>label{
+  color:#475569;
+  font-size:12px;
+  font-weight:700;
+}
+.holiday-table-wrap{
+  width:100%;
+  max-width:100%;
+  overflow-x:auto;
+  border-radius:10px;
+  background:#fff;
+}
+.holiday-list-table{
+  width:100%;
+  min-width:710px;
+  border-collapse:collapse;
+  table-layout:auto;
+  background:#fff;
+  color:#111827;
+  font-size:14px;
+}
+.holiday-list-table thead th{
+  padding:14px 15px;
+  background:#e7e7e7;
+  color:#202124;
+  font-size:13px;
+  font-weight:600;
+  line-height:1.25;
+  text-align:left;
+  white-space:nowrap;
+}
+.holiday-list-table tbody td{
+  padding:11px 15px;
+  border-bottom:1px solid #e2e2e2;
+  vertical-align:middle;
+}
+.holiday-list-table tbody tr:last-child td{border-bottom:0}
+.holiday-list-table tbody tr:hover{background:#fafafa}
+.holiday-list-editing-row{background:#f8fbff!important}
+.holiday-table-title-cell{min-width:220px;width:28%}
+.holiday-table-title-copy{display:flex;flex-direction:column;gap:4px;min-width:0}
+.holiday-table-title-copy strong{font-size:14px;font-weight:500;color:#111827;overflow-wrap:anywhere}
+.holiday-table-title-copy small{font-size:12px;color:#64748b;line-height:1.4}
+.holiday-table-date{min-width:150px;white-space:nowrap;color:#111827}
+.holiday-type-badge{
+  display:inline-flex!important;
+  align-items:center;
+  padding:5px 12px;
+  border-radius:6px;
+  background:#fbd5bd;
+  color:#9a3412!important;
+  font-size:12px!important;
+  line-height:1.25;
+  font-weight:600;
+  white-space:nowrap;
+}
+.holiday-type-badge.optional{background:#dbeafe;color:#1d4ed8!important}
+.holiday-table-actions{width:105px;min-width:95px;text-align:center}
+.holiday-action-wrap{position:relative;display:inline-flex;align-items:center;justify-content:center}
+.holiday-actions-trigger{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  width:34px;
+  height:36px;
+  padding:0;
+  border:1px solid transparent;
+  border-radius:7px;
+  background:transparent;
+  color:#292929;
+  cursor:pointer;
+}
+.holiday-actions-trigger:hover,.holiday-actions-trigger[aria-expanded="true"]{
+  background:#f3f4f6;
+  border-color:#e5e7eb;
+}
+.holiday-actions-trigger:focus-visible,.holiday-action-item:focus-visible{
+  outline:2px solid #2563eb;
+  outline-offset:2px;
+}
+.holiday-actions-trigger:disabled{opacity:.45;cursor:not-allowed}
+.holiday-action-menu{
+  position:absolute;
+  z-index:30;
+  top:calc(100% + 4px);
+  right:0;
+  min-width:142px;
+  padding:5px;
+  border:1px solid #e5e7eb;
+  border-radius:9px;
+  background:#fff;
+  box-shadow:0 10px 24px rgba(15,23,42,.14);
+  text-align:left;
+}
+.holiday-action-item{
+  display:flex;
+  align-items:center;
+  gap:9px;
+  width:100%;
+  padding:9px 10px;
+  border:0;
+  border-radius:6px;
+  background:transparent;
+  color:#1f2937;
+  font-size:13px;
+  text-align:left;
+  cursor:pointer;
+}
+.holiday-action-item:hover{background:#f3f6fb}
+.holiday-action-item.remove{color:#b91c1c}
+.holiday-action-item.remove:hover{background:#fff1f2}
+.holiday-readonly-dash{color:#9ca3af;font-size:14px}
+.holiday-table-edit-form{max-width:420px;min-width:250px;margin:0}
+.holiday-table-edit-form .holiday-edit-form-actions{margin-top:3px}
+@media(max-width:800px){
+  .holiday-date-range-control{grid-template-columns:1fr;align-items:stretch}
+  .holiday-date-range-control>label{margin-top:3px}
+  .holiday-table-wrap{border:1px solid #e5e7eb}
+  .holiday-list-table{min-width:690px}
+}
+
+
 
 /* Edit configured holiday details */
 .holiday-row-actions{display:flex;align-items:center;justify-content:flex-end;gap:8px;flex:0 0 auto}
