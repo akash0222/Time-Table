@@ -570,6 +570,7 @@ test("student mapping resets selection and scopes semester filters when the acad
   ];
   const students = [
     { _id: "student-1", name: "Alpha Student", admissionNo: "ADM-001", rollNo: "1", active: true, section: { _id: "section-1", name: "A", program: "MBA", semester: "I", academicSession: "session-1" } },
+    { _id: "student-1c", name: "Gamma Student", admissionNo: "ADM-003", rollNo: "3", active: true, section: { _id: "section-1", name: "A", program: "MBA", semester: "I", academicSession: "session-1" } },
     { _id: "student-2", name: "Beta Student", admissionNo: "ADM-002", rollNo: "2", active: true, section: { _id: "section-2", name: "A", program: "PGDM", semester: "II", academicSession: "session-2" } }
   ];
 
@@ -593,11 +594,17 @@ test("student mapping resets selection and scopes semester filters when the acad
   await semesterSelect.selectOption("I");
   await sectionSelect.selectOption("section-1");
   await expect(page.getByText("Alpha Student", { exact: true })).toBeVisible();
+  await expect(page.getByText("Gamma Student", { exact: true })).toBeVisible();
   await expect(page.getByText("Beta Student", { exact: true })).toHaveCount(0);
   await destinationSelect.selectOption("section-1b");
+  const searchStudent = page.getByLabel("Search Student");
+  await searchStudent.fill("Alpha");
   const alphaRow = page.locator("tr").filter({ hasText: "Alpha Student" });
   await alphaRow.locator('input[type="checkbox"]').check();
-  await expect(page.getByText("1 selected", { exact: false })).toBeVisible();
+  await searchStudent.fill("Gamma");
+  await expect(page.getByRole("button", { name: "Select Visible" })).toBeVisible();
+  await page.getByRole("button", { name: "Select Visible" }).click();
+  await expect(page.getByText("2 selected", { exact: false })).toBeVisible();
 
   await sessionSelect.selectOption("session-2");
   await expect(programSelect).toHaveValue("");
@@ -608,6 +615,7 @@ test("student mapping resets selection and scopes semester filters when the acad
   await expect(semesterSelect.locator("option").filter({ hasText: "II" })).toHaveCount(1);
   await expect(page.getByText("Beta Student", { exact: true })).toBeVisible();
   await expect(page.getByText("Alpha Student", { exact: true })).toHaveCount(0);
+  await expect(page.getByText("Gamma Student", { exact: true })).toHaveCount(0);
   await expect(page.getByText("0 selected", { exact: false })).toBeVisible();
 });
 
