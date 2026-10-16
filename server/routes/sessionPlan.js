@@ -14,6 +14,7 @@ import {allowRoles} from '../middleware/auth.js';
 import {subjectTarget, subjectEligibleWeeks, requiredSessionCount} from '../services/sessionPlanTargets.js';
 import {createCurrentSessionPlan} from '../services/sessionPlanVersioning.js';
 import {resolveTimeSlotsForSection, resolveProgramCalendar} from '../services/timetable/academicCalendar.js';
+import {applyRecurringHolidayCalendar} from '../services/recurringHolidayCalendar.js';
 import {holidayDateRangeIssue} from '../services/sessionPlanHolidayDates.js';
 
 const router=Router();
@@ -628,8 +629,10 @@ router.post('/generate',allowRoles('ADMIN','SCHEDULER'),async(req,res)=>{
     if(!start||!end)return res.status(400).json({message:'Configure program-wise session start and end dates before generating.'});
     if(end<start||end-start>370*86400000)return res.status(400).json({message:'Academic session must be at most 371 days and end after its start.'});
 
+    const recurringSources=await AcademicSession.find({'holidayDetails.occursEveryYear':true}).select('name updatedAt holidayDetails').sort({updatedAt:1}).lean();
+    const sessionCalendar=applyRecurringHolidayCalendar({...session,startDate:start,endDate:end},recurringSources);
     const requestedHolidays=Array.isArray(req.body.holidays)?req.body.holidays.map(String).filter(Boolean):[];
-    const sessionHolidays=Array.isArray(session.holidayDates)?session.holidayDates.map(String).filter(Boolean):[];
+    const sessionHolidays=Array.isArray(sessionCalendar.holidayDates)?sessionCalendar.holidayDates.map(String).filter(Boolean):[];
     let holidays=[...new Set([...sessionHolidays,...requestedHolidays])];
     const holidayIssue=holidayDateRangeIssue(holidays,start,end);
     if(holidayIssue)return res.status(400).json({message:holidayIssue});
