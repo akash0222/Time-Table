@@ -184,7 +184,7 @@ async function installApiMocks(page, options = {}) {
         sessionName: sessions.find(session => session._id === holidayPreviewMatch[1])?.name || "Academic Year 2026-27",
         summary: { total: 4, valid: 2, skipped: 1, invalid: 1 },
         rows: [
-          { rowNumber: 2, sourceDate: "2026-08-15", date: "2026-08-15", holidayName: "Independence Day Observed", description: "School holiday", status: "valid", reason: "" },
+          { rowNumber: 2, sourceDate: "2026-08-15", date: "2026-08-15", holidayName: "Independence Day Observed", description: "School holiday", holidayType: "Optional", status: "valid", reason: "" },
           { rowNumber: 3, sourceDate: "2026-08-16", date: "2026-08-16", holidayName: "Sunday Entry", status: "skipped", reason: "Sunday is already an automatic holiday." },
           { rowNumber: 4, sourceDate: "2026-12-25", date: "2026-12-25", holidayName: "Christmas", description: "School closed", status: "valid", reason: "" },
           { rowNumber: 5, sourceDate: "not-a-date", date: "", holidayName: "Invalid Row", status: "invalid", reason: "Invalid or missing date." }
@@ -558,6 +558,8 @@ test("admin can configure a holiday for an academic session", async ({ page }) =
   await expect(page.locator("h2", { hasText: "Holiday Management" })).toBeVisible();
   await expect(page.getByText("Configured Holiday Dates")).toBeVisible();
   await page.locator("#holiday-name").fill("Independence Day");
+  await page.locator("#holiday-description").fill("National holiday; campus will remain closed.");
+  await page.locator("#holiday-type").selectOption("Optional");
   await page.locator("#holiday-date").fill("2026-08-15");
   await page.getByRole("button", { name: "Add Holiday" }).click();
   await expect(page.getByRole("columnheader", { name: "Title" })).toBeVisible();
@@ -566,25 +568,32 @@ test("admin can configure a holiday for an academic session", async ({ page }) =
   await expect(page.getByRole("columnheader", { name: "To" })).toBeVisible();
   const holidayRow = page.locator(".holiday-list-table tbody tr").filter({ hasText: "Independence Day" });
   await expect(holidayRow).toHaveCount(1);
+  await expect(holidayRow.getByText("Optional", { exact: true })).toBeVisible();
+  await expect(holidayRow.getByText("National holiday; campus will remain closed.", { exact: true })).toBeVisible();
   await expect(holidayRow.locator("td").nth(2)).toHaveText("August 15, 2026");
   await expect(holidayRow.locator("td").nth(3)).toHaveText("August 15, 2026");
   await expect(page.getByText("Configured Holidays").locator("..").getByText("1")).toBeVisible();
   await page.reload();
   await expect(page.locator("h2", { hasText: "Holiday Management" })).toBeVisible();
   await expect(page.getByText("Independence Day", { exact: true })).toBeVisible();
+  await expect(page.getByText("National holiday; campus will remain closed.", { exact: true })).toBeVisible();
+  await expect(page.locator(".holiday-list-table tbody tr").filter({ hasText: "Independence Day" }).getByText("Optional", { exact: true })).toBeVisible();
 
   await page.getByRole("button", { name: "Actions for holiday 2026-08-15" }).click();
   await page.getByRole("menuitem", { name: "Edit" }).click();
   await page.getByRole("textbox", { name: "Holiday name for 2026-08-15" }).fill("Independence Day 2026");
   await page.getByRole("textbox", { name: "Description for 2026-08-15" }).fill("Campus closed for the national holiday.");
+  await page.getByRole("combobox", { name: "Holiday type for 2026-08-15" }).selectOption("Mandatory");
   await page.getByRole("button", { name: "Save changes" }).click();
   await expect(page.getByText("Independence Day 2026", { exact: true })).toBeVisible();
   await expect(page.getByText("Campus closed for the national holiday.", { exact: true })).toBeVisible();
+  await expect(page.locator(".holiday-list-table tbody tr").filter({ hasText: "Independence Day 2026" }).getByText("Mandatory", { exact: true })).toBeVisible();
 
   await page.reload();
   await expect(page.locator("h2", { hasText: "Holiday Management" })).toBeVisible();
   await expect(page.getByText("Independence Day 2026", { exact: true })).toBeVisible();
   await expect(page.getByText("Campus closed for the national holiday.", { exact: true })).toBeVisible();
+  await expect(page.locator(".holiday-list-table tbody tr").filter({ hasText: "Independence Day 2026" }).getByText("Mandatory", { exact: true })).toBeVisible();
 });
 
 
@@ -624,18 +633,20 @@ test("admin can preview and import a holiday list from a CSV file", async ({ pag
   await page.locator("#holiday-upload-file").setInputFiles({
     name: "holidays.csv",
     mimeType: "text/csv",
-    buffer: Buffer.from("Date,Holiday Name,Description\n2026-08-15,Independence Day Observed,School holiday\n2026-08-16,Sunday Entry,Should be skipped")
+    buffer: Buffer.from("Date,Holiday Name,Description,Holiday Type\n2026-08-15,Independence Day Observed,School holiday,Optional\n2026-08-16,Sunday Entry,Should be skipped,Mandatory")
   });
   await page.getByRole("button", { name: "Preview Holiday List" }).click();
 
   await expect(page.getByText("Ready to import")).toBeVisible();
   await expect(page.getByText("Invalid Row", { exact: true })).toBeVisible();
   await expect(page.getByText("Sunday is already an automatic holiday.")).toBeVisible();
+  await expect(page.locator(".holiday-preview-table tbody tr").filter({ hasText: "Independence Day Observed" }).getByText("Optional", { exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Import 2 Valid Dates" })).toBeEnabled();
 
   await page.getByRole("button", { name: "Import 2 Valid Dates" }).click();
   const importedHoliday = page.locator(".holiday-list-table tbody tr").filter({ hasText: "Independence Day Observed" });
   await expect(importedHoliday).toHaveCount(1);
+  await expect(importedHoliday.getByText("Optional", { exact: true })).toBeVisible();
   await expect(importedHoliday.locator("td").nth(2)).toHaveText("August 15, 2026");
   const christmasRow = page.locator(".holiday-list-table tbody tr").filter({ hasText: "Christmas" });
   await expect(christmasRow).toHaveCount(1);

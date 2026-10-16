@@ -42,9 +42,12 @@ export default function HolidayManagement({sessions = [], activeSession, role, s
   const [holidayDate, setHolidayDate] = useState("");
   const [holidayToDate, setHolidayToDate] = useState("");
   const [holidayName, setHolidayName] = useState("");
+  const [holidayDescription, setHolidayDescription] = useState("");
+  const [holidayType, setHolidayType] = useState("Mandatory");
   const [editingHolidayDate, setEditingHolidayDate] = useState("");
   const [editingHolidayName, setEditingHolidayName] = useState("");
   const [editingHolidayDescription, setEditingHolidayDescription] = useState("");
+  const [editingHolidayType, setEditingHolidayType] = useState("Mandatory");
   const [holidays, setHolidays] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [openActionDate, setOpenActionDate] = useState("");
@@ -93,6 +96,8 @@ export default function HolidayManagement({sessions = [], activeSession, role, s
     setHolidayDate("");
     setHolidayToDate("");
     setHolidayName("");
+    setHolidayDescription("");
+    setHolidayType("Mandatory");
     setEditingHolidayDate("");
     setEditingHolidayName("");
     setEditingHolidayDescription("");
@@ -146,8 +151,14 @@ export default function HolidayManagement({sessions = [], activeSession, role, s
     event?.preventDefault?.();
     if (!sessionId || !session || !holidayDate || !holidayToDate || !canEdit || saving) return;
     const cleanHolidayName = holidayName.trim();
+    const cleanHolidayDescription = holidayDescription.trim();
+    const cleanHolidayType = ["Mandatory", "Optional"].includes(holidayType) ? holidayType : "Mandatory";
     if (!cleanHolidayName) {
       setError("Enter a holiday name before adding the date range.");
+      return;
+    }
+    if (cleanHolidayName.length > 160 || cleanHolidayDescription.length > 400) {
+      setError("Holiday name must be 160 characters or fewer and description must be 400 characters or fewer.");
       return;
     }
     if (holidayToDate < holidayDate) {
@@ -180,17 +191,19 @@ export default function HolidayManagement({sessions = [], activeSession, role, s
     }
 
     const nextDetails = [...(session?.holidayDetails || [])];
-    for (const date of nextDates) nextDetails.push({date, name: cleanHolidayName, description: ""});
+    for (const date of nextDates) nextDetails.push({date, name: cleanHolidayName, description: cleanHolidayDescription, holidayType: cleanHolidayType});
     const saved = await saveDates([...holidays, ...nextDates], nextDetails);
     if (saved) {
       setHolidayDate("");
       setHolidayToDate("");
       setHolidayName("");
+      setHolidayDescription("");
+      setHolidayType("Mandatory");
     }
   }
 
   function downloadHolidayTemplate() {
-    const template = "Date,Holiday Name,Description\r\n";
+    const template = "Date,Holiday Name,Description,Holiday Type\r\n";
     const blob = new Blob([template], {type: "text/csv;charset=utf-8;"});
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
@@ -233,7 +246,8 @@ export default function HolidayManagement({sessions = [], activeSession, role, s
       if (!cleanIncoming.includes(item.date)) continue;
       const name = String(item.holidayName || "").trim();
       const description = String(item.description || "").trim();
-      if (name || description) detailByDate.set(item.date, {date:item.date, name, description});
+      const holidayType = ["Mandatory", "Optional"].includes(String(item.holidayType || "Mandatory")) ? String(item.holidayType || "Mandatory") : "Mandatory";
+      if (name || description || holidayType === "Optional") detailByDate.set(item.date, {date:item.date, name, description, holidayType});
     }
     const targetDates = [...holidays, ...cleanIncoming];
     const detailsToSave = [...detailByDate.values()].filter(item => targetDates.includes(isoDate(item.date)));
@@ -253,6 +267,7 @@ export default function HolidayManagement({sessions = [], activeSession, role, s
     setEditingHolidayDate(date);
     setEditingHolidayName(String(detail?.name || ""));
     setEditingHolidayDescription(String(detail?.description || ""));
+    setEditingHolidayType(String(detail?.holidayType || "Mandatory"));
     setError("");
   }
 
@@ -260,12 +275,14 @@ export default function HolidayManagement({sessions = [], activeSession, role, s
     setEditingHolidayDate("");
     setEditingHolidayName("");
     setEditingHolidayDescription("");
+    setEditingHolidayType("Mandatory");
   }
 
   async function saveEditedHoliday(event, date) {
     event?.preventDefault?.();
     if (!date || !canEdit || saving) return;
     const cleanName = editingHolidayName.trim();
+    const cleanHolidayType = ["Mandatory", "Optional"].includes(editingHolidayType) ? editingHolidayType : "Mandatory";
     if (!cleanName) {
       setError("Enter a holiday name before saving.");
       return;
@@ -277,14 +294,15 @@ export default function HolidayManagement({sessions = [], activeSession, role, s
 
     const detailMap = new Map((session?.holidayDetails || []).map(item => [
       isoDate(item.date),
-      {date: isoDate(item.date), name: String(item.name || ""), description: String(item.description || "")}
+      {date: isoDate(item.date), name: String(item.name || ""), description: String(item.description || ""), holidayType: String(item.holidayType || "Mandatory")}
     ]));
     const group = holidayGroups.find(item => item.fromDate === date);
     for (const targetDate of (group?.dates || [date])) {
       detailMap.set(targetDate, {
         date: targetDate,
         name: cleanName,
-        description: editingHolidayDescription.trim()
+        description: editingHolidayDescription.trim(),
+        holidayType: cleanHolidayType
       });
     }
     const saved = await saveDates(holidays, [...detailMap.values()]);
@@ -387,6 +405,34 @@ export default function HolidayManagement({sessions = [], activeSession, role, s
               required
             />
             <small className="field-help">Enter a clear name for the holiday.</small>
+          </div>
+
+          <div className="field holiday-type-field">
+            <label htmlFor="holiday-type">Holiday type</label>
+            <select
+              id="holiday-type"
+              value={holidayType}
+              onChange={event => { setHolidayType(event.target.value); setError(""); }}
+              disabled={!sessionId || !session || !canEdit || loading || saving}
+            >
+              <option value="Mandatory">Mandatory</option>
+              <option value="Optional">Optional</option>
+            </select>
+            <small className="field-help">Classification only; every configured date is blocked for date-wise scheduling.</small>
+          </div>
+
+          <div className="field holiday-description-field">
+            <label htmlFor="holiday-description">Description <span className="holiday-edit-optional">(optional)</span></label>
+            <textarea
+              id="holiday-description"
+              value={holidayDescription}
+              maxLength={400}
+              rows={2}
+              placeholder="Add a note for students and faculty (optional)"
+              onChange={event => { setHolidayDescription(event.target.value); setError(""); }}
+              disabled={!sessionId || !session || !canEdit || loading || saving}
+            />
+            <small className="field-help">Up to 400 characters.</small>
           </div>
 
           <div className="field holiday-date-field">
@@ -502,7 +548,7 @@ export default function HolidayManagement({sessions = [], activeSession, role, s
             </button>
           </div>
           <div className="holiday-upload-hint">
-            <strong>Expected format:</strong> a <code>Date</code> or <code>Holiday Date</code> column; optional <code>Holiday Name</code> and <code>Description</code> columns are supported. Dates can use YYYY-MM-DD or DD-MM-YYYY.
+            <strong>Expected format:</strong> a <code>Date</code> or <code>Holiday Date</code> column; optional <code>Holiday Name</code>, <code>Description</code>, and <code>Holiday Type</code> columns are supported. Type must be Mandatory or Optional; dates can use YYYY-MM-DD or DD-MM-YYYY.
           </div>
 
           {importPreview && (
@@ -515,13 +561,14 @@ export default function HolidayManagement({sessions = [], activeSession, role, s
               </div>
               <div className="holiday-preview-table-wrap">
                 <table className="holiday-preview-table">
-                  <thead><tr><th>Row</th><th>Date in file</th><th>Holiday name</th><th>Result</th></tr></thead>
+                  <thead><tr><th>Row</th><th>Date in file</th><th>Holiday name</th><th>Holiday type</th><th>Result</th></tr></thead>
                   <tbody>
                     {(importPreview.rows || []).map(item => (
                       <tr key={item.rowNumber + "-" + item.sourceDate}>
                         <td>{item.rowNumber}</td>
                         <td>{item.date || item.sourceDate || "—"}</td>
                         <td>{item.holidayName || "—"}</td>
+                        <td>{item.holidayType || "Mandatory"}</td>
                         <td>
                           <span className={"holiday-row-status " + (item.status || "invalid")}>
                             {item.status === "valid" ? <CheckCircle2 size={14}/> : <AlertTriangle size={14}/>}
@@ -643,7 +690,19 @@ export default function HolidayManagement({sessions = [], activeSession, role, s
                                 disabled={saving}
                               />
                             </label>
-                            <div className="holiday-edit-hint">The holiday date stays unchanged.</div>
+                            <label>
+                              Holiday type
+                              <select
+                                aria-label={"Holiday type for " + date}
+                                value={editingHolidayType}
+                                onChange={event => setEditingHolidayType(event.target.value)}
+                                disabled={saving}
+                              >
+                                <option value="Mandatory">Mandatory</option>
+                                <option value="Optional">Optional</option>
+                              </select>
+                            </label>
+                            <div className="holiday-edit-hint">The holiday dates stay unchanged. All configured dates are blocked from date-wise scheduling.</div>
                             <div className="holiday-edit-form-actions">
                               <button className="primary holiday-edit-save" type="submit" disabled={saving || !editingHolidayName.trim()}>
                                 <Save size={14}/>{saving ? "Saving…" : "Save changes"}
