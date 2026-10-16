@@ -117,6 +117,97 @@ app.use("/api/student-promotions", requireAuth, studentPromotionRouter);
 app.use("/api/students", requireAuth, studentsRouter);
 app.use("/api/semesters", requireAuth, semesterRouter);
 
+// Idempotent, additive demo-data loader. It never deletes or overwrites existing records.
+app.post("/api/demo/seed", requireAuth, allowRoles("ADMIN"), async (req, res) => {
+  const counts = {programs:0, sessions:0, semesters:0, faculty:0, rooms:0, sections:0, subjects:0, students:0, timeSlots:0};
+  try {
+    const programSpecs = [
+      {name:"PGDM", code:"PGDM", department:"Management", durationYears:2, start:"2026-06-15", end:"2027-05-31", semesterEnd:"2026-12-20", firstSlot:"09:00"},
+      {name:"BBA COM", code:"BBA-COM", department:"Management", durationYears:3, start:"2026-07-01", end:"2027-05-31", semesterEnd:"2026-12-31", firstSlot:"09:30"},
+      {name:"BBA IM", code:"BBA-IM", department:"Management", durationYears:3, start:"2026-07-15", end:"2027-05-31", semesterEnd:"2027-01-10", firstSlot:"10:00"},
+      {name:"BBA ENT", code:"BBA-ENT", department:"Management", durationYears:3, start:"2026-07-01", end:"2027-05-31", semesterEnd:"2026-12-31", firstSlot:"09:30"}
+    ];
+    const upsert = async (Model, filter, values) => {
+      const existing = await Model.findOne(filter);
+      if (existing) return {doc:existing, created:false};
+      return {doc:await Model.create(values), created:true};
+    };
+    let session = await AcademicSession.findOne({name:"2026-27"});
+    if (!session) {
+      session = await AcademicSession.create({name:"2026-27",description:"Demo academic session (sample records)",active:!(await AcademicSession.exists({active:true})),programDates:[],holidayDates:[],holidayDetails:[]});
+      counts.sessions++;
+    }
+    const programs = [];
+    for (const spec of programSpecs) {
+      const result = await upsert(Program,{name:spec.name},{...spec,active:true});
+      if(result.created) counts.programs++;
+      programs.push({...spec,doc:result.doc});
+    }
+    const semesters = [];
+    for (const p of programs) {
+      const semesterResult = await upsert(Semester,{academicSession:session._id,program:p.doc._id,name:"Semester I"},{academicSession:session._id,program:p.doc._id,name:"Semester I",order:1,active:true});
+      if(semesterResult.created) counts.semesters++;
+      semesters.push({program:p,doc:semesterResult.doc});
+      const existingProgramDate = (session.programDates||[]).some(row=>String(row.program)===String(p.doc._id)&&!String(row.semester||"").trim());
+      if(!existingProgramDate) session.programDates.push({program:p.doc._id,semester:"",startDate:new Date(p.start+"T00:00:00.000Z"),endDate:new Date(p.end+"T00:00:00.000Z")});
+      const existingSemesterDate = (session.programDates||[]).some(row=>String(row.program)===String(p.doc._id)&&String(row.semester||"").trim()==="Semester I");
+      if(!existingSemesterDate) session.programDates.push({program:p.doc._id,semester:"Semester I",startDate:new Date(p.start+"T00:00:00.000Z"),endDate:new Date(p.semesterEnd+"T00:00:00.000Z")});
+    }
+    await session.save();
+
+    const facultySpecs = Array.from({length:12},(_,i)=>({name:"Demo Faculty "+String(i+1).padStart(2,"0"),code:"DEMO-F"+String(i+1).padStart(2,"0"),maxWorkingDays:5,maxClassesPerDay:4,availableDays:["Monday","Tuesday","Wednesday","Thursday","Friday"],unavailableSlots:[]}));
+    const faculty=[];
+    for(const spec of facultySpecs){const x=await upsert(Faculty,{code:spec.code},spec);if(x.created)counts.faculty++;faculty.push(x.doc);}
+    const roomSpecs=[
+      {name:"Demo Classroom 101",type:"Classroom",capacity:60},
+      {name:"Demo Classroom 102",type:"Classroom",capacity:60},
+      {name:"Demo Classroom 201",type:"Classroom",capacity:45},
+      {name:"Demo Classroom 202",type:"Classroom",capacity:45},
+      {name:"Demo Computer Lab 1",type:"Lab",capacity:35},
+      {name:"Demo Computer Lab 2",type:"Lab",capacity:35}
+    ];
+    const rooms=[];
+    for(const spec of roomSpecs){const x=await upsert(Room,{name:spec.name},spec);if(x.created)counts.rooms++;rooms.push(x.doc);}
+    const days=["Monday","Tuesday","Wednesday","Thursday","Friday"];
+    const addMinutes=(clock,mins)=>{const [h,m]=clock.split(":").map(Number);const total=h*60+m+mins;return String(Math.floor(total/60)).padStart(2,"0")+":"+String(total%60).padStart(2,"0");};
+    const demoSubjects=[
+      ["Business Communication","BCOM"],["Principles of Management","MGT"],["Business Analytics","BA"]
+    ];
+    let globalSubjectIndex=0;
+    for(const {program:p,doc:semester} of semesters){
+      const sectionResult=await upsert(Section,{academicSession:session._id,programId:p.doc._id,semester:"Semester I",name:"A"},{academicSession:session._id,programId:p.doc._id,program:p.doc.name,semester:"Semester I",name:"A",maxClassesPerDay:5,capacity:40});
+      if(sectionResult.created)counts.sections++;
+      const section=sectionResult.doc;
+      for(let i=0;i<demoSubjects.length;i++){
+        const [name,short]=demoSubjects[i];
+        const code="DEMO-"+p.code+"-"+short;
+        const facultyDoc=faculty[(globalSubjectIndex)%faculty.length];
+        const subjectResult=await upsert(Subject,{section:section._id,code},{academicSession:session._id,programId:p.doc._id,subjectType:"CORE",active:true,name,code,faculty:facultyDoc._id,section:section._id,classesPerWeek:3,totalSessions:0,maxClassesPerWeek:3,duration:1,roomType:i===2?"Lab":"Classroom"});
+        if(subjectResult.created)counts.subjects++;
+        globalSubjectIndex++;
+      }
+      for(let i=1;i<=2;i++){
+        const admissionNo="DEMO-2026-"+p.code+"-"+String(i).padStart(3,"0");
+        const studentResult=await upsert(Student,{admissionNo},{admissionNo,rollNo:p.code+"-S1-"+String(i).padStart(2,"0"),name:"Demo Student "+p.doc.name+" "+i,email:"demo.student"+i+"."+p.code.toLowerCase()+"@example.com",phone:"900000"+String(1000+i),gender:i===1?"Female":"Male",fatherName:"Demo Parent",section:section._id,program:p.doc.name,semester:"Semester I",active:true,admissionDate:new Date("2026-07-01T00:00:00.000Z")});
+        if(studentResult.created)counts.students++;
+      }
+      for(const day of days){
+        for(let i=0;i<5;i++){
+          const start=addMinutes(p.firstSlot,i*60);
+          const end=addMinutes(start,50);
+          const filter={academicSession:session._id,program:p.doc._id,semester:"Semester I",day,startTime:start,endTime:end};
+          const slotResult=await upsert(TimeSlot,filter,{...filter,order:i+1,isBreak:false});
+          if(slotResult.created)counts.timeSlots++;
+        }
+      }
+    }
+    res.json({ok:true,message:"Demo data loaded safely. Existing records were preserved; rerunning this action will not duplicate matching demo records.",session:session.name,counts,programs:programs.map(p=>p.doc.name),periodStarts:Object.fromEntries(programs.map(p=>[p.doc.name,p.firstSlot]))});
+  } catch(error) {
+    console.error("Demo data seed failed:",error);
+    res.status(500).json({message:"Demo data could not be fully loaded.",detail:error.message,counts});
+  }
+});
+
 app.get("/api/settings", requireAuth, async (_req, res) => {
   const defaults = {
     key: "default",
