@@ -1,7 +1,7 @@
 import React, {useEffect, useState} from "react";
 import axios from "axios";
 import {API} from "../core/api";
-import {CalendarDays, CalendarOff, Clock3, Search, ShieldCheck, Trash2, FileSpreadsheet, Upload, Download, CheckCircle2, AlertTriangle, Pencil, Save, X, MoreVertical} from "lucide-react";
+import {CalendarDays, CalendarOff, Clock3, Search, Trash2, FileSpreadsheet, Upload, Download, CheckCircle2, AlertTriangle, Pencil, X, MoreVertical} from "lucide-react";
 
 const isoDate = value => String(value || "").slice(0, 10);
 
@@ -47,8 +47,6 @@ export default function HolidayManagement({sessions = [], activeSession, role, s
   const [holidayModalOpen, setHolidayModalOpen] = useState(false);
   const [showImport, setShowImport] = useState(false);
   const [editingHolidayDate, setEditingHolidayDate] = useState("");
-  const [editingHolidayName, setEditingHolidayName] = useState("");
-  const [editingHolidayDescription, setEditingHolidayDescription] = useState("");
   const [holidays, setHolidays] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [openActionDate, setOpenActionDate] = useState("");
@@ -98,8 +96,6 @@ export default function HolidayManagement({sessions = [], activeSession, role, s
     setHolidayToDate("");
     setHolidayName("");
     setEditingHolidayDate("");
-    setEditingHolidayName("");
-    setEditingHolidayDescription("");
 
     try {
       const response = await axios.get(API + "/academic-sessions/" + id);
@@ -258,8 +254,6 @@ export default function HolidayManagement({sessions = [], activeSession, role, s
     setHolidayName(String(detail.name || group.name || ""));
     setHolidayDescription(String(detail.description || group.description || ""));
     setHolidayType(String(detail.holidayType || detail.type || group.holidayType || "Mandatory"));
-    setEditingHolidayName(String(detail.name || group.name || ""));
-    setEditingHolidayDescription(String(detail.description || group.description || ""));
     setHolidayModalOpen(true);
     setError("");
   }
@@ -272,12 +266,8 @@ export default function HolidayManagement({sessions = [], activeSession, role, s
     setHolidayName("");
     setHolidayDescription("");
     setHolidayType("Mandatory");
-    setEditingHolidayName("");
-    setEditingHolidayDescription("");
     setError("");
   }
-
-  function cancelEditHoliday() { closeHolidayModal(); }
 
   async function saveEditedHoliday(event, date) {
     event?.preventDefault?.();
@@ -633,54 +623,14 @@ export default function HolidayManagement({sessions = [], activeSession, role, s
               <tbody>
                 {filteredHolidays.map(group => {
                   const date = group.fromDate;
-                  const detail = group.detail;
-                  const isEditing = editingHolidayDate === group.fromDate && !holidayModalOpen;
                   const holidayType = group.holidayType;
                   return (
                     <tr key={group.key} className={isEditing ? "holiday-list-editing-row" : ""}>
                       <td className="holiday-title-cell">
-                        {isEditing ? (
-                          <form className="holiday-edit-form holiday-table-edit-form" onSubmit={event => saveEditedHoliday(event, date)}>
-                            <label>
-                              Holiday name <span aria-hidden="true">*</span>
-                              <input
-                                type="text"
-                                aria-label={"Holiday name for " + date}
-                                value={editingHolidayName}
-                                maxLength={160}
-                                required
-                                autoFocus
-                                onChange={event => { setEditingHolidayName(event.target.value); setError(""); }}
-                                disabled={saving}
-                              />
-                            </label>
-                            <label>
-                              Description <span className="holiday-edit-optional">(optional)</span>
-                              <textarea
-                                aria-label={"Description for " + date}
-                                value={editingHolidayDescription}
-                                maxLength={400}
-                                rows={2}
-                                onChange={event => setEditingHolidayDescription(event.target.value)}
-                                disabled={saving}
-                              />
-                            </label>
-                            <div className="holiday-edit-hint">The holiday date stays unchanged.</div>
-                            <div className="holiday-edit-form-actions">
-                              <button className="primary holiday-edit-save" type="submit" disabled={saving || !editingHolidayName.trim()}>
-                                <Save size={14}/>{saving ? "Saving…" : "Save changes"}
-                              </button>
-                              <button className="secondary holiday-edit-cancel" type="button" onClick={cancelEditHoliday} disabled={saving}>
-                                <X size={14}/> Cancel
-                              </button>
-                            </div>
-                          </form>
-                        ) : (
-                          <div className="holiday-table-title-copy">
-                            <strong>{group.name}</strong>
-                            {group.description && <small>{group.description}</small>}
-                          </div>
-                        )}
+                        <div className="holiday-table-title-copy">
+                          <strong>{group.name}</strong>
+                          {group.description && <small>{group.description}</small>}
+                        </div>
                       </td>
                       <td>
                         <span className={"holiday-type-badge " + (holidayType.toLowerCase() === "optional" ? "optional" : "mandatory")}>
@@ -690,7 +640,7 @@ export default function HolidayManagement({sessions = [], activeSession, role, s
                       <td className="holiday-table-date">{tableDateLabel(group.fromDate)}</td>
                       <td className="holiday-table-date">{tableDateLabel(group.toDate)}</td>
                       <td className="holiday-table-actions">
-                        {canEdit && !isEditing ? (
+                        {canEdit ? (
                           <div className="holiday-action-wrap">
                             <button
                               className="holiday-actions-trigger"
@@ -726,8 +676,6 @@ export default function HolidayManagement({sessions = [], activeSession, role, s
                               </div>
                             )}
                           </div>
-                        ) : isEditing ? (
-                          <span className="holiday-editing-badge">Editing</span>
                         ) : <span className="holiday-readonly-dash">—</span>}
                       </td>
                     </tr>
