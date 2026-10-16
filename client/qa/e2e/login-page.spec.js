@@ -24,7 +24,7 @@ test.describe("Login page", () => {
     });
     await page.goto("/dashboard");
 
-    await expect(page).toHaveURL(/\\/login$/);
+    await expect(page).toHaveURL(/login$/);
     await expect(page.getByRole("heading", { name: "Sign in to your workspace" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Dashboard" })).toHaveCount(0);
     expect(await page.evaluate(() => localStorage.getItem("tt_user"))).toBeNull();
