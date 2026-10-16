@@ -44,6 +44,8 @@ export default function HolidayManagement({sessions = [], activeSession, role, s
   const [holidayName, setHolidayName] = useState("");
   const [holidayDescription, setHolidayDescription] = useState("");
   const [holidayType, setHolidayType] = useState("Mandatory");
+  const [holidayOccursEveryYear, setHolidayOccursEveryYear] = useState(false);
+  const [editingInheritedRecurring, setEditingInheritedRecurring] = useState(false);
   const [holidayModalOpen, setHolidayModalOpen] = useState(false);
   const [showImport, setShowImport] = useState(false);
   const [editingHolidayDate, setEditingHolidayDate] = useState("");
@@ -125,7 +127,7 @@ export default function HolidayManagement({sessions = [], activeSession, role, s
       const detailsToSave = Array.isArray(nextDetails) ? nextDetails : (session?.holidayDetails || []);
       const response = await axios.patch(API + "/sessions/" + sessionId + "/holidays", {
         holidayDates: cleanDates,
-        holidayDetails: detailsToSave.filter(item => cleanDates.includes(isoDate(item.date)))
+        holidayDetails: detailsToSave.filter(item => cleanDates.includes(isoDate(item.date)) && item.recurringProjection !== true)
       });
       const updatedSession = response.data || {};
       setSession(updatedSession);
@@ -180,7 +182,7 @@ export default function HolidayManagement({sessions = [], activeSession, role, s
     }
 
     const nextDetails = [...(session?.holidayDetails || [])];
-    for (const date of nextDates) nextDetails.push({date, name: cleanHolidayName, description: holidayDescription.trim(), holidayType});
+    for (const date of nextDates) nextDetails.push({date, name: cleanHolidayName, description: holidayDescription.trim(), holidayType, occursEveryYear:holidayOccursEveryYear});
     const saved = await saveDates([...holidays, ...nextDates], nextDetails);
     if (saved) closeHolidayModal();
   }
@@ -255,6 +257,8 @@ export default function HolidayManagement({sessions = [], activeSession, role, s
     setHolidayName(String(detail.name || group.name || ""));
     setHolidayDescription(String(detail.description || group.description || ""));
     setHolidayType(String(detail.holidayType || detail.type || group.holidayType || "Mandatory"));
+    setHolidayOccursEveryYear(Boolean(detail.occursEveryYear));
+    setEditingInheritedRecurring(detail.recurringProjection === true);
     setHolidayModalOpen(true);
     setError("");
   }
@@ -267,6 +271,8 @@ export default function HolidayManagement({sessions = [], activeSession, role, s
     setHolidayName("");
     setHolidayDescription("");
     setHolidayType("Mandatory");
+    setHolidayOccursEveryYear(false);
+    setEditingInheritedRecurring(false);
     setError("");
   }
 
@@ -303,14 +309,15 @@ export default function HolidayManagement({sessions = [], activeSession, role, s
     const targetDates = [...new Set([...holidays.filter(value => !oldDates.includes(value)), ...nextDates])].sort();
     const detailMap = new Map((session?.holidayDetails || []).map(item => [
       isoDate(item.date),
-      {date:isoDate(item.date), name:String(item.name || ""), description:String(item.description || ""), holidayType:String(item.holidayType || item.type || "Mandatory")}
+      {date:isoDate(item.date), name:String(item.name || ""), description:String(item.description || ""), holidayType:String(item.holidayType || item.type || "Mandatory"), occursEveryYear:item.occursEveryYear===true}
     ]));
     for (const oldDate of oldDates) detailMap.delete(oldDate);
     for (const targetDate of nextDates) detailMap.set(targetDate, {
       date:targetDate,
       name:cleanName,
       description:cleanDescription,
-      holidayType
+      holidayType,
+      occursEveryYear:holidayOccursEveryYear && !editingInheritedRecurring
     });
     const saved = await saveDates(targetDates, [...detailMap.values()]);
     if (saved) {
@@ -343,15 +350,16 @@ export default function HolidayManagement({sessions = [], activeSession, role, s
     const name = String(detail?.name || dateLabel(date, {weekday:"long"})).trim();
     const description = String(detail?.description || "").trim();
     const holidayType = String(detail?.holidayType || detail?.type || "Mandatory");
+    const occursEveryYear = detail?.occursEveryYear === true;
     const previous = holidayGroups[holidayGroups.length - 1];
     const previousDay = previous ? new Date(previous.toDate + "T00:00:00Z") : null;
     const currentDay = new Date(date + "T00:00:00Z");
     const consecutive = previousDay && currentDay.getTime() - previousDay.getTime() === 86400000;
-    if (previous && consecutive && previous.name === name && previous.description === description && previous.holidayType === holidayType) {
+    if (previous && consecutive && previous.name === name && previous.description === description && previous.holidayType === holidayType && previous.occursEveryYear === occursEveryYear) {
       previous.toDate = date;
       previous.dates.push(date);
     } else {
-      holidayGroups.push({key:date, fromDate:date, toDate:date, dates:[date], name, description, holidayType, detail});
+      holidayGroups.push({key:date, fromDate:date, toDate:date, dates:[date], name, description, holidayType, occursEveryYear, detail});
     }
   }
   const filteredHolidays = holidayGroups.filter(group => {
@@ -397,6 +405,8 @@ export default function HolidayManagement({sessions = [], activeSession, role, s
                 setHolidayName("");
                 setHolidayDescription("");
                 setHolidayType("Mandatory");
+                setHolidayOccursEveryYear(false);
+                setEditingInheritedRecurring(false);
                 setError("");
                 setHolidayModalOpen(true);
               }}>
@@ -464,7 +474,15 @@ export default function HolidayManagement({sessions = [], activeSession, role, s
                 <label htmlFor="holiday-description">Description <span className="holiday-optional-label">(optional)</span></label>
                 <textarea id="holiday-description" rows={3} maxLength={400} value={holidayDescription} placeholder="Add any notes about this holiday" onChange={event => setHolidayDescription(event.target.value)} disabled={saving}/>
               </div>
-              <p className="holiday-modal-help">Sundays are automatically excluded. The selected date range must remain within the academic session.</p>
+              <div className="holiday-modal-field full holiday-recurring-field">
+                <label className="holiday-recurring-toggle" htmlFor="holiday-every-year">
+                  <input id="holiday-every-year" type="checkbox" checked={holidayOccursEveryYear} onChange={event => setHolidayOccursEveryYear(event.target.checked)} disabled={saving || editingInheritedRecurring}/>
+                  <span><strong>Occurs Every Year</strong><small>Apply this holiday by month and day in each academic session.</small></span>
+                </label>
+                {editingInheritedRecurring && <small className="holiday-recurring-note">This occurrence is inherited from an annual rule in another academic session. Edit the original holiday to change its yearly rule; saving here creates a session-specific override.</small>}
+              </div>
+              {holidayOccursEveryYear && !editingInheritedRecurring && <p className="holiday-modal-help">The date pattern will repeat in other academic sessions. Sundays are skipped automatically.</p>}
+              <p className="holiday-modal-help">The selected date range must remain within the academic session.</p>
               {error && <div className="message error holiday-error" role="alert">{error}</div>}
               <div className="holiday-modal-footer">
                 <button className="secondary" type="button" onClick={closeHolidayModal} disabled={saving}>Cancel</button>
@@ -632,6 +650,7 @@ export default function HolidayManagement({sessions = [], activeSession, role, s
                         <div className="holiday-table-title-copy">
                           <strong>{group.name}</strong>
                           {group.description && <small>{group.description}</small>}
+                          {group.occursEveryYear && <small className="holiday-recurring-row-label">↻ Repeats every year</small>}
                         </div>
                       </td>
                       <td>
