@@ -51,7 +51,14 @@ export default function StudentPromotion({data,sessions,activeSession,reload,set
   }
   const filtered=students.filter(s=>!sourceSessionId||String(s.section?.academicSession?._id||s.section?.academicSession||"")===String(sourceSessionId)).filter(s=>`${s.name} ${s.admissionNo} ${s.rollNo}`.toLowerCase().includes(q.toLowerCase()));
   const toggle=id=>{setSelected(a=>a.includes(id)?a.filter(x=>x!==id):[...a,id]);setPreview(null)};
-  const selectAll=()=>{setSelected(selected.length===filtered.length?[]:filtered.map(s=>s._id));setPreview(null)};
+  const visibleStudentIds=filtered.map(student=>student._id);
+  const allVisibleSelected=visibleStudentIds.length>0&&visibleStudentIds.every(id=>selected.includes(id));
+  const selectAll=()=>{
+    setSelected(current=>allVisibleSelected
+      ? current.filter(id=>!visibleStudentIds.includes(id))
+      : [...new Set([...current,...visibleStudentIds])]);
+    setPreview(null);
+  };
 
   async function runPreview(){
     if(!sourceSessionId)return setMessage("Select the source academic session.");
@@ -104,7 +111,7 @@ export default function StudentPromotion({data,sessions,activeSession,reload,set
     </section>
 
     <section className="promotion-panel">
-      <div className="promotion-toolbar"><div><h3>Select Students</h3><p>{selected.length} selected · {filtered.length} available{source?` · ${source.program} · ${source.semester} · ${source.name}`:""}</p></div><div className="promotion-actions"><button className="secondary" onClick={selectAll}>{selected.length===filtered.length&&filtered.length?"Clear Selection":"Select All"}</button></div></div>
+      <div className="promotion-toolbar"><div><h3>Select Students</h3><p>{selected.length} selected · {filtered.length} available{source?` · ${source.program} · ${source.semester} · ${source.name}`:""}</p></div><div className="promotion-actions"><button className="secondary" onClick={selectAll}>{allVisibleSelected?"Clear Visible Selection":"Select Visible"}</button></div></div>
       <div className="promotion-search"><Search size={17}/><input value={q} onChange={e=>setQ(e.target.value)} placeholder="Search student name, admission no. or roll no..."/></div>
       <div className="student-card-grid">
         {filtered.map(s=><button type="button" key={s._id} className={`student-select-card ${selected.includes(s._id)?"selected":""}`} onClick={()=>toggle(s._id)}><span className="student-avatar">{(s.name||"S").slice(0,1).toUpperCase()}</span><span className="student-card-main"><b>{s.name}</b><small>{s.admissionNo} · Roll {s.rollNo}</small><em>{s.section?.program||""} · {s.section?.semester||""} · {s.section?.name||""}</em></span><span className="student-check">{selected.includes(s._id)?"✓":""}</span></button>)}

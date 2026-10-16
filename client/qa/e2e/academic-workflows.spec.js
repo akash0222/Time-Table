@@ -184,7 +184,7 @@ async function installApiMocks(page, options = {}) {
         sessionName: sessions.find(session => session._id === holidayPreviewMatch[1])?.name || "Academic Year 2026-27",
         summary: { total: 4, valid: 2, skipped: 1, invalid: 1 },
         rows: [
-          { rowNumber: 2, sourceDate: "2026-08-15", date: "2026-08-15", holidayName: "Independence Day Observed", description: "School holiday", status: "valid", reason: "" },
+          { rowNumber: 2, sourceDate: "2026-08-15", date: "2026-08-15", holidayName: "Independence Day Observed", description: "School holiday", holidayType: "Optional", status: "valid", reason: "" },
           { rowNumber: 3, sourceDate: "2026-08-16", date: "2026-08-16", holidayName: "Sunday Entry", status: "skipped", reason: "Sunday is already an automatic holiday." },
           { rowNumber: 4, sourceDate: "2026-12-25", date: "2026-12-25", holidayName: "Christmas", description: "School closed", status: "valid", reason: "" },
           { rowNumber: 5, sourceDate: "not-a-date", date: "", holidayName: "Invalid Row", status: "invalid", reason: "Invalid or missing date." }
@@ -551,15 +551,86 @@ test("admin can create an academic session with program-wise dates", async ({ pa
   await expect(page.getByRole("cell", { name: "2028-2029" })).toBeVisible();
 });
 
+test("student mapping resets selection and scopes semester filters when the academic session changes", async ({ page }) => {
+  const firstSession = makeActiveSession();
+  const secondSession = {
+    _id: "session-2",
+    name: "Academic Year 2027-28",
+    startDate: "2027-04-01",
+    endDate: "2028-03-31",
+    holidayDates: [],
+    holidayDetails: [],
+    active: false
+  };
+  const pgdm = { _id: "program-2", name: "PGDM", code: "PGDM", active: true };
+  const sections = [
+    { _id: "section-1", name: "A", program: "MBA", programId: "program-1", semester: "I", academicSession: "session-1" },
+    { _id: "section-1b", name: "B", program: "MBA", programId: null, semester: "I", academicSession: "session-1" },
+    { _id: "section-2", name: "A", program: "PGDM", programId: "program-2", semester: "II", academicSession: "session-2" }
+  ];
+  const students = [
+    { _id: "student-1", name: "Alpha Student", admissionNo: "ADM-001", rollNo: "1", active: true, section: { _id: "section-1", name: "A", program: "MBA", semester: "I", academicSession: "session-1" } },
+    { _id: "student-1c", name: "Gamma Student", admissionNo: "ADM-003", rollNo: "3", active: true, section: { _id: "section-1", name: "A", program: "MBA", semester: "I", academicSession: "session-1" } },
+    { _id: "student-2", name: "Beta Student", admissionNo: "ADM-002", rollNo: "2", active: true, section: { _id: "section-2", name: "A", program: "PGDM", semester: "II", academicSession: "session-2" } }
+  ];
+
+  await signIn(page, {
+    sessions: [firstSession, secondSession],
+    programs: [sampleProgram, pgdm],
+    sections,
+    students
+  });
+  await navigateToPage(page, "Student Mapping");
+
+  const sessionSelect = page.getByLabel("Academic Session");
+  const programSelect = page.getByLabel("Current Program");
+  const semesterSelect = page.getByLabel("Current Semester");
+  const sectionSelect = page.getByLabel("Current Section");
+  const destinationSelect = page.getByLabel("Destination Section");
+
+  await sessionSelect.selectOption("session-1");
+  await expect(semesterSelect.locator('option[value="II"]')).toHaveCount(0);
+  await programSelect.selectOption("program-1");
+  await expect(sectionSelect.locator("option").filter({ hasText: "MBA · I · B" })).toHaveCount(1);
+  await semesterSelect.selectOption("I");
+  await sectionSelect.selectOption("section-1");
+  await expect(page.getByText("Alpha Student", { exact: true })).toBeVisible();
+  await expect(page.getByText("Gamma Student", { exact: true })).toBeVisible();
+  await expect(page.getByText("Beta Student", { exact: true })).toHaveCount(0);
+  await destinationSelect.selectOption("section-1b");
+  const searchStudent = page.getByLabel("Search Student");
+  await searchStudent.fill("Alpha");
+  const alphaRow = page.locator("tr").filter({ hasText: "Alpha Student" });
+  await alphaRow.locator('input[type="checkbox"]').check();
+  await searchStudent.fill("Gamma");
+  await expect(page.getByRole("button", { name: "Select Visible" })).toBeVisible();
+  await page.getByRole("button", { name: "Select Visible" }).click();
+  await expect(page.getByText("2 selected", { exact: false })).toBeVisible();
+
+  await sessionSelect.selectOption("session-2");
+  await expect(programSelect).toHaveValue("");
+  await expect(semesterSelect).toHaveValue("");
+  await expect(sectionSelect).toHaveValue("");
+  await expect(destinationSelect).toHaveValue("");
+  await expect(semesterSelect.locator('option[value="I"]')).toHaveCount(0);
+  await expect(semesterSelect.locator('option[value="II"]')).toHaveCount(1);
+  await expect(page.getByText("Beta Student", { exact: true })).toBeVisible();
+  await expect(page.getByText("Alpha Student", { exact: true })).toHaveCount(0);
+  await expect(page.getByText("Gamma Student", { exact: true })).toHaveCount(0);
+  await expect(page.getByText("0 selected", { exact: false })).toBeVisible();
+});
+
 test("admin can configure a holiday for an academic session", async ({ page }) => {
   const activeSession = makeActiveSession();
   await signIn(page, { sessions: [activeSession] });
   await navigateToPage(page, "Holiday Management");
   await expect(page.locator("h2", { hasText: "Holiday Management" })).toBeVisible();
   await expect(page.getByText("Configured Holiday Dates")).toBeVisible();
+  await page.getByRole("button", { name: "Add Holiday" }).click();
   await page.locator("#holiday-name").fill("Independence Day");
   await page.locator("#holiday-date").fill("2026-08-15");
-  await page.getByRole("button", { name: "Add Holiday" }).click();
+  await page.getByLabel("Occurs Every Year").check();
+  await page.getByRole("button", { name: "Save Holiday" }).click();
   await expect(page.getByRole("columnheader", { name: "Title" })).toBeVisible();
   await expect(page.getByRole("columnheader", { name: "Holiday Type" })).toBeVisible();
   await expect(page.getByRole("columnheader", { name: "From" })).toBeVisible();
@@ -568,23 +639,29 @@ test("admin can configure a holiday for an academic session", async ({ page }) =
   await expect(holidayRow).toHaveCount(1);
   await expect(holidayRow.locator("td").nth(2)).toHaveText("August 15, 2026");
   await expect(holidayRow.locator("td").nth(3)).toHaveText("August 15, 2026");
-  await expect(page.getByText("Configured Holidays").locator("..").getByText("1")).toBeVisible();
+  await expect(page.locator(".holiday-count-pill")).toHaveText("1 date");
+  await expect(holidayRow.getByText(/Repeats every year/)).toBeVisible();
   await page.reload();
   await expect(page.locator("h2", { hasText: "Holiday Management" })).toBeVisible();
   await expect(page.getByText("Independence Day", { exact: true })).toBeVisible();
+  await expect(page.locator(".holiday-list-table tbody tr").filter({ hasText: "Independence Day" }).getByText(/Repeats every year/)).toBeVisible();
 
   await page.getByRole("button", { name: "Actions for holiday 2026-08-15" }).click();
   await page.getByRole("menuitem", { name: "Edit" }).click();
-  await page.getByRole("textbox", { name: "Holiday name for 2026-08-15" }).fill("Independence Day 2026");
-  await page.getByRole("textbox", { name: "Description for 2026-08-15" }).fill("Campus closed for the national holiday.");
-  await page.getByRole("button", { name: "Save changes" }).click();
+  await page.locator("#holiday-name").fill("Independence Day 2026");
+  await expect(page.getByLabel("Occurs Every Year")).toBeChecked();
+  await page.locator("#holiday-description").fill("Campus closed for the national holiday.");
+  await page.getByLabel("Holiday Type").selectOption("Optional");
+  await page.getByRole("button", { name: "Save Changes" }).click();
   await expect(page.getByText("Independence Day 2026", { exact: true })).toBeVisible();
   await expect(page.getByText("Campus closed for the national holiday.", { exact: true })).toBeVisible();
+  await expect(page.getByText("Optional", { exact: true })).toBeVisible();
 
   await page.reload();
   await expect(page.locator("h2", { hasText: "Holiday Management" })).toBeVisible();
   await expect(page.getByText("Independence Day 2026", { exact: true })).toBeVisible();
   await expect(page.getByText("Campus closed for the national holiday.", { exact: true })).toBeVisible();
+  await expect(page.getByText("Optional", { exact: true })).toBeVisible();
 });
 
 
@@ -593,26 +670,29 @@ test("holiday management adds and displays a multi-day holiday range", async ({ 
   await signIn(page, { sessions: [activeSession] });
   await navigateToPage(page, "Holiday Management");
 
-  await page.locator("#holiday-name").fill("Holi Holidays");
-  await page.locator("#holiday-date").fill("2026-08-10");
-  await page.locator("#holiday-to-date").fill("2026-08-14");
   await page.getByRole("button", { name: "Add Holiday" }).click();
+  await page.locator("#holiday-name").fill("Holi Holidays");
+  await page.locator("#holiday-date").fill("2026-08-13");
+  await page.locator("#holiday-to-date").fill("2026-08-17");
+  await page.getByRole("button", { name: "Save Holiday" }).click();
 
   const row = page.locator(".holiday-list-table tbody tr").filter({ hasText: "Holi Holidays" });
   await expect(row).toHaveCount(1);
-  await expect(row.locator("td").nth(2)).toHaveText("August 10, 2026");
-  await expect(row.locator("td").nth(3)).toHaveText("August 14, 2026");
+  await expect(row.locator("td").nth(2)).toHaveText("August 13, 2026");
+  await expect(row.locator("td").nth(3)).toHaveText("August 17, 2026");
   await expect(row.getByText("Mandatory", { exact: true })).toBeVisible();
 
-  await row.getByRole("button", { name: "Actions for holiday 2026-08-10" }).click();
+  await row.getByRole("button", { name: "Actions for holiday 2026-08-13" }).click();
   await row.getByRole("menuitem", { name: "Edit" }).click();
-  await page.getByRole("textbox", { name: "Holiday name for 2026-08-10" }).fill("Holi Break");
-  await page.getByRole("button", { name: "Save changes" }).click();
+  await page.locator("#holiday-name").fill("Holi Break");
+  await page.locator("#holiday-date").fill("2026-08-14");
+  await page.locator("#holiday-to-date").fill("2026-08-18");
+  await page.getByRole("button", { name: "Save Changes" }).click();
   await expect(page.locator(".holiday-list-table tbody tr")).toHaveCount(1);
   const renamedRow = page.locator(".holiday-list-table tbody tr").filter({ hasText: "Holi Break" });
   await expect(renamedRow).toHaveCount(1);
-  await expect(renamedRow.locator("td").nth(2)).toHaveText("August 10, 2026");
-  await expect(renamedRow.locator("td").nth(3)).toHaveText("August 14, 2026");
+  await expect(renamedRow.locator("td").nth(2)).toHaveText("August 14, 2026");
+  await expect(renamedRow.locator("td").nth(3)).toHaveText("August 18, 2026");
 });
 
 test("admin can preview and import a holiday list from a CSV file", async ({ page }) => {
@@ -620,22 +700,25 @@ test("admin can preview and import a holiday list from a CSV file", async ({ pag
   await signIn(page, { sessions: [activeSession] });
   await navigateToPage(page, "Holiday Management");
   await expect(page.locator("h2", { hasText: "Holiday Management" })).toBeVisible();
+  await page.getByRole("button", { name: "Import Holidays" }).click();
 
   await page.locator("#holiday-upload-file").setInputFiles({
     name: "holidays.csv",
     mimeType: "text/csv",
-    buffer: Buffer.from("Date,Holiday Name,Description\n2026-08-15,Independence Day Observed,School holiday\n2026-08-16,Sunday Entry,Should be skipped")
+    buffer: Buffer.from("Date,Holiday Name,Description,Holiday Type\n2026-08-15,Independence Day Observed,School holiday,Optional\n2026-08-16,Sunday Entry,Should be skipped,Mandatory")
   });
   await page.getByRole("button", { name: "Preview Holiday List" }).click();
 
   await expect(page.getByText("Ready to import")).toBeVisible();
   await expect(page.getByText("Invalid Row", { exact: true })).toBeVisible();
   await expect(page.getByText("Sunday is already an automatic holiday.")).toBeVisible();
+  await expect(page.locator(".holiday-preview-table tbody tr").filter({ hasText: "Independence Day Observed" }).getByText("Optional", { exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Import 2 Valid Dates" })).toBeEnabled();
 
   await page.getByRole("button", { name: "Import 2 Valid Dates" }).click();
   const importedHoliday = page.locator(".holiday-list-table tbody tr").filter({ hasText: "Independence Day Observed" });
   await expect(importedHoliday).toHaveCount(1);
+  await expect(importedHoliday.getByText("Optional", { exact: true })).toBeVisible();
   await expect(importedHoliday.locator("td").nth(2)).toHaveText("August 15, 2026");
   const christmasRow = page.locator(".holiday-list-table tbody tr").filter({ hasText: "Christmas" });
   await expect(christmasRow).toHaveCount(1);
@@ -645,6 +728,79 @@ test("admin can preview and import a holiday list from a CSV file", async ({ pag
   await expect(page.getByText("2 holiday date(s) imported into Academic Year 2026-27. Duplicates and Sunday dates were skipped.")).toBeVisible();
 });
 
+
+test("full-session timetable resets filters and ad hoc holidays when changing sessions", async ({ page }) => {
+  const firstSession = makeActiveSession();
+  const secondSession = {
+    _id: "session-2",
+    name: "Academic Year 2027-28",
+    startDate: "2027-04-01",
+    endDate: "2028-03-31",
+    holidayDates: [],
+    holidayDetails: [],
+    active: false
+  };
+  const createPlan = (id, sessionId, year, sectionId, sectionName, facultyId, facultyName) => ({
+    _id: id,
+    academicSession: sessionId,
+    version: 1,
+    status: "DRAFT",
+    totalEntries: 1,
+    weeks: [{
+      weekNumber: 1,
+      startDate: `${year}-04-01`,
+      endDate: `${year}-04-07`,
+      workingDates: [`${year}-04-01`],
+      calendarDates: [{ date: `${year}-04-01`, day: "Thursday", status: "WORKING" }],
+      entries: [{
+        date: `${year}-04-01`,
+        day: "Thursday",
+        startTime: "09:00",
+        endTime: "10:00",
+        order: 1,
+        duration: 1,
+        subject: { _id: `subject-${sectionId}`, code: "SUB101", name: "Mathematics" },
+        faculty: { _id: facultyId, name: facultyName },
+        section: { _id: sectionId, name: sectionName, program: "MBA", semester: "I" },
+        room: { _id: `room-${sectionId}`, name: "Room 101" }
+      }]
+    }]
+  });
+  const plans = {
+    "session-plan-1": createPlan("session-plan-1", "session-1", 2026, "section-1", "Section A", "faculty-1", "Faculty One"),
+    "session-plan-2": createPlan("session-plan-2", "session-2", 2027, "section-2", "Section B", "faculty-2", "Faculty Two")
+  };
+
+  await signIn(page, { sessions: [firstSession, secondSession] });
+  await page.route("**/api/session-plans**", async route => {
+    const request = route.request();
+    const url = new URL(request.url());
+    const path = url.pathname.replace(/^\/api/, "");
+    if (request.method() === "GET" && path === "/session-plans") {
+      const sessionId = url.searchParams.get("sessionId");
+      const id = sessionId === "session-2" ? "session-plan-2" : "session-plan-1";
+      return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify([{ _id: id, version: 1, status: "DRAFT", weeks: [{ weekNumber: 1 }] }]) });
+    }
+    const detail = path.match(/^\/session-plans\/(session-plan-[12])$/);
+    if (request.method() === "GET" && detail) {
+      return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(plans[detail[1]]) });
+    }
+    return route.fulfill({ status: 404, contentType: "application/json", body: JSON.stringify({ message: "Unexpected session plan request: " + request.method() + " " + path }) });
+  });
+
+  await navigateToPage(page, "Full Session Timetable");
+  await page.getByRole("button", { name: "Version 1 · DRAFT · 1 weeks" }).click();
+  await page.getByLabel("Section").selectOption("section-1");
+  await page.getByLabel("Faculty").selectOption("faculty-1");
+  const holidayDatesInput = page.locator("textarea").first();
+  await holidayDatesInput.fill("2026-08-15");
+  await page.getByLabel("Academic Session").selectOption("session-2");
+  await expect(holidayDatesInput).toHaveValue("");
+  await page.getByRole("button", { name: "Version 1 · DRAFT · 1 weeks" }).click();
+  await expect(page.getByLabel("Section")).toHaveValue("");
+  await expect(page.getByLabel("Faculty")).toHaveValue("");
+  await expect(page.getByText("Section B · Room 101", { exact: false })).toBeVisible();
+});
 
 test("admin can download saved full-session timetable as Excel and PDF", async ({ page }) => {
   const activeSession = makeActiveSession();

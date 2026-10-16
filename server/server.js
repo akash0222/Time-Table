@@ -14,6 +14,7 @@ import TimeSlot from "./models/TimeSlot.js";
 import Program from "./models/Program.js";
 import Semester from "./models/Semester.js";
 import AcademicSession from "./models/AcademicSession.js";
+import { applyRecurringHolidayCalendar, recurringHolidayOccurrences } from "./services/recurringHolidayCalendar.js";
 import Timetable from "./models/Timetable.js";
 import SessionPlan from "./models/SessionPlan.js";
 import SchedulerSetting from "./models/SchedulerSetting.js";
@@ -234,7 +235,8 @@ app.get("/api/academic-sessions/:id", requireAuth, async (req,res)=>{
   try{
     const row=await AcademicSession.findById(req.params.id).populate("programDates.program","name code").lean();
     if(!row)return res.status(404).json({message:"Academic session not found."});
-    res.json(row);
+    const recurringSources=await AcademicSession.find({"holidayDetails.occursEveryYear":true}).select("name updatedAt holidayDetails").sort({updatedAt:1}).lean();
+    res.json(applyRecurringHolidayCalendar(row,recurringSources));
   }catch(e){res.status(400).json({message:e.message});}
 });
 
@@ -330,8 +332,9 @@ app.post("/api/sessions/:id/holidays/preview-import", requireAuth, allowRoles("A
     const hasHeader = detectedDateColumn >= 0;
     const headings = hasHeader ? firstRowHeadings : [];
     const dateColumn = hasHeader ? detectedDateColumn : 0;
-    const nameColumn = hasHeader ? headings.findIndex(value => /holiday\s*name|name|occasion|holiday/.test(value) && !/date/.test(value)) : -1;
+    const nameColumn = hasHeader ? headings.findIndex(value => /holiday\s*name|name|occasion|holiday/.test(value) && !/date|type/.test(value)) : -1;
     const descriptionColumn = hasHeader ? headings.findIndex(value => /description|notes?/.test(value)) : -1;
+    const holidayTypeColumn = hasHeader ? headings.findIndex(value => /holiday\s*type|^type$/.test(value)) : -1;
     const firstDataRow = hasHeader ? 1 : 0;
     const academicSession = await AcademicSession.findById(req.params.id).lean();
     if (!academicSession) return res.status(404).json({ message: "Academic session not found." });
@@ -347,15 +350,20 @@ app.post("/api/sessions/:id/holidays/preview-import", requireAuth, allowRoles("A
       const rawDate = holidayImportCell(values[dateColumn]);
       const holidayName = nameColumn >= 0 ? String(holidayImportCell(values[nameColumn]) ?? "").trim() : "";
       const description = descriptionColumn >= 0 ? String(holidayImportCell(values[descriptionColumn]) ?? "").trim() : "";
+      const rawHolidayType = holidayTypeColumn >= 0 ? String(holidayImportCell(values[holidayTypeColumn]) ?? "").trim() : "";
+      const holidayType = rawHolidayType ? (rawHolidayType.toLowerCase() === "optional" ? "Optional" : rawHolidayType.toLowerCase() === "mandatory" ? "Mandatory" : "INVALID") : "Mandatory";
       const hasAnyValue = values.some(value => String(value ?? "").trim());
       if (!hasAnyValue) continue;
       const displayValue = rawDate instanceof Date ? rawDate.toISOString().slice(0, 10) : String(rawDate ?? "").trim();
       const date = parseHolidayImportDate(rawDate);
-      const result = { rowNumber: index + 1, sourceDate: displayValue, date: date || "", holidayName, description, status: "valid", reason: "" };
+      const result = { rowNumber: index + 1, sourceDate: displayValue, date: date || "", holidayName, description, holidayType: holidayType === "INVALID" ? "Mandatory" : holidayType, status: "valid", reason: "" };
 
       if (!date) {
         result.status = "invalid";
         result.reason = "Invalid or missing date. Use YYYY-MM-DD or DD-MM-YYYY.";
+      } else if (holidayType === "INVALID") {
+        result.status = "invalid";
+        result.reason = "Holiday type must be Mandatory or Optional.";
       } else if (existing.has(date)) {
         result.status = "skipped";
         result.reason = "This holiday is already configured for the selected session.";
@@ -399,6 +407,14 @@ app.patch("/api/sessions/:id/holidays", requireAuth, async (req,res)=>{
     const row=await AcademicSession.findById(req.params.id);
     if(!row)return res.status(404).json({message:"Academic session not found."});
     const holidays=cleanHolidayDates(req.body?.holidayDates);
+    const recurringSources=await AcademicSession.find({"holidayDetails.occursEveryYear":true}).select("name updatedAt holidayDetails").sort({updatedAt:1}).lean();
+    const recurringCandidates=recurringHolidayOccurrences(row,recurringSources);
+    const exceptions=new Set((row.holidayExceptions||[]).map(value=>String(value).slice(0,10)));
+    for(const date of recurringCandidates.keys()){
+      if(holidays.includes(date))exceptions.delete(date);
+      else exceptions.add(date);
+    }
+    row.holidayExceptions=[...exceptions].sort();
     if(row.startDate&&row.endDate){
       const start=row.startDate.toISOString().slice(0,10), end=row.endDate.toISOString().slice(0,10);
       const outside=holidays.find(d=>d<start||d>end);
@@ -408,16 +424,32 @@ app.patch("/api/sessions/:id/holidays", requireAuth, async (req,res)=>{
     const allowedDates = new Set(holidays);
     const detailByDate = new Map();
     for (const item of detailInput) {
+      if (item?.recurringProjection === true) continue;
       const date = String(item?.date || "").slice(0,10);
       if (!allowedDates.has(date)) continue;
       const name = String(item?.name || "").trim().slice(0,160);
       const description = String(item?.description || "").trim().slice(0,400);
-      if (name || description) detailByDate.set(date, {date, name, description});
+      const requestedType = String(item?.holidayType || item?.type || "Mandatory").trim();
+      if (!["Mandatory", "Optional"].includes(requestedType)) {
+        return res.status(400).json({message:`Invalid holiday type for ${date}. Use Mandatory or Optional.`});
+      }
+      const holidayType = requestedType;
+      const occursEveryYear = item?.occursEveryYear === true || String(item?.occursEveryYear || "").toLowerCase() === "true";
+      if (name || description || holidayType === "Optional" || occursEveryYear) detailByDate.set(date, {date, name, description, holidayType, occursEveryYear});
     }
-    row.holidayDates=holidays;
+    const explicitOverrideDates=new Set([...detailByDate.values()]
+      .filter(item=>item.recurringProjection!==true && item.occursEveryYear!==true && (item.name || item.description || item.holidayType==="Optional"))
+      .map(item=>String(item.date).slice(0,10)));
+    const persistedHolidayDates=holidays.filter(date=>{
+      const recurring=recurringCandidates.get(date);
+      return !recurring || explicitOverrideDates.has(date) || (String(recurring.sourceSessionId||"")===String(row._id) && String(recurring.sourceDate||"")===date);
+    });
+    row.holidayDates=persistedHolidayDates;
     row.holidayDetails=[...detailByDate.values()];
     await row.save();
-    res.json(await AcademicSession.findById(row._id).populate("programDates.program","name code").lean());
+    const updated=await AcademicSession.findById(row._id).populate("programDates.program","name code").lean();
+    const updatedSources=await AcademicSession.find({"holidayDetails.occursEveryYear":true}).select("name updatedAt holidayDetails").sort({updatedAt:1}).lean();
+    res.json(applyRecurringHolidayCalendar(updated,updatedSources));
   }catch(e){res.status(400).json({message:e.message});}
 });
 

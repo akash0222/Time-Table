@@ -16,6 +16,15 @@ export default function FullSessionTimetable({sessions,activeSession,role}){
   const [exportBusy,setExportBusy]=useState(false);
   const [error,setError]=useState("");
   useEffect(()=>{if(activeSession?._id&&!sessionId)setSessionId(activeSession._id)},[activeSession?._id]);
+  function changeSession(nextSessionId){
+    setSessionId(nextSessionId);
+    setHolidays("");
+    setSectionId("");
+    setFacultyId("");
+    setPlan(null);
+    setWeekIndex(0);
+    setError("");
+  }
   useEffect(()=>{
     const sessionRows=Array.isArray(sessions)?sessions:[];
     if(sessionId&&!sessionRows.some(item=>String(item._id)===String(sessionId))){
@@ -83,7 +92,7 @@ export default function FullSessionTimetable({sessions,activeSession,role}){
     <section className="panel" style={{padding:22,marginBottom:18}}>
       <h2>Full Academic Session Timetable</h2><p>Generate and store the complete date-wise timetable for the academic session. Each week may have a different arrangement, while subject totals are controlled for the entire session.</p>
       <div style={{display:'flex',gap:12,flexWrap:'wrap',alignItems:'end'}}>
-        <label>Academic Session<br/><select value={sessionId} onChange={e=>setSessionId(e.target.value)}><option value="">Select session</option>{sessions.map(s=><option key={s._id} value={s._id}>{s.name} ({String(s.startDate||'').slice(0,10)} to {String(s.endDate||'').slice(0,10)})</option>)}</select></label>
+        <label>Academic Session<br/><select value={sessionId} onChange={e=>changeSession(e.target.value)}><option value="">Select session</option>{sessions.map(s=><option key={s._id} value={s._id}>{s.name} ({String(s.startDate||'').slice(0,10)} to {String(s.endDate||'').slice(0,10)})</option>)}</select></label>
         {['ADMIN','SCHEDULER'].includes(role)&&<>
           <button className="secondary" type="button" onClick={()=>document.querySelector('[data-nav="Holiday Management"]')?.click()}><CalendarOff size={15}/> Manage Holidays</button>
           <label>Holiday dates (YYYY-MM-DD, separated by commas)<br/><textarea rows={2} style={{minWidth:300}} value={holidays} onChange={e=>setHolidays(e.target.value)} placeholder="Use Holiday Management for permanent dates"/></label>

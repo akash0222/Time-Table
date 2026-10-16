@@ -75,7 +75,7 @@ jobs:
         run: node qa/xlsx-safety.test.mjs
       - name: Check server JavaScript syntax
         working-directory: server
-        run: node --check server.js && node --check services/facultyWorkload.js && node --check services/timetableVersionDiff.js && node --check services/loginRateLimit.js && node --check middleware/auth.js && node --check routes/auth.js && node --check routes/attendance.js && node --check routes/students.js && node --check routes/studentPromotion.js && node --check routes/studentProfile.js && node --check routes/fees.js && node --check routes/sessionPlan.js && node --check routes/notifications.js && node --check services/xlsxSafety.js && node --check services/notificationAccess.js && node --check services/dateValidation.js && node --check services/timetableAccess.js
+        run: node --check server.js && node --check services/facultyWorkload.js && node --check services/timetableVersionDiff.js && node --check services/loginRateLimit.js && node --check middleware/auth.js && node --check routes/auth.js && node --check routes/attendance.js && node --check routes/students.js && node --check routes/studentPromotion.js && node --check routes/studentProfile.js && node --check routes/fees.js && node --check routes/sessionPlan.js && node --check services/sessionPlanHolidayDates.js && node --check services/recurringHolidayCalendar.js && node --check routes/notifications.js && node --check services/xlsxSafety.js && node --check services/notificationAccess.js && node --check services/dateValidation.js && node --check services/timetableAccess.js
       - name: Test timetable version comparison
         working-directory: server
         run: npm run test:regression:timetable-version-diff
@@ -115,6 +115,12 @@ jobs:
       - name: Test holiday import parser
         working-directory: server
         run: npm run test:holiday-import
+      - name: Test full-session holiday date bounds
+        working-directory: server
+        run: npm run test:session-plan-holiday-dates
+      - name: Test recurring holiday calendar
+        working-directory: server
+        run: npm run test:recurring-holiday-calendar
       - name: Test attendance access isolation
         working-directory: server
         run: npm run test:attendance-access

@@ -1945,3 +1945,103 @@ button.danger:hover{background:#fff1f2}
   .app.mobile-nav-open .erp-sidebar .nav-module-button>span{display:block!important}
   .app.mobile-nav-open .nav-flyout-panel{left:calc(min(258px,78vw) + 8px)!important;width:calc(100vw - min(258px,78vw) - 20px)!important}
 }
+
+
+/* CampX-inspired compact holiday management */
+.holiday-reference-toolbar{background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:16px 18px;margin-bottom:14px;box-shadow:0 1px 2px rgba(16,24,40,.03)}
+.holiday-reference-toolbar-top{display:flex;align-items:center;justify-content:space-between;gap:18px;flex-wrap:wrap}
+.holiday-reference-toolbar .holiday-page-title{display:flex;align-items:center;gap:11px}
+.holiday-reference-toolbar .holiday-title-icon{width:39px;height:39px;display:grid;place-items:center;border-radius:10px;background:#f1efff;color:#38208e;flex:none}
+.holiday-reference-toolbar h2{font-size:21px;line-height:1.25;margin:0;color:#1f2937}
+.holiday-reference-toolbar p{font-size:12px;color:#737b8a;margin:4px 0 0}
+.holiday-reference-actions{display:flex;align-items:flex-end;gap:9px;flex-wrap:wrap}
+.holiday-session-selector{display:grid;gap:5px;min-width:230px;font-size:11px;font-weight:650;color:#5f6675}
+.holiday-session-selector select{height:37px;min-width:230px;padding:7px 32px 7px 10px;border:1px solid #d6d9e3;border-radius:6px;background:#fff;color:#242938;font-size:12px}
+.holiday-reference-actions .primary,.holiday-reference-actions .secondary{height:37px;border-radius:6px;font-size:12px;padding:0 13px}
+.holiday-reference-actions .primary{background:#39208e}
+.holiday-reference-actions .primary:hover{background:#2e1879}
+.holiday-reference-actions .secondary{border-color:#d9d5ed;color:#34227b}
+.holiday-reference-meta{display:flex;align-items:center;gap:8px 18px;flex-wrap:wrap;border-top:1px solid #f0f1f4;margin-top:13px;padding-top:11px;color:#747b89;font-size:11px}
+.holiday-reference-meta span{display:inline-flex;align-items:center;gap:6px}
+.holiday-reference-meta svg{color:#6c63a6}
+.holiday-list-panel{margin-top:12px!important;padding:0!important;overflow:visible}
+.holiday-list-heading{padding:15px 17px;margin:0!important;border-bottom:1px solid #ececf1}
+.holiday-list-heading h3{font-size:14px!important;font-weight:700;color:#262b36}
+.holiday-list-heading p{font-size:11px!important;margin-top:4px!important}
+.holiday-count-pill{border-radius:6px!important;background:#f2efff!important;color:#3a268c!important;font-size:11px!important;font-weight:700;padding:6px 9px!important}
+.holiday-search{display:flex!important;align-items:center;gap:8px!important;margin:12px 16px!important;width:min(100% - 32px,360px);height:35px;padding:0 10px;border:1px solid #dedfe6;border-radius:6px;background:#fff;color:#858b9a}
+.holiday-search input{border:0!important;outline:0!important;box-shadow:none!important;padding:0!important;height:32px!important;width:100%;font-size:12px!important}
+.holiday-table-wrap{margin:0 0 4px;border-radius:0 0 10px 10px;overflow:auto}
+.holiday-list-table{width:100%;border-collapse:collapse;min-width:640px}
+.holiday-list-table thead th{background:#f7f7fa!important;color:#636a79!important;border-top:1px solid #ececf1!important;border-bottom:1px solid #e8e9ef!important;padding:10px 15px!important;text-transform:none;font-size:11px!important;font-weight:700;white-space:nowrap}
+.holiday-list-table tbody td{padding:10px 15px!important;border-bottom:1px solid #eff0f4!important;font-size:12px!important;color:#414756}
+.holiday-list-table tbody tr:hover{background:#faf9ff}
+.holiday-list-table tbody tr:last-child td{border-bottom:0!important}
+.holiday-table-title-copy strong{font-weight:650;color:#292d39;font-size:12px}
+.holiday-table-title-copy small{display:block;margin-top:3px;color:#858b99;font-size:10px;line-height:1.4}
+.holiday-type-badge{display:inline-flex;align-items:center;padding:4px 8px;border-radius:5px;font-size:10px!important;font-weight:650;white-space:nowrap}
+.holiday-type-badge.mandatory{background:#fff0dd!important;color:#a65b0b!important}
+.holiday-type-badge.optional{background:#e9f5ff!important;color:#1c69a7!important}
+.holiday-table-date{color:#555c6b!important;white-space:nowrap;font-size:11px!important}
+.holiday-actions-trigger{width:31px;height:31px;border:1px solid transparent;border-radius:6px;background:transparent;color:#6b7280}
+.holiday-actions-trigger:hover,.holiday-actions-trigger[aria-expanded=true]{background:#f0edff;border-color:#ded7ff;color:#33217d}
+.holiday-action-menu{right:8px;min-width:130px;border:1px solid #e3e0ed;border-radius:8px;box-shadow:0 12px 30px rgba(24,20,56,.14);padding:5px;background:#fff;z-index:20}
+.holiday-action-item{border-radius:5px;font-size:12px}
+.holiday-action-item:hover{background:#f7f5ff;color:#39208e}
+.holiday-empty-state{padding:32px 18px!important;min-height:145px;color:#858b99!important}
+.holiday-empty-state strong{color:#3a4050!important;font-size:13px}
+.holiday-empty-state span{font-size:11px}
+.holiday-modal-backdrop{position:fixed;inset:0;z-index:1000;display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(24,22,35,.43);backdrop-filter:blur(1.5px)}
+.holiday-modal{width:min(100%,520px);max-height:min(90vh,820px);overflow:auto;border:1px solid #e6e2f0;border-radius:12px;background:#fff;box-shadow:0 24px 80px rgba(20,16,52,.24);animation:holiday-modal-in .16s ease-out}
+@keyframes holiday-modal-in{from{opacity:.4;transform:translateY(5px) scale(.99)}to{opacity:1;transform:translateY(0) scale(1)}}
+.holiday-modal-header{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;padding:18px 20px 14px;border-bottom:1px solid #efedf4}
+.holiday-modal-header h3{font-size:17px!important;color:#252938;margin:0!important}
+.holiday-modal-header p{font-size:11px;color:#7b8190;margin:5px 0 0}
+.holiday-modal-close{display:grid;place-items:center;flex:none;width:31px;height:31px;border:0;border-radius:6px;background:transparent;color:#777d8b}
+.holiday-modal-close:hover{background:#f3f1fa;color:#32217c}
+.holiday-modal-form{display:grid;grid-template-columns:1fr 1fr;gap:13px;padding:18px 20px 20px}
+.holiday-modal-field{display:grid;align-content:start;gap:6px;min-width:0}
+.holiday-modal-field.full{grid-column:1/-1}
+.holiday-modal-field label{font-size:11px;font-weight:650;color:#555c6b}
+.holiday-modal-field input,.holiday-modal-field select,.holiday-modal-field textarea{width:100%;min-width:0;border:1px solid #d9dce5;border-radius:6px;background:#fff;padding:9px 10px;color:#272b38;font-size:12px;outline:none}
+.holiday-modal-field input,.holiday-modal-field select{height:37px}
+.holiday-modal-field textarea{resize:vertical;min-height:72px}
+.holiday-modal-field input:focus,.holiday-modal-field select:focus,.holiday-modal-field textarea:focus{border-color:#8071cb;box-shadow:0 0 0 3px rgba(65,43,148,.10)}
+.holiday-optional-label{color:#979cab;font-weight:450}
+.holiday-modal-help{grid-column:1/-1;font-size:10px;color:#838897;line-height:1.5;margin:0}
+.holiday-modal .holiday-error{grid-column:1/-1;margin:0;font-size:12px}
+.holiday-modal-footer{grid-column:1/-1;display:flex;align-items:center;justify-content:flex-end;gap:8px;padding-top:12px;margin-top:2px;border-top:1px solid #efedf4}
+.holiday-modal-footer .primary,.holiday-modal-footer .secondary{min-height:36px;padding:0 15px;border-radius:6px;font-size:12px}
+.holiday-modal-footer .primary{background:#39208e}
+.holiday-upload-panel{margin-top:12px!important}
+.holiday-management .holiday-rule-panel{margin-top:12px!important}
+.holiday-management .holiday-rule-panel> .holiday-panel-heading{cursor:default}
+@media(max-width:760px){
+ .holiday-reference-toolbar{padding:13px}
+ .holiday-reference-toolbar-top{align-items:stretch}
+ .holiday-reference-actions{display:grid;grid-template-columns:1fr 1fr;width:100%}
+ .holiday-session-selector{grid-column:1/-1;min-width:0}
+ .holiday-session-selector select{min-width:0;width:100%}
+ .holiday-reference-actions .primary,.holiday-reference-actions .secondary{width:100%}
+ .holiday-reference-meta{gap:8px 12px}
+ .holiday-modal-backdrop{padding:10px;align-items:flex-end}
+ .holiday-modal{width:100%;max-height:92vh;border-radius:14px 14px 8px 8px}
+ .holiday-modal-header{padding:16px}
+ .holiday-modal-form{padding:15px 16px 17px;gap:11px}
+}
+@media(max-width:430px){
+ .holiday-modal-form{grid-template-columns:1fr}
+ .holiday-modal-field.full,.holiday-modal-help,.holiday-modal .holiday-error,.holiday-modal-footer{grid-column:1}
+ .holiday-modal-footer{display:grid;grid-template-columns:1fr 1fr}
+}
+
+
+/* Annual holiday recurrence control */
+.holiday-recurring-field{padding:11px 12px;border:1px solid #e8e5f2;border-radius:7px;background:#faf9ff}
+.holiday-recurring-toggle{display:flex!important;align-items:center;gap:10px;cursor:pointer}
+.holiday-recurring-toggle input[type=checkbox]{appearance:auto!important;width:16px!important;height:16px!important;min-width:16px;margin:0;accent-color:#39208e;box-shadow:none!important}
+.holiday-recurring-toggle>span{display:grid;gap:4px}
+.holiday-recurring-toggle strong{font-size:12px;color:#2c2e3c}
+.holiday-recurring-toggle small,.holiday-recurring-note{font-size:10px;color:#777d8c;font-weight:400;line-height:1.45}
+.holiday-recurring-note{display:block;margin:4px 0 0 26px}
+.holiday-recurring-row-label{color:#3c2a8b!important;font-weight:650}

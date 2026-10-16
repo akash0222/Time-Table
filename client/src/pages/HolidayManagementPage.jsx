@@ -1,7 +1,7 @@
 import React, {useEffect, useState} from "react";
 import axios from "axios";
 import {API} from "../core/api";
-import {CalendarDays, CalendarOff, Clock3, Search, ShieldCheck, Trash2, FileSpreadsheet, Upload, Download, CheckCircle2, AlertTriangle, Pencil, Save, X, MoreVertical} from "lucide-react";
+import {CalendarDays, CalendarOff, Clock3, Search, Trash2, FileSpreadsheet, Upload, Download, CheckCircle2, AlertTriangle, Pencil, X, MoreVertical} from "lucide-react";
 
 const isoDate = value => String(value || "").slice(0, 10);
 
@@ -42,9 +42,13 @@ export default function HolidayManagement({sessions = [], activeSession, role, s
   const [holidayDate, setHolidayDate] = useState("");
   const [holidayToDate, setHolidayToDate] = useState("");
   const [holidayName, setHolidayName] = useState("");
+  const [holidayDescription, setHolidayDescription] = useState("");
+  const [holidayType, setHolidayType] = useState("Mandatory");
+  const [holidayOccursEveryYear, setHolidayOccursEveryYear] = useState(false);
+  const [editingInheritedRecurring, setEditingInheritedRecurring] = useState(false);
+  const [holidayModalOpen, setHolidayModalOpen] = useState(false);
+  const [showImport, setShowImport] = useState(false);
   const [editingHolidayDate, setEditingHolidayDate] = useState("");
-  const [editingHolidayName, setEditingHolidayName] = useState("");
-  const [editingHolidayDescription, setEditingHolidayDescription] = useState("");
   const [holidays, setHolidays] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [openActionDate, setOpenActionDate] = useState("");
@@ -68,8 +72,9 @@ export default function HolidayManagement({sessions = [], activeSession, role, s
       setImportPreview(null);
       setUploadFile(null);
       setEditingHolidayDate("");
-      setEditingHolidayName("");
-      setEditingHolidayDescription("");
+      setHolidayModalOpen(false);
+      setHolidayOccursEveryYear(false);
+      setEditingInheritedRecurring(false);
     }
   }, [sessions, activeSession?._id]);
 
@@ -93,9 +98,12 @@ export default function HolidayManagement({sessions = [], activeSession, role, s
     setHolidayDate("");
     setHolidayToDate("");
     setHolidayName("");
+    setHolidayDescription("");
+    setHolidayType("Mandatory");
+    setHolidayOccursEveryYear(false);
+    setEditingInheritedRecurring(false);
     setEditingHolidayDate("");
-    setEditingHolidayName("");
-    setEditingHolidayDescription("");
+    setHolidayModalOpen(false);
 
     try {
       const response = await axios.get(API + "/academic-sessions/" + id);
@@ -125,7 +133,7 @@ export default function HolidayManagement({sessions = [], activeSession, role, s
       const detailsToSave = Array.isArray(nextDetails) ? nextDetails : (session?.holidayDetails || []);
       const response = await axios.patch(API + "/sessions/" + sessionId + "/holidays", {
         holidayDates: cleanDates,
-        holidayDetails: detailsToSave.filter(item => cleanDates.includes(isoDate(item.date)))
+        holidayDetails: detailsToSave.filter(item => cleanDates.includes(isoDate(item.date)) && item.recurringProjection !== true)
       });
       const updatedSession = response.data || {};
       setSession(updatedSession);
@@ -180,17 +188,13 @@ export default function HolidayManagement({sessions = [], activeSession, role, s
     }
 
     const nextDetails = [...(session?.holidayDetails || [])];
-    for (const date of nextDates) nextDetails.push({date, name: cleanHolidayName, description: ""});
+    for (const date of nextDates) nextDetails.push({date, name: cleanHolidayName, description: holidayDescription.trim(), holidayType, occursEveryYear:holidayOccursEveryYear});
     const saved = await saveDates([...holidays, ...nextDates], nextDetails);
-    if (saved) {
-      setHolidayDate("");
-      setHolidayToDate("");
-      setHolidayName("");
-    }
+    if (saved) closeHolidayModal();
   }
 
   function downloadHolidayTemplate() {
-    const template = "Date,Holiday Name,Description\r\n";
+    const template = "Date,Holiday Name,Description,Holiday Type\r\n";
     const blob = new Blob([template], {type: "text/csv;charset=utf-8;"});
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
@@ -233,7 +237,8 @@ export default function HolidayManagement({sessions = [], activeSession, role, s
       if (!cleanIncoming.includes(item.date)) continue;
       const name = String(item.holidayName || "").trim();
       const description = String(item.description || "").trim();
-      if (name || description) detailByDate.set(item.date, {date:item.date, name, description});
+      const holidayType = ["Mandatory", "Optional"].includes(String(item.holidayType || "Mandatory")) ? String(item.holidayType || "Mandatory") : "Mandatory";
+      if (name || description || holidayType === "Optional") detailByDate.set(item.date, {date:item.date, name, description, holidayType});
     }
     const targetDates = [...holidays, ...cleanIncoming];
     const detailsToSave = [...detailByDate.values()].filter(item => targetDates.includes(isoDate(item.date)));
@@ -249,51 +254,87 @@ export default function HolidayManagement({sessions = [], activeSession, role, s
     }
   }
 
-  function beginEditHoliday(date, detail) {
-    setEditingHolidayDate(date);
-    setEditingHolidayName(String(detail?.name || ""));
-    setEditingHolidayDescription(String(detail?.description || ""));
+  function beginEditHoliday(group) {
+    if (!group) return;
+    const detail = group.detail || {};
+    setEditingHolidayDate(group.fromDate);
+    setHolidayDate(group.fromDate);
+    setHolidayToDate(group.toDate);
+    setHolidayName(String(detail.name || group.name || ""));
+    setHolidayDescription(String(detail.description || group.description || ""));
+    setHolidayType(String(detail.holidayType || detail.type || group.holidayType || "Mandatory"));
+    setHolidayOccursEveryYear(Boolean(detail.occursEveryYear));
+    setEditingInheritedRecurring(detail.recurringProjection === true);
+    setHolidayModalOpen(true);
     setError("");
   }
 
-  function cancelEditHoliday() {
+  function closeHolidayModal() {
+    setHolidayModalOpen(false);
     setEditingHolidayDate("");
-    setEditingHolidayName("");
-    setEditingHolidayDescription("");
+    setHolidayDate("");
+    setHolidayToDate("");
+    setHolidayName("");
+    setHolidayDescription("");
+    setHolidayType("Mandatory");
+    setHolidayOccursEveryYear(false);
+    setEditingInheritedRecurring(false);
+    setError("");
   }
 
   async function saveEditedHoliday(event, date) {
     event?.preventDefault?.();
     if (!date || !canEdit || saving) return;
-    const cleanName = editingHolidayName.trim();
-    if (!cleanName) {
-      setError("Enter a holiday name before saving.");
-      return;
+    const cleanName = holidayName.trim();
+    const cleanDescription = holidayDescription.trim();
+    if (!cleanName) return setError("Enter a holiday name before saving.");
+    if (cleanName.length > 160 || cleanDescription.length > 400) {
+      return setError("Holiday name must be 160 characters or fewer and description must be 400 characters or fewer.");
     }
-    if (cleanName.length > 160 || editingHolidayDescription.trim().length > 400) {
-      setError("Holiday name must be 160 characters or fewer and description must be 400 characters or fewer.");
-      return;
+    if (!holidayDate || !holidayToDate || holidayToDate < holidayDate) {
+      return setError("Choose a valid From and To date. The To date must be on or after the From date.");
     }
+    const sessionStart = isoDate(session?.startDate);
+    const sessionEnd = isoDate(session?.endDate);
+    if ((sessionStart && holidayDate < sessionStart) || (sessionEnd && holidayToDate > sessionEnd)) {
+      return setError("Holiday range must fall inside the selected academic session (" + sessionStart + " to " + sessionEnd + ").");
+    }
+    const group = holidayGroups.find(item => item.fromDate === date);
+    const oldDates = group?.dates || [date];
+    const nextDates = [];
+    const cursor = new Date(holidayDate + "T00:00:00Z");
+    const last = new Date(holidayToDate + "T00:00:00Z");
+    while (cursor <= last) {
+      if (cursor.getUTCDay() !== 0) nextDates.push(cursor.toISOString().slice(0, 10));
+      cursor.setUTCDate(cursor.getUTCDate() + 1);
+    }
+    if (!nextDates.length) return setError("This range contains only Sunday dates, which are already automatic holidays.");
+    const duplicate = nextDates.find(value => holidays.includes(value) && !oldDates.includes(value));
+    if (duplicate) return setError("The edited range overlaps another configured holiday date: " + duplicate + ".");
 
+    const targetDates = [...new Set([...holidays.filter(value => !oldDates.includes(value)), ...nextDates])].sort();
     const detailMap = new Map((session?.holidayDetails || []).map(item => [
       isoDate(item.date),
-      {date: isoDate(item.date), name: String(item.name || ""), description: String(item.description || "")}
+      {date:isoDate(item.date), name:String(item.name || ""), description:String(item.description || ""), holidayType:String(item.holidayType || item.type || "Mandatory"), occursEveryYear:item.occursEveryYear===true, recurringProjection:item.recurringProjection===true}
     ]));
-    const group = holidayGroups.find(item => item.fromDate === date);
-    for (const targetDate of (group?.dates || [date])) {
-      detailMap.set(targetDate, {
-        date: targetDate,
-        name: cleanName,
-        description: editingHolidayDescription.trim()
-      });
-    }
-    const saved = await saveDates(holidays, [...detailMap.values()]);
+    for (const oldDate of oldDates) detailMap.delete(oldDate);
+    for (const targetDate of nextDates) detailMap.set(targetDate, {
+      date:targetDate,
+      name:cleanName,
+      description:cleanDescription,
+      holidayType,
+      occursEveryYear:holidayOccursEveryYear && !editingInheritedRecurring
+    });
+    const saved = await saveDates(targetDates, [...detailMap.values()]);
     if (saved) {
-      cancelEditHoliday();
-      if (typeof setMessage === "function") {
-        setMessage("Holiday details updated for " + dateLabel(date, {day:"numeric", month:"long", year:"numeric"}) + ".");
-      }
+      closeHolidayModal();
+      if (typeof setMessage === "function") setMessage("Holiday updated for " + tableDateLabel(holidayDate) + (holidayToDate !== holidayDate ? " to " + tableDateLabel(holidayToDate) : "") + ".");
     }
+  }
+
+  function saveHolidayForm(event) {
+    if (editingHolidayDate) return saveEditedHoliday(event, editingHolidayDate);
+    return addHoliday(event);
   }
 
   function removeHoliday(date) {
@@ -315,15 +356,17 @@ export default function HolidayManagement({sessions = [], activeSession, role, s
     const name = String(detail?.name || dateLabel(date, {weekday:"long"})).trim();
     const description = String(detail?.description || "").trim();
     const holidayType = String(detail?.holidayType || detail?.type || "Mandatory");
+    const occursEveryYear = detail?.occursEveryYear === true;
     const previous = holidayGroups[holidayGroups.length - 1];
     const previousDay = previous ? new Date(previous.toDate + "T00:00:00Z") : null;
     const currentDay = new Date(date + "T00:00:00Z");
-    const consecutive = previousDay && currentDay.getTime() - previousDay.getTime() === 86400000;
-    if (previous && consecutive && previous.name === name && previous.description === description && previous.holidayType === holidayType) {
+    const dayGap = previousDay ? currentDay.getTime() - previousDay.getTime() : 0;
+    const consecutive = previousDay && (dayGap === 86400000 || (dayGap === 2 * 86400000 && previousDay.getUTCDay() === 6 && currentDay.getUTCDay() === 1));
+    if (previous && consecutive && previous.name === name && previous.description === description && previous.holidayType === holidayType && previous.occursEveryYear === occursEveryYear) {
       previous.toDate = date;
       previous.dates.push(date);
     } else {
-      holidayGroups.push({key:date, fromDate:date, toDate:date, dates:[date], name, description, holidayType, detail});
+      holidayGroups.push({key:date, fromDate:date, toDate:date, dates:[date], name, description, holidayType, occursEveryYear, detail});
     }
   }
   const filteredHolidays = holidayGroups.filter(group => {
@@ -335,134 +378,131 @@ export default function HolidayManagement({sessions = [], activeSession, role, s
 
   return (
     <div className="holiday-management">
-      <div className="analytics-toolbar holiday-page-header">
-        <div className="holiday-page-title">
-          <span className="holiday-title-icon" aria-hidden="true"><CalendarDays size={25}/></span>
-          <div>
-            
-            <h2>Holiday Management</h2>
-            
+      <section className="holiday-reference-toolbar">
+        <div className="holiday-reference-toolbar-top">
+          <div className="holiday-page-title">
+            <span className="holiday-title-icon" aria-hidden="true"><CalendarDays size={24}/></span>
+            <div>
+              <h2>Holiday Management</h2>
+              <p>Manage campus holidays for each academic session.</p>
+            </div>
+          </div>
+          <div className="holiday-reference-actions">
+            <label className="holiday-session-selector">
+              <span>Academic Session</span>
+              <select id="holiday-session" value={sessionId} onChange={event => setSessionId(event.target.value)}>
+                <option value="">Select session</option>
+                {sessions.map(item => (
+                  <option key={item._id} value={item._id}>
+                    {item.name}{item.active ? " (Active)" : ""}
+                  </option>
+                ))}
+              </select>
+            </label>
+            {canEdit && (
+              <button className="secondary holiday-import-toggle" type="button" onClick={() => setShowImport(current => !current)}>
+                <FileSpreadsheet size={16}/>{showImport ? "Hide Import" : "Import Holidays"}
+              </button>
+            )}
+            {canEdit && (
+              <button className="primary holiday-add-button" type="button" disabled={!sessionId || !session || loading || saving} onClick={() => {
+                setEditingHolidayDate("");
+                setHolidayDate("");
+                setHolidayToDate("");
+                setHolidayName("");
+                setHolidayDescription("");
+                setHolidayType("Mandatory");
+                setHolidayOccursEveryYear(false);
+                setEditingInheritedRecurring(false);
+                setError("");
+                setHolidayModalOpen(true);
+              }}>
+                <CalendarDays size={16}/> Add Holiday
+              </button>
+            )}
           </div>
         </div>
-        <span className="holiday-sunday-badge"><CalendarOff size={16}/> Sunday is a default holiday</span>
-      </div>
-
-      <section className="panel holiday-setup-panel">
-        <div className="holiday-panel-heading">
-          <div>
-            <h3>Holiday calendar setup</h3>
-            
-          </div>
-          {canEdit ? (
-            <span className="holiday-access-note"><ShieldCheck size={15}/> Editing enabled</span>
-          ) : (
-            <span className="holiday-access-note readonly"><ShieldCheck size={15}/> Read-only access</span>
-          )}
+        <div className="holiday-reference-meta">
+          <span><CalendarDays size={15}/> {session?.startDate && session?.endDate ? isoDate(session.startDate) + " — " + isoDate(session.endDate) : "Select a session to view its calendar dates"}</span>
+          <span><CalendarOff size={15}/> Sunday is automatically excluded</span>
+          <span>{holidays.length} configured date{holidays.length === 1 ? "" : "s"}</span>
         </div>
+      </section>
 
-        <form className="holiday-config-grid" onSubmit={addHoliday}>
-          <div className="field holiday-session-field">
-            <label htmlFor="holiday-session">Academic session</label>
-            <select id="holiday-session" value={sessionId} onChange={event => setSessionId(event.target.value)}>
-              <option value="">Select an academic session</option>
-              {sessions.map(item => (
-                <option key={item._id} value={item._id}>
-                  {item.name}{item.active ? " (Active)" : ""}
-                </option>
-              ))}
-            </select>
-            <small className="field-help">Holiday dates are saved separately for each session.</small>
-          </div>
+      {error && !holidayModalOpen && (
+        <div className="message error holiday-error" role="alert">
+          <span>{error}</span>
+          {loading && <span className="holiday-inline-loader">Loading…</span>}
+        </div>
+      )}
 
-          <div className="field holiday-name-field">
-            <label htmlFor="holiday-name">Holiday name <span aria-hidden="true">*</span></label>
-            <input
-              id="holiday-name"
-              type="text"
-              value={holidayName}
-              maxLength={160}
-              placeholder="e.g. Independence Day"
-              onChange={event => { setHolidayName(event.target.value); setError(""); }}
-              disabled={!sessionId || !session || !canEdit || loading || saving}
-              required
-            />
-            <small className="field-help">Enter a clear name for the holiday.</small>
-          </div>
+      {!canEdit && (
+        <div className="holiday-readonly-note">You can view this calendar, but only Admin and Scheduler accounts can change it.</div>
+      )}
 
-          <div className="field holiday-date-field">
-            <label htmlFor="holiday-date">From</label>
-            <div className="holiday-date-range-control">
-              <input
-                id="holiday-date"
-                type="date"
-                value={holidayDate}
-                min={session?.startDate ? isoDate(session.startDate) : undefined}
-                max={session?.endDate ? isoDate(session.endDate) : undefined}
-                onChange={event => {
+      {holidayModalOpen && canEdit && (
+        <div className="holiday-modal-backdrop" role="presentation" onMouseDown={event => {
+          if (event.target === event.currentTarget && !saving) closeHolidayModal();
+        }}>
+          <section className="holiday-modal" role="dialog" aria-modal="true" aria-labelledby="holiday-modal-title">
+            <div className="holiday-modal-header">
+              <div>
+                <h3 id="holiday-modal-title">{editingHolidayDate ? "Edit Holiday" : "Add Holiday"}</h3>
+                <p>{editingHolidayDate ? "Update the holiday details and date range." : "Add a holiday to the selected academic session."}</p>
+              </div>
+              <button className="holiday-modal-close" type="button" aria-label="Close holiday form" onClick={closeHolidayModal} disabled={saving}><X size={19}/></button>
+            </div>
+            <form className="holiday-modal-form" onSubmit={saveHolidayForm}>
+              <div className="holiday-modal-field">
+                <label htmlFor="holiday-type">Holiday Type</label>
+                <select id="holiday-type" value={holidayType} onChange={event => setHolidayType(event.target.value)} disabled={saving}>
+                  <option value="Mandatory">Mandatory</option>
+                  <option value="Optional">Optional</option>
+                </select>
+              </div>
+              <div className="holiday-modal-field">
+                <label htmlFor="holiday-name">Title <span aria-hidden="true">*</span></label>
+                <input id="holiday-name" type="text" value={holidayName} maxLength={160} placeholder="e.g. Independence Day" required autoFocus onChange={event => { setHolidayName(event.target.value); setError(""); }} disabled={!sessionId || !session || !canEdit || loading || saving}/>
+              </div>
+              <div className="holiday-modal-field">
+                <label htmlFor="holiday-date">From Date <span aria-hidden="true">*</span></label>
+                <input id="holiday-date" type="date" value={holidayDate} min={session?.startDate ? isoDate(session.startDate) : undefined} max={session?.endDate ? isoDate(session.endDate) : undefined} required onChange={event => {
                   const value = event.target.value;
                   setHolidayDate(value);
                   setHolidayToDate(current => !current || current < value ? value : current);
                   setError("");
-                }}
-                disabled={!sessionId || !session || !canEdit || loading || saving}
-                aria-describedby="holiday-date-help"
-              />
-              <label htmlFor="holiday-to-date">To</label>
-              <input
-                id="holiday-to-date"
-                type="date"
-                value={holidayToDate}
-                min={holidayDate || (session?.startDate ? isoDate(session.startDate) : undefined)}
-                max={session?.endDate ? isoDate(session.endDate) : undefined}
-                onChange={event => { setHolidayToDate(event.target.value); setError(""); }}
-                disabled={!sessionId || !session || !canEdit || loading || saving || !holidayDate}
-                aria-describedby="holiday-date-help"
-              />
-              <button
-                className="primary holiday-add-button"
-                type="submit"
-                disabled={!sessionId || !session || !holidayName.trim() || !holidayDate || !holidayToDate || !canEdit || loading || saving}
-              >
-                {saving ? "Saving…" : "Add Holiday"}
-              </button>
-            </div>
-            <small className="field-help" id="holiday-date-help">
-              {session?.startDate && session?.endDate
-                ? "Select dates from " + isoDate(session.startDate) + " to " + isoDate(session.endDate) + ". Sundays are skipped automatically within the range."
-                : "Select an academic session first. Sundays are skipped automatically within the range."}
-            </small>
-          </div>
-        </form>
-
-        {error && (
-          <div className="message error holiday-error" role="alert">
-            <span>{error}</span>
-            {loading && <span className="holiday-inline-loader">Loading…</span>}
-          </div>
-        )}
-
-        {!canEdit && (
-          <div className="holiday-readonly-note">You can view this calendar, but only Admin and Scheduler accounts can change it.</div>
-        )}
-
-        <div className="holiday-summary-grid">
-          <div className="holiday-summary-card">
-            <span className="holiday-summary-icon"><CalendarOff size={18}/></span>
-            <div><span>Configured Holidays</span><strong>{holidays.length}</strong><small>Additional dates in this session</small></div>
-          </div>
-          <div className="holiday-summary-card">
-            <span className="holiday-summary-icon sunday"><CalendarDays size={18}/></span>
-            <div><span>Automatic Sunday holidays</span><strong>{sundayCount}</strong><small>Calculated from the session date range</small></div>
-          </div>
-          <div className="holiday-summary-card">
-            <span className="holiday-summary-icon session"><Clock3 size={18}/></span>
-            <div><span>Selected session</span><strong className="holiday-session-name">{selectedSessionName}</strong><small>{session?.startDate && session?.endDate ? isoDate(session.startDate) + " — " + isoDate(session.endDate) : "Choose a session to see its date range"}</small></div>
-          </div>
+                }} disabled={!sessionId || !session || !canEdit || loading || saving}/>
+              </div>
+              <div className="holiday-modal-field">
+                <label htmlFor="holiday-to-date">To Date <span aria-hidden="true">*</span></label>
+                <input id="holiday-to-date" type="date" value={holidayToDate} min={holidayDate || (session?.startDate ? isoDate(session.startDate) : undefined)} max={session?.endDate ? isoDate(session.endDate) : undefined} required onChange={event => { setHolidayToDate(event.target.value); setError(""); }} disabled={!sessionId || !session || !canEdit || loading || saving || !holidayDate}/>
+              </div>
+              <div className="holiday-modal-field full">
+                <label htmlFor="holiday-description">Description <span className="holiday-optional-label">(optional)</span></label>
+                <textarea id="holiday-description" rows={3} maxLength={400} value={holidayDescription} placeholder="Add any notes about this holiday" onChange={event => setHolidayDescription(event.target.value)} disabled={saving}/>
+              </div>
+              <div className="holiday-modal-field full holiday-recurring-field">
+                <label className="holiday-recurring-toggle" htmlFor="holiday-every-year">
+                  <input id="holiday-every-year" type="checkbox" checked={holidayOccursEveryYear} onChange={event => setHolidayOccursEveryYear(event.target.checked)} disabled={saving || editingInheritedRecurring}/>
+                  <span><strong>Occurs Every Year</strong><small>Apply this holiday by month and day in each academic session.</small></span>
+                </label>
+                {editingInheritedRecurring && <small className="holiday-recurring-note">This occurrence is inherited from an annual rule in another academic session. Edit the original holiday to change its yearly rule; saving here creates a session-specific override.</small>}
+              </div>
+              {holidayOccursEveryYear && !editingInheritedRecurring && <p className="holiday-modal-help">The date pattern will repeat in other academic sessions. Sundays are skipped automatically.</p>}
+              <p className="holiday-modal-help">The selected date range must remain within the academic session.</p>
+              {error && <div className="message error holiday-error" role="alert">{error}</div>}
+              <div className="holiday-modal-footer">
+                <button className="secondary" type="button" onClick={closeHolidayModal} disabled={saving}>Cancel</button>
+                <button className="primary" type="submit" disabled={!sessionId || !session || !holidayName.trim() || !holidayDate || !holidayToDate || !canEdit || loading || saving}>
+                  {saving ? "Saving…" : editingHolidayDate ? "Save Changes" : "Save Holiday"}
+                </button>
+              </div>
+            </form>
+          </section>
         </div>
-      </section>
+      )}
 
-
-      {canEdit && (
+      {canEdit && showImport && (
         <section className="panel holiday-upload-panel">
           <div className="holiday-panel-heading holiday-upload-heading">
             <div className="holiday-upload-title">
@@ -502,7 +542,7 @@ export default function HolidayManagement({sessions = [], activeSession, role, s
             </button>
           </div>
           <div className="holiday-upload-hint">
-            <strong>Expected format:</strong> a <code>Date</code> or <code>Holiday Date</code> column; optional <code>Holiday Name</code> and <code>Description</code> columns are supported. Dates can use YYYY-MM-DD or DD-MM-YYYY.
+            <strong>Expected format:</strong> a <code>Date</code> or <code>Holiday Date</code> column; optional <code>Holiday Name</code>, <code>Description</code>, and <code>Holiday Type</code> columns are supported. Type must be Mandatory or Optional; dates can use YYYY-MM-DD or DD-MM-YYYY.
           </div>
 
           {importPreview && (
@@ -515,13 +555,14 @@ export default function HolidayManagement({sessions = [], activeSession, role, s
               </div>
               <div className="holiday-preview-table-wrap">
                 <table className="holiday-preview-table">
-                  <thead><tr><th>Row</th><th>Date in file</th><th>Holiday name</th><th>Result</th></tr></thead>
+                  <thead><tr><th>Row</th><th>Date in file</th><th>Holiday name</th><th>Holiday type</th><th>Result</th></tr></thead>
                   <tbody>
                     {(importPreview.rows || []).map(item => (
                       <tr key={item.rowNumber + "-" + item.sourceDate}>
                         <td>{item.rowNumber}</td>
                         <td>{item.date || item.sourceDate || "—"}</td>
                         <td>{item.holidayName || "—"}</td>
+                        <td>{item.holidayType || "Mandatory"}</td>
                         <td>
                           <span className={"holiday-row-status " + (item.status || "invalid")}>
                             {item.status === "valid" ? <CheckCircle2 size={14}/> : <AlertTriangle size={14}/>}
@@ -559,8 +600,7 @@ export default function HolidayManagement({sessions = [], activeSession, role, s
           <span className="holiday-count-pill">{holidays.length} {holidays.length === 1 ? "date" : "dates"}</span>
         </div>
 
-        {holidays.length > 3 && (
-          <label className="holiday-search">
+        <label className="holiday-search">
             <Search size={17} aria-hidden="true"/>
             <input
               type="search"
@@ -569,8 +609,7 @@ export default function HolidayManagement({sessions = [], activeSession, role, s
               value={searchTerm}
               onChange={event => setSearchTerm(event.target.value)}
             />
-          </label>
-        )}
+        </label>
 
         {!sessionId ? (
           <div className="holiday-empty-state">
@@ -611,54 +650,15 @@ export default function HolidayManagement({sessions = [], activeSession, role, s
               <tbody>
                 {filteredHolidays.map(group => {
                   const date = group.fromDate;
-                  const detail = group.detail;
-                  const isEditing = editingHolidayDate === group.fromDate;
                   const holidayType = group.holidayType;
                   return (
-                    <tr key={group.key} className={isEditing ? "holiday-list-editing-row" : ""}>
+                    <tr key={group.key}>
                       <td className="holiday-title-cell">
-                        {isEditing ? (
-                          <form className="holiday-edit-form holiday-table-edit-form" onSubmit={event => saveEditedHoliday(event, date)}>
-                            <label>
-                              Holiday name <span aria-hidden="true">*</span>
-                              <input
-                                type="text"
-                                aria-label={"Holiday name for " + date}
-                                value={editingHolidayName}
-                                maxLength={160}
-                                required
-                                autoFocus
-                                onChange={event => { setEditingHolidayName(event.target.value); setError(""); }}
-                                disabled={saving}
-                              />
-                            </label>
-                            <label>
-                              Description <span className="holiday-edit-optional">(optional)</span>
-                              <textarea
-                                aria-label={"Description for " + date}
-                                value={editingHolidayDescription}
-                                maxLength={400}
-                                rows={2}
-                                onChange={event => setEditingHolidayDescription(event.target.value)}
-                                disabled={saving}
-                              />
-                            </label>
-                            <div className="holiday-edit-hint">The holiday date stays unchanged.</div>
-                            <div className="holiday-edit-form-actions">
-                              <button className="primary holiday-edit-save" type="submit" disabled={saving || !editingHolidayName.trim()}>
-                                <Save size={14}/>{saving ? "Saving…" : "Save changes"}
-                              </button>
-                              <button className="secondary holiday-edit-cancel" type="button" onClick={cancelEditHoliday} disabled={saving}>
-                                <X size={14}/> Cancel
-                              </button>
-                            </div>
-                          </form>
-                        ) : (
-                          <div className="holiday-table-title-copy">
-                            <strong>{group.name}</strong>
-                            {group.description && <small>{group.description}</small>}
-                          </div>
-                        )}
+                        <div className="holiday-table-title-copy">
+                          <strong>{group.name}</strong>
+                          {group.description && <small>{group.description}</small>}
+                          {group.occursEveryYear && <small className="holiday-recurring-row-label">↻ Repeats every year</small>}
+                        </div>
                       </td>
                       <td>
                         <span className={"holiday-type-badge " + (holidayType.toLowerCase() === "optional" ? "optional" : "mandatory")}>
@@ -668,7 +668,7 @@ export default function HolidayManagement({sessions = [], activeSession, role, s
                       <td className="holiday-table-date">{tableDateLabel(group.fromDate)}</td>
                       <td className="holiday-table-date">{tableDateLabel(group.toDate)}</td>
                       <td className="holiday-table-actions">
-                        {canEdit && !isEditing ? (
+                        {canEdit ? (
                           <div className="holiday-action-wrap">
                             <button
                               className="holiday-actions-trigger"
@@ -687,7 +687,7 @@ export default function HolidayManagement({sessions = [], activeSession, role, s
                                   type="button"
                                   role="menuitem"
                                   className="holiday-action-item"
-                                  onClick={() => { setOpenActionDate(""); beginEditHoliday(group.fromDate, group.detail || {name:group.name,description:group.description}); }}
+                                  onClick={() => { setOpenActionDate(""); beginEditHoliday(group); }}
                                   disabled={saving || loading || Boolean(editingHolidayDate)}
                                 >
                                   <Pencil size={15}/> Edit
@@ -704,8 +704,6 @@ export default function HolidayManagement({sessions = [], activeSession, role, s
                               </div>
                             )}
                           </div>
-                        ) : isEditing ? (
-                          <span className="holiday-editing-badge">Editing</span>
                         ) : <span className="holiday-readonly-dash">—</span>}
                       </td>
                     </tr>
