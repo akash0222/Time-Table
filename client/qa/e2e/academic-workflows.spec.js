@@ -184,7 +184,7 @@ async function installApiMocks(page, options = {}) {
         sessionName: sessions.find(session => session._id === holidayPreviewMatch[1])?.name || "Academic Year 2026-27",
         summary: { total: 4, valid: 2, skipped: 1, invalid: 1 },
         rows: [
-          { rowNumber: 2, sourceDate: "2026-08-15", date: "2026-08-15", holidayName: "Independence Day Observed", description: "School holiday", status: "valid", reason: "" },
+          { rowNumber: 2, sourceDate: "2026-08-15", date: "2026-08-15", holidayName: "Independence Day Observed", description: "School holiday", holidayType: "Optional", status: "valid", reason: "" },
           { rowNumber: 3, sourceDate: "2026-08-16", date: "2026-08-16", holidayName: "Sunday Entry", status: "skipped", reason: "Sunday is already an automatic holiday." },
           { rowNumber: 4, sourceDate: "2026-12-25", date: "2026-12-25", holidayName: "Christmas", description: "School closed", status: "valid", reason: "" },
           { rowNumber: 5, sourceDate: "not-a-date", date: "", holidayName: "Invalid Row", status: "invalid", reason: "Invalid or missing date." }
@@ -701,18 +701,20 @@ test("admin can preview and import a holiday list from a CSV file", async ({ pag
   await page.locator("#holiday-upload-file").setInputFiles({
     name: "holidays.csv",
     mimeType: "text/csv",
-    buffer: Buffer.from("Date,Holiday Name,Description\n2026-08-15,Independence Day Observed,School holiday\n2026-08-16,Sunday Entry,Should be skipped")
+    buffer: Buffer.from("Date,Holiday Name,Description,Holiday Type\n2026-08-15,Independence Day Observed,School holiday,Optional\n2026-08-16,Sunday Entry,Should be skipped,Mandatory")
   });
   await page.getByRole("button", { name: "Preview Holiday List" }).click();
 
   await expect(page.getByText("Ready to import")).toBeVisible();
   await expect(page.getByText("Invalid Row", { exact: true })).toBeVisible();
   await expect(page.getByText("Sunday is already an automatic holiday.")).toBeVisible();
+  await expect(page.locator(".holiday-preview-table tbody tr").filter({ hasText: "Independence Day Observed" }).getByText("Optional", { exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Import 2 Valid Dates" })).toBeEnabled();
 
   await page.getByRole("button", { name: "Import 2 Valid Dates" }).click();
   const importedHoliday = page.locator(".holiday-list-table tbody tr").filter({ hasText: "Independence Day Observed" });
   await expect(importedHoliday).toHaveCount(1);
+  await expect(importedHoliday.getByText("Optional", { exact: true })).toBeVisible();
   await expect(importedHoliday.locator("td").nth(2)).toHaveText("August 15, 2026");
   const christmasRow = page.locator(".holiday-list-table tbody tr").filter({ hasText: "Christmas" });
   await expect(christmasRow).toHaveCount(1);
