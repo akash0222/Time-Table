@@ -384,122 +384,121 @@ export default function HolidayManagement({sessions = [], activeSession, role, s
         <span className="holiday-sunday-badge"><CalendarOff size={16}/> Sunday is a default holiday</span>
       </div>
 
-      <section className="panel holiday-setup-panel">
-        <div className="holiday-panel-heading">
-          <div>
-            <h3>Holiday calendar setup</h3>
-            
+      <section className="holiday-reference-toolbar">
+        <div className="holiday-reference-toolbar-top">
+          <div className="holiday-page-title">
+            <span className="holiday-title-icon" aria-hidden="true"><CalendarDays size={24}/></span>
+            <div>
+              <h2>Holidays</h2>
+              <p>Manage campus holidays for each academic session.</p>
+            </div>
           </div>
-          {canEdit ? (
-            <span className="holiday-access-note"><ShieldCheck size={15}/> Editing enabled</span>
-          ) : (
-            <span className="holiday-access-note readonly"><ShieldCheck size={15}/> Read-only access</span>
-          )}
+          <div className="holiday-reference-actions">
+            <label className="holiday-session-selector">
+              <span>Academic Session</span>
+              <select id="holiday-session" value={sessionId} onChange={event => setSessionId(event.target.value)}>
+                <option value="">Select session</option>
+                {sessions.map(item => (
+                  <option key={item._id} value={item._id}>
+                    {item.name}{item.active ? " (Active)" : ""}
+                  </option>
+                ))}
+              </select>
+            </label>
+            {canEdit && (
+              <button className="secondary holiday-import-toggle" type="button" onClick={() => setShowImport(current => !current)}>
+                <FileSpreadsheet size={16}/>{showImport ? "Hide Import" : "Import Holidays"}
+              </button>
+            )}
+            {canEdit && (
+              <button className="primary holiday-add-button" type="button" disabled={!sessionId || !session || loading || saving} onClick={() => {
+                setEditingHolidayDate("");
+                setHolidayDate("");
+                setHolidayToDate("");
+                setHolidayName("");
+                setHolidayDescription("");
+                setHolidayType("Mandatory");
+                setError("");
+                setHolidayModalOpen(true);
+              }}>
+                <CalendarDays size={16}/> Add Holiday
+              </button>
+            )}
+          </div>
         </div>
+        <div className="holiday-reference-meta">
+          <span><CalendarDays size={15}/> {session?.startDate && session?.endDate ? isoDate(session.startDate) + " — " + isoDate(session.endDate) : "Select a session to view its calendar dates"}</span>
+          <span><CalendarOff size={15}/> Sunday is automatically excluded</span>
+          <span>{holidays.length} configured date{holidays.length === 1 ? "" : "s"}</span>
+        </div>
+      </section>
 
-        <form className="holiday-config-grid" onSubmit={addHoliday}>
-          <div className="field holiday-session-field">
-            <label htmlFor="holiday-session">Academic session</label>
-            <select id="holiday-session" value={sessionId} onChange={event => setSessionId(event.target.value)}>
-              <option value="">Select an academic session</option>
-              {sessions.map(item => (
-                <option key={item._id} value={item._id}>
-                  {item.name}{item.active ? " (Active)" : ""}
-                </option>
-              ))}
-            </select>
-            <small className="field-help">Holiday dates are saved separately for each session.</small>
-          </div>
+      {error && !holidayModalOpen && (
+        <div className="message error holiday-error" role="alert">
+          <span>{error}</span>
+          {loading && <span className="holiday-inline-loader">Loading…</span>}
+        </div>
+      )}
 
-          <div className="field holiday-name-field">
-            <label htmlFor="holiday-name">Holiday name <span aria-hidden="true">*</span></label>
-            <input
-              id="holiday-name"
-              type="text"
-              value={holidayName}
-              maxLength={160}
-              placeholder="e.g. Independence Day"
-              onChange={event => { setHolidayName(event.target.value); setError(""); }}
-              disabled={!sessionId || !session || !canEdit || loading || saving}
-              required
-            />
-            <small className="field-help">Enter a clear name for the holiday.</small>
-          </div>
+      {!canEdit && (
+        <div className="holiday-readonly-note">You can view this calendar, but only Admin and Scheduler accounts can change it.</div>
+      )}
 
-          <div className="field holiday-date-field">
-            <label htmlFor="holiday-date">From</label>
-            <div className="holiday-date-range-control">
-              <input
-                id="holiday-date"
-                type="date"
-                value={holidayDate}
-                min={session?.startDate ? isoDate(session.startDate) : undefined}
-                max={session?.endDate ? isoDate(session.endDate) : undefined}
-                onChange={event => {
+      {holidayModalOpen && canEdit && (
+        <div className="holiday-modal-backdrop" role="presentation" onMouseDown={event => {
+          if (event.target === event.currentTarget && !saving) closeHolidayModal();
+        }}>
+          <section className="holiday-modal" role="dialog" aria-modal="true" aria-labelledby="holiday-modal-title">
+            <div className="holiday-modal-header">
+              <div>
+                <h3 id="holiday-modal-title">{editingHolidayDate ? "Edit Holiday" : "Add Holiday"}</h3>
+                <p>{editingHolidayDate ? "Update the holiday details and date range." : "Add a holiday to the selected academic session."}</p>
+              </div>
+              <button className="holiday-modal-close" type="button" aria-label="Close holiday form" onClick={closeHolidayModal} disabled={saving}><X size={19}/></button>
+            </div>
+            <form className="holiday-modal-form" onSubmit={saveHolidayForm}>
+              <div className="holiday-modal-field">
+                <label htmlFor="holiday-type">Holiday Type</label>
+                <select id="holiday-type" value={holidayType} onChange={event => setHolidayType(event.target.value)} disabled={saving}>
+                  <option value="Mandatory">Mandatory</option>
+                  <option value="Optional">Optional</option>
+                </select>
+              </div>
+              <div className="holiday-modal-field">
+                <label htmlFor="holiday-name">Title <span aria-hidden="true">*</span></label>
+                <input id="holiday-name" type="text" value={holidayName} maxLength={160} placeholder="e.g. Independence Day" required autoFocus onChange={event => { setHolidayName(event.target.value); setError(""); }} disabled={!sessionId || !session || !canEdit || loading || saving}/>
+              </div>
+              <div className="holiday-modal-field">
+                <label htmlFor="holiday-date">From Date <span aria-hidden="true">*</span></label>
+                <input id="holiday-date" type="date" value={holidayDate} min={session?.startDate ? isoDate(session.startDate) : undefined} max={session?.endDate ? isoDate(session.endDate) : undefined} required onChange={event => {
                   const value = event.target.value;
                   setHolidayDate(value);
                   setHolidayToDate(current => !current || current < value ? value : current);
                   setError("");
-                }}
-                disabled={!sessionId || !session || !canEdit || loading || saving}
-                aria-describedby="holiday-date-help"
-              />
-              <label htmlFor="holiday-to-date">To</label>
-              <input
-                id="holiday-to-date"
-                type="date"
-                value={holidayToDate}
-                min={holidayDate || (session?.startDate ? isoDate(session.startDate) : undefined)}
-                max={session?.endDate ? isoDate(session.endDate) : undefined}
-                onChange={event => { setHolidayToDate(event.target.value); setError(""); }}
-                disabled={!sessionId || !session || !canEdit || loading || saving || !holidayDate}
-                aria-describedby="holiday-date-help"
-              />
-              <button
-                className="primary holiday-add-button"
-                type="submit"
-                disabled={!sessionId || !session || !holidayName.trim() || !holidayDate || !holidayToDate || !canEdit || loading || saving}
-              >
-                {saving ? "Saving…" : "Add Holiday"}
-              </button>
-            </div>
-            <small className="field-help" id="holiday-date-help">
-              {session?.startDate && session?.endDate
-                ? "Select dates from " + isoDate(session.startDate) + " to " + isoDate(session.endDate) + ". Sundays are skipped automatically within the range."
-                : "Select an academic session first. Sundays are skipped automatically within the range."}
-            </small>
-          </div>
-        </form>
-
-        {error && (
-          <div className="message error holiday-error" role="alert">
-            <span>{error}</span>
-            {loading && <span className="holiday-inline-loader">Loading…</span>}
-          </div>
-        )}
-
-        {!canEdit && (
-          <div className="holiday-readonly-note">You can view this calendar, but only Admin and Scheduler accounts can change it.</div>
-        )}
-
-        <div className="holiday-summary-grid">
-          <div className="holiday-summary-card">
-            <span className="holiday-summary-icon"><CalendarOff size={18}/></span>
-            <div><span>Configured Holidays</span><strong>{holidays.length}</strong><small>Additional dates in this session</small></div>
-          </div>
-          <div className="holiday-summary-card">
-            <span className="holiday-summary-icon sunday"><CalendarDays size={18}/></span>
-            <div><span>Automatic Sunday holidays</span><strong>{sundayCount}</strong><small>Calculated from the session date range</small></div>
-          </div>
-          <div className="holiday-summary-card">
-            <span className="holiday-summary-icon session"><Clock3 size={18}/></span>
-            <div><span>Selected session</span><strong className="holiday-session-name">{selectedSessionName}</strong><small>{session?.startDate && session?.endDate ? isoDate(session.startDate) + " — " + isoDate(session.endDate) : "Choose a session to see its date range"}</small></div>
-          </div>
+                }} disabled={!sessionId || !session || !canEdit || loading || saving}/>
+              </div>
+              <div className="holiday-modal-field">
+                <label htmlFor="holiday-to-date">To Date <span aria-hidden="true">*</span></label>
+                <input id="holiday-to-date" type="date" value={holidayToDate} min={holidayDate || (session?.startDate ? isoDate(session.startDate) : undefined)} max={session?.endDate ? isoDate(session.endDate) : undefined} required onChange={event => { setHolidayToDate(event.target.value); setError(""); }} disabled={!sessionId || !session || !canEdit || loading || saving || !holidayDate}/>
+              </div>
+              <div className="holiday-modal-field full">
+                <label htmlFor="holiday-description">Description <span className="holiday-optional-label">(optional)</span></label>
+                <textarea id="holiday-description" rows={3} maxLength={400} value={holidayDescription} placeholder="Add any notes about this holiday" onChange={event => setHolidayDescription(event.target.value)} disabled={saving}/>
+              </div>
+              <p className="holiday-modal-help">Sundays are automatically excluded. The selected date range must remain within the academic session.</p>
+              {error && <div className="message error holiday-error" role="alert">{error}</div>}
+              <div className="holiday-modal-footer">
+                <button className="secondary" type="button" onClick={closeHolidayModal} disabled={saving}>Cancel</button>
+                <button className="primary" type="submit" disabled={!sessionId || !session || !holidayName.trim() || !holidayDate || !holidayToDate || !canEdit || loading || saving}>
+                  {saving ? "Saving…" : editingHolidayDate ? "Save Changes" : "Save Holiday"}
+                </button>
+              </div>
+            </form>
+          </section>
         </div>
-      </section>
+      )}
 
-
-      {canEdit && (
+            {canEdit && (
         <section className="panel holiday-upload-panel">
           <div className="holiday-panel-heading holiday-upload-heading">
             <div className="holiday-upload-title">
