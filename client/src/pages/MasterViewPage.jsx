@@ -10,13 +10,16 @@ export default function MasterView({type,data,setData,reload,sessions=[],setMess
   const [form,setForm]=useState({});
   const [editingId,setEditingId]=useState(null);
   const [saving,setSaving]=useState(false);
+  const [formError,setFormError]=useState("");
 
   function reset(){
     setForm({});
     setEditingId(null);
+    setFormError("");
   }
 
   function edit(record){
+    setFormError("");
     if(key==="semesters"){
       setForm({...record,academicSession:record.academicSession?._id||record.academicSession||"",program:record.program?._id||record.program||""});
     }else if(key==="sections"){
@@ -49,8 +52,21 @@ export default function MasterView({type,data,setData,reload,sessions=[],setMess
 
   async function save(){
     let body={...form};
+    setFormError("");
 
-    if(key==="semesters") body={academicSession:body.academicSession,program:body.program,name:String(body.name||"").trim(),order:Number(body.order||1),active:body.active!==false};
+    if(key==="semesters"){
+      const name=String(body.name||"").trim();
+      const order=Number(body.order||1);
+      if(!body.academicSession||!body.program||!name){
+        setFormError("Choose an academic session and linked program, then enter a semester name.");
+        return;
+      }
+      if(name.length>80){setFormError("Semester name must be 80 characters or fewer.");return;}
+      if(!Number.isInteger(order)||order<1||order>20){setFormError("Display order must be a whole number from 1 to 20.");return;}
+      const duplicate=list.find(row=>String(row._id)!==String(editingId||"")&&refId(row.academicSession)===String(body.academicSession)&&refId(row.program)===String(body.program)&&String(row.name||"").trim().toLocaleLowerCase()===name.toLocaleLowerCase());
+      if(duplicate){setFormError(`${duplicate.name} already exists for this program and academic session.`);return;}
+      body={academicSession:body.academicSession,program:body.program,name,order,active:body.active!==false};
+    }
 
     if(key==="programs") body={
       name:body.name,code:body.code,department:body.department,
@@ -127,10 +143,18 @@ export default function MasterView({type,data,setData,reload,sessions=[],setMess
         await axios.post(`${API}/${key}`,body);
         setMessage(`${type.slice(0,-1)} added successfully.`);
       }
-      reset();
+      if(key==="semesters"){
+        const scoped=[...(list||[]).filter(row=>refId(row.academicSession)===String(body.academicSession)&&refId(row.program)===String(body.program)),{...body,_id:editingId||"new"}];
+        const nextOrder=Math.min(20,Math.max(0,...scoped.map(row=>Number(row.order||0)))+1);
+        setForm({academicSession:body.academicSession,program:body.program,name:"",order:nextOrder,active:true});
+        setEditingId(null);
+        setFormError("");
+      }else reset();
       await reload();
     }catch(e){
-      setMessage(e.response?.data?.message||e.message);
+      const message=e.response?.data?.message||e.message||"Unable to save record.";
+      if(key==="semesters"){setFormError(message);setMessage("");}
+      else setMessage(message);
     }finally{
       setSaving(false);
     }
@@ -163,12 +187,16 @@ export default function MasterView({type,data,setData,reload,sessions=[],setMess
       </>}
 
       {key==="semesters" && <>
-        <Select label="Academic Session" value={form.academicSession||""} options={[["","Select academic session"],...(sessions||[]).map(s=>[s._id,s.name])]} onChange={v=>setForm({...form,academicSession:v,program:""})}/>
-        <Select label="Program" value={form.program||""} options={[["","Select program"],...(data.programs||[]).filter(p=>p.active!==false&&(sessions||[]).find(s=>refId(s)===String(form.academicSession))?.programDates?.some(d=>refId(d.program)===refId(p))).map(p=>[p._id,p.name])]} onChange={v=>setForm({...form,program:v})} />
-        <Input label="Semester Name" value={form.name||""} placeholder="e.g. Semester I" onChange={v=>setForm({...form,name:v})}/>
-        <Input label="Display Order" type="number" value={form.order||1} onChange={v=>setForm({...form,order:v})}/>
-        <div className="message success wide">
+        <div className="semester-form-intro wide">
+          <span className="semester-form-icon"><BookOpen size={18}/></span>
+          <div><strong>{editingId?"Edit semester":"Add semester"}</strong><p>Each semester belongs to one academic session and one linked program. Use consistent names so sections map correctly.</p></div>
         </div>
+        <Select label="Academic Session" value={form.academicSession||""} options={[["","Select academic session"],...(sessions||[]).map(s=>[s._id,`${s.name}${s.active?" · Active":""}`])]} onChange={v=>{setForm({...form,academicSession:v,program:""});setFormError("");}} required/>
+        <Select label="Program" value={form.program||""} options={[["","Select linked program"],...(data.programs||[]).filter(p=>p.active!==false&&(sessions||[]).find(s=>refId(s)===String(form.academicSession))?.programDates?.some(d=>refId(d.program)===refId(p))).map(p=>[p._id,`${p.name}${p.code?` (${p.code})`:""}`])]} onChange={v=>{setForm({...form,program:v});setFormError("");}} disabled={!form.academicSession} required/>
+        <Input label="Semester Name" value={form.name||""} placeholder="e.g. Semester I" onChange={v=>{setForm({...form,name:v});setFormError("");}} required/>
+        <Input label="Display Order" type="number" value={form.order??1} min={1} max={20} step={1} onChange={v=>{setForm({...form,order:v});setFormError("");}} required/>
+        <label className="semester-active-toggle wide"><input type="checkbox" checked={form.active!==false} onChange={event=>setForm({...form,active:event.target.checked})}/><span><strong>Active semester</strong><small>Inactive semesters remain visible in historical records but cannot be selected for new section mappings.</small></span></label>
+        {formError&&<div className="message error wide" role="alert">{formError}</div>}
       </>}
 
       {key==="faculty" && <>
@@ -231,15 +259,13 @@ export default function MasterView({type,data,setData,reload,sessions=[],setMess
       </>}
 
       {key==="timeslots" && <>
-        <Select label="Academic Session" value={form.academicSession||""} options={[["","All sessions (shared default)"],...(sessions||[]).map(s=>[s._id,s.name])]} onChange={v=>setForm({...form,academicSession:v})}/>
+        <Select label="Academic Session" value={form.academicSession||""} options={[["","All sessions (shared default)"],...(sessions||[]).map(s=>[s._id,s.name])]} onChange={v=>setForm({...form,academicSession:v,program:"",semester:""})}/>
         <Select label="Program" value={form.program||""} options={[["","All programs (shared default)"],...(data.programs||[]).filter(p=>p.active!==false&&(sessions||[]).find(s=>refId(s)===String(form.academicSession))?.programDates?.some(d=>refId(d.program)===refId(p))).map(p=>[p._id,p.name])]} onChange={v=>setForm({...form,program:v,semester:""})}/>
         <Select label="Semester (optional)" value={form.semester||""} options={[["","All semesters (program default)"],...(data.semesters||[]).filter(s=>refId(s.academicSession)===String(form.academicSession)&&refId(s.program)===String(form.program)&&s.active!==false).map(s=>[s.name,s.name])]} onChange={v=>setForm({...form,semester:v})}/>
         <Select label="Day" value={form.day||"Monday"} options={days.map(d=>[d,d])} onChange={v=>setForm({...form,day:v})}/>
         <Input label="Start Time" type="time" value={form.startTime||""} onChange={v=>setForm({...form,startTime:v})}/>
         <Input label="End Time" type="time" value={form.endTime||""} onChange={v=>setForm({...form,endTime:v})}/>
-        <Input label="Period Order" type="number" value={form.order||1} onChange={v=>setForm({...form,order:v})}/>
-        <div className="message success wide" style={{marginTop:4}}>
-        </div>
+        <Input label="Period Order" type="number" value={form.order||1} min={1} max={30} step={1} onChange={v=>setForm({...form,order:v})}/>
       </>}
 
       <div className="form-actions">
@@ -250,12 +276,19 @@ export default function MasterView({type,data,setData,reload,sessions=[],setMess
       </div>
     </div>
 
-    {key==="subjects" && <div className="message success" style={{marginTop:12}}>
-      </div>}
-
     <div className="master-card-grid">
       {list.map(x=>{
         const facultyName=x.faculty?.name || data.faculty.find(f=>refId(f)===refId(x.faculty))?.name;
+        const semesterProgramName=x.program?.name||(data.programs||[]).find(p=>refId(p)===refId(x.program))?.name||"Unlinked program";
+        const semesterProgramCode=x.program?.code||(data.programs||[]).find(p=>refId(p)===refId(x.program))?.code||"";
+        const semesterSessionName=x.academicSession?.name||(sessions||[]).find(row=>refId(row)===refId(x.academicSession))?.name||"Unlinked session";
+        const semesterSectionCount=(data.sections||[]).filter(section=>{
+          if(refId(section.academicSession)!==refId(x.academicSession))return false;
+          if(String(section.semester||"").trim().toLocaleLowerCase()!==String(x.name||"").trim().toLocaleLowerCase())return false;
+          if(refId(section.programId))return refId(section.programId)===refId(x.program);
+          const value=typeof section.program==="object"?(section.program?.name||section.program?.code):section.program;
+          return [semesterProgramName,semesterProgramCode].some(alias=>String(alias||"").trim().toLocaleLowerCase()===String(value||"").trim().toLocaleLowerCase());
+        }).length;
         const section=data.sections.find(v=>refId(v)===refId(x.section));
         const sectionLabel=x.section?.name || (section ? `${section.program||""} ${section.semester||""} · ${section.name||""}` : null);
         return <article className="master-card" key={x._id}>
@@ -265,15 +298,18 @@ export default function MasterView({type,data,setData,reload,sessions=[],setMess
             </div>
             <div className="master-card-title">
               <h3>{key==="programs"?x.name:key==="semesters"?x.name:key==="faculty"?x.name:key==="subjects"?x.name:key==="sections"?x.name:key==="rooms"?x.name:`${x.startTime||""} – ${x.endTime||""}`}</h3>
-              <span>{key==="programs"?x.code||"Program":key==="semesters"?`${x.program?.name||"Program"} · ${x.academicSession?.name||"Session"}`:key==="faculty"?x.code||"Faculty":key==="subjects"?x.code||"Subject":key==="sections"?`${x.program||""} · ${x.semester||""}`:key==="rooms"?x.type||"Room":x.day||"Time Slot"}</span>
+              <span>{key==="programs"?x.code||"Program":key==="semesters"?`${semesterProgramName}${semesterProgramCode&&semesterProgramCode.trim().toLocaleLowerCase()!==semesterProgramName.trim().toLocaleLowerCase()?` · ${semesterProgramCode}`:""}`:key==="faculty"?x.code||"Faculty":key==="subjects"?x.code||"Subject":key==="sections"?`${x.program||""} · ${x.semester||""}`:key==="rooms"?x.type||"Room":x.day||"Time Slot"}</span>
             </div>
             <span className={`master-status ${x.active===false?"inactive":"active"}`}>{x.active===false?"Inactive":"Active"}</span>
           </div>
+          {key==="semesters"&&<div className="semester-card-context">
+            <span><small>Academic session</small><strong>{semesterSessionName}</strong></span>
+            <span><small>Program</small><strong>{semesterProgramName}</strong></span>
+          </div>}
           <div className="master-card-details">
             {key==="semesters" && <>
-              <div><small>Academic Session</small><strong>{x.academicSession?.name||(sessions||[]).find(s=>refId(s)===refId(x.academicSession))?.name||"—"}</strong></div>
-              <div><small>Program</small><strong>{x.program?.name||(data.programs||[]).find(p=>refId(p)===refId(x.program))?.name||"—"}</strong></div>
-              <div><small>Order</small><strong>{x.order||1}</strong></div>
+              <div><small>Display order</small><strong>{x.order||1}</strong></div>
+              <div><small>Linked sections</small><strong>{semesterSectionCount}</strong></div>
             </>}
             {key==="programs" && <>
               <div><small>Department</small><strong>{x.department||"—"}</strong></div>

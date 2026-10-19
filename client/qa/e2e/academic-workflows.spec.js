@@ -155,6 +155,28 @@ async function installApiMocks(page, options = {}) {
     if (path === "/sessions" && method === "GET") return json(sessions);
     if (path === "/sessions/active" && method === "GET") return json(options.emptyActiveSessionEndpoint ? null : activeSession);
     if (path === "/semesters" && method === "GET") return json(semesters);
+    if (path === "/semesters" && method === "POST") {
+      const session = sessions.find(row => String(row._id) === String(body.academicSession));
+      const program = programs.find(row => String(row._id) === String(body.program));
+      const created = { _id:`semester-created-${semesters.length+1}`, ...body, academicSession:session?{_id:session._id,name:session.name}:body.academicSession, program:program?{_id:program._id,name:program.name,code:program.code}:body.program, active:body.active!==false };
+      semesters.push(created);
+      return json(created,201);
+    }
+    const semesterRecordMatch = path.match(/^\/semesters\/([^/]+)$/);
+    if (semesterRecordMatch && method === "PUT") {
+      const index = semesters.findIndex(row => String(row._id) === semesterRecordMatch[1]);
+      if(index<0)return json({message:"Semester not found."},404);
+      const current=semesters[index];
+      const program=programs.find(row=>String(row._id)===String(body.program||current.program?._id||current.program));
+      semesters[index]={...current,...body,program:program?{_id:program._id,name:program.name,code:program.code}:body.program,active:body.active===undefined?current.active:body.active};
+      return json(semesters[index]);
+    }
+    if (semesterRecordMatch && method === "DELETE") {
+      const index=semesters.findIndex(row=>String(row._id)===semesterRecordMatch[1]);
+      if(index<0)return json({message:"Semester not found."},404);
+      semesters.splice(index,1);
+      return json({ok:true});
+    }
     if (path === "/subject-mappings" && method === "GET") {
       const requestedSession = url.searchParams.get("sessionId");
       const delay = Number(options.subjectMappingDelayBySession?.[requestedSession] || 0);
@@ -491,6 +513,58 @@ test("admin can open and refresh a direct module URL", async ({ page }) => {
   await page.reload();
   await expect(page.getByRole("heading", { name: "Create Academic Session", exact: true })).toBeVisible();
   await expect(page).toHaveURL(/\/academic-sessions$/);
+});
+
+test("semester master data removes blank success field and enforces session/program/semester mapping", async ({ page }) => {
+  const activeSession = makeActiveSession({
+    name: "2026-2027",
+    programDates: [{ program: sampleProgram._id, startDate: "2026-04-01", endDate: "2027-03-31" }]
+  });
+  const existingSemester = {
+    _id: "semester-master-1",
+    academicSession: activeSession._id,
+    program: sampleProgram._id,
+    name: "Semester I",
+    order: 1,
+    active: true
+  };
+  const unlinkedProgram = { _id: "program-unlinked", name: "Unlinked Program", code: "UP", active: true };
+  await signIn(page, {
+    sessions: [activeSession],
+    programs: [sampleProgram, unlinkedProgram],
+    sections: [sampleSection],
+    semesters: [existingSemester]
+  });
+  await navigateToPage(page, "Master Data Settings");
+  await page.locator(".master-menu-item").filter({ hasText: "Semesters" }).click();
+
+  const form = page.locator(".master-settings-content .form-grid");
+  await expect(page.getByRole("heading", { name: "Semesters", exact: true })).toBeVisible();
+  await expect(form.locator(".message.success.wide")).toHaveCount(0);
+  await expect(form.getByText("Add semester", { exact: true })).toBeVisible();
+
+  const sessionSelect = form.getByLabel("Academic Session", { exact: true });
+  const programSelect = form.getByLabel("Program", { exact: true });
+  await sessionSelect.selectOption(activeSession._id);
+  await expect(programSelect.locator('option[value="program-1"]')).toHaveCount(1);
+  await expect(programSelect.locator('option[value="program-unlinked"]')).toHaveCount(0);
+  await programSelect.selectOption(sampleProgram._id);
+
+  await form.getByLabel("Semester Name", { exact: true }).fill("semester i");
+  await form.getByRole("button", { name: "+ Add Semesters", exact: true }).click();
+  await expect(form.getByRole("alert")).toContainText("Semester I already exists");
+  await expect(page.locator(".master-card").filter({ hasText: "Semester I" })).toHaveCount(1);
+
+  await form.getByLabel("Semester Name", { exact: true }).fill("Semester II");
+  await form.getByLabel("Display Order", { exact: true }).fill("2");
+  await form.getByRole("button", { name: "+ Add Semesters", exact: true }).click();
+  const newCard = page.locator(".master-card").filter({ hasText: "Semester II" });
+  await expect(newCard).toBeVisible();
+  await expect(newCard.locator(".semester-card-context").getByText("MBA", { exact: true })).toBeVisible();
+  await expect(newCard.getByText("2026-2027", { exact: true })).toBeVisible();
+  await expect(newCard.getByText("2", { exact: true })).toBeVisible();
+  await expect(newCard.getByText("Active", { exact: true })).toBeVisible();
+  await expect(newCard.getByText("Linked sections", { exact: true })).toBeVisible();
 });
 
 test("Academic Structure only offers session-scoped semester master records", async ({ page }) => {
