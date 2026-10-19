@@ -471,14 +471,15 @@ export function generateTimetable({
       }
     }
 
+    // Seed with the most constrained tasks first. Each recursive step also
+    // re-evaluates remaining domains (MRV: minimum remaining values), because
+    // placements made earlier can reduce the options available to other tasks.
     const ordered=shuffle(candidatesByTask).sort((a,b)=>{
       const af=fMap.get(idOf(a.task.subject.faculty));
       const bf=fMap.get(idOf(b.task.subject.faculty));
-
-      const aAvail=(af?.availableDays?.length || 7);
-      const bAvail=(bf?.availableDays?.length || 7);
-
-      return aAvail-bAvail || a.blocks.length-b.blocks.length;
+      const aAvail=Array.isArray(af?.availableDays)&&af.availableDays.length?af.availableDays.length:7;
+      const bAvail=Array.isArray(bf?.availableDays)&&bf.availableDays.length?bf.availableDays.length:7;
+      return a.blocks.length-b.blocks.length || aAvail-bAvail;
     });
 
     function canPlaceConsecutive(fid,sid,block,day){
@@ -633,11 +634,28 @@ export function generateTimetable({
       return shuffle(opts).sort((a,b)=>optionPenalty(a)-optionPenalty(b));
     }
 
-    function place(index){
+    function place(remaining){
       if(Date.now()>=deadline){ timedOut=true; return false; }
-      if(index===ordered.length) return true;
+      if(remaining.length===0) return true;
 
-      const item=ordered[index];
+      // Choose the task with the fewest currently feasible placements. If no
+      // task has any options, backtrack immediately instead of wasting the
+      // remaining search budget on an impossible branch.
+      let selectedIndex=-1;
+      let selectedOptions=null;
+      for(let i=0;i<remaining.length;i++){
+        if(Date.now()>=deadline){ timedOut=true; return false; }
+        const options=getOptions(remaining[i]);
+        if(options.length===0) return false;
+        if(selectedOptions===null||options.length<selectedOptions.length){
+          selectedIndex=i;
+          selectedOptions=options;
+          if(options.length===1) break;
+        }
+      }
+
+      const item=remaining[selectedIndex];
+      const nextRemaining=remaining.filter((_,i)=>i!==selectedIndex);
       const sub=item.task.subject;
       const fid=idOf(sub.faculty);
       const sid=idOf(sub.section);
@@ -646,7 +664,7 @@ export function generateTimetable({
 
       if(!f || !sec) return false;
 
-      for(const opt of getOptions(item)){
+      for(const opt of selectedOptions){
         const block=opt.block;
         const room=opt.room;
         const day=block[0].day;
@@ -695,7 +713,7 @@ export function generateTimetable({
           calendarEndDate:String(sec._calendarEndDate||"")
         });
 
-        if(place(index+1)) return true;
+        if(place(nextRemaining)) return true;
 
         entries.pop();
 
@@ -736,7 +754,7 @@ export function generateTimetable({
       return false;
     }
 
-    place(0);
+    place(ordered);
 
     let score=entries.length*1000;
 
@@ -792,11 +810,24 @@ export function generateTimetable({
   }
 
   if(best.entries.length<tasks.length){
+    const scheduledBySubject=new Map();
+    for(const entry of best.entries){
+      const key=idOf(entry.subject);
+      scheduledBySubject.set(key,(scheduledBySubject.get(key)||0)+1);
+    }
+    const missingBySubject=validSubjects.map(subject=>{
+      const required=Math.max(0,Number(subject.classesPerWeek||0));
+      const scheduled=scheduledBySubject.get(idOf(subject))||0;
+      return {name:String(subject.name||subject.code||"Unnamed subject"),missing:Math.max(0,required-scheduled)};
+    }).filter(item=>item.missing>0).sort((a,b)=>b.missing-a.missing);
+    const diagnostic=missingBySubject.slice(0,8).map(item=>`${item.name}: ${item.missing} session(s) unscheduled`);
     best.warnings=[
       ...(timedOut ? ["Generation time limit reached before all sessions could be placed."] : []),
       ...warnings,
       `Only ${best.entries.length} of ${tasks.length} required weekly sessions could be scheduled.`,
-      "Check faculty availability, maximum classes/day, maximum working days, consecutive-class limits, unavailable periods, room types, section limits and time slots."
+      ...(diagnostic.length?[ `Unscheduled by subject: ${diagnostic.join("; ")}.` ]:[]),
+      missingBySubject.length>8?[ `Plus ${missingBySubject.length-8} additional subject(s) with unscheduled sessions.` ]:[],
+      "Review the listed subjects first, then check faculty availability, daily/weekly limits, consecutive-class rules, unavailable periods, room type/capacity, section limits and time slots."
     ];
   }
 
