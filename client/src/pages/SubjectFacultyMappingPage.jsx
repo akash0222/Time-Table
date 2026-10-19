@@ -1,4 +1,4 @@
-import React, {useEffect, useState} from "react";
+import React, {useEffect, useRef, useState} from "react";
 import axios from "axios";
 import {API} from "../core/api";
 import {refId} from "../core/utils.js";
@@ -17,8 +17,19 @@ export default function SubjectFacultyMapping({data,sessions,activeSession,reloa
   const [saving,setSaving]=useState(false);
   const [editingId,setEditingId]=useState(null);
   const [form,setForm]=useState({name:"",code:"",faculty:"",section:"",subjectType:"CORE",classesPerWeek:3,totalSessions:0,maxClassesPerWeek:3,duration:1,roomType:"Classroom",active:true});
+  const mappingRequestSequence=useRef(0);
 
   useEffect(()=>{ if(!sessionId&&activeSession?._id) setSessionId(activeSession._id); },[activeSession?._id]);
+  function changeSession(nextSessionId){
+    setSessionId(nextSessionId);
+    setProgramId("");
+    setSemester("");
+    setSectionId("");
+    setFacultyId("");
+    setEditingId(null);
+    setForm({name:"",code:"",faculty:"",section:"",subjectType:"CORE",classesPerWeek:3,totalSessions:0,maxClassesPerWeek:3,duration:1,roomType:"Classroom",active:true});
+    setMessage("");
+  }
   useEffect(()=>{
     const sessionRows=Array.isArray(sessions)?sessions:[];
     if(sessionId&&!sessionRows.some(item=>String(item._id)===String(sessionId))){
@@ -36,16 +47,25 @@ export default function SubjectFacultyMapping({data,sessions,activeSession,reloa
   const faculties=data.faculty||[];
 
   async function loadMappings(){
-    if(!sessionId){setRows([]);setSummary(null);return;}
+    const requestId=++mappingRequestSequence.current;
+    if(!sessionId){setRows([]);setSummary(null);setLoading(false);return;}
     setLoading(true);
     try{
       const q=new URLSearchParams({sessionId});
       if(sectionId) q.set("sectionId",sectionId);
       if(facultyId) q.set("facultyId",facultyId);
       if(programId) q.set("programId",programId);
-      const r=await axios.get(`${API}/subject-mappings?${q}`); setRows(r.data||[]);
-      const sr=await axios.get(`${API}/subject-mappings/summary?sessionId=${encodeURIComponent(sessionId)}`); setSummary(sr.data||null);
-    }catch(e){setMessage(e.response?.data?.message||e.message)}finally{setLoading(false)}
+      const r=await axios.get(`${API}/subject-mappings?${q}`);
+      if(requestId!==mappingRequestSequence.current)return;
+      setRows(r.data||[]);
+      const sr=await axios.get(`${API}/subject-mappings/summary?sessionId=${encodeURIComponent(sessionId)}`);
+      if(requestId!==mappingRequestSequence.current)return;
+      setSummary(sr.data||null);
+    }catch(e){
+      if(requestId===mappingRequestSequence.current)setMessage(e.response?.data?.message||e.message);
+    }finally{
+      if(requestId===mappingRequestSequence.current)setLoading(false);
+    }
   }
   useEffect(()=>{loadMappings();},[sessionId,sectionId,facultyId,programId]);
 
@@ -77,7 +97,7 @@ export default function SubjectFacultyMapping({data,sessions,activeSession,reloa
     <section className="panel">
       <div className="panel-head"><div><h3>Academic Scope</h3><p>Choose the session first. Sections are automatically limited to that session.</p></div></div>
       <div className="mapping-filter-grid">
-        <Select label="Academic Session" value={sessionId} options={(sessions||[]).map(x=>[x._id,`${x.name}${x.active?" · Active":""}`])} onChange={v=>{setSessionId(v);setProgramId("");setSemester("");setSectionId("");}}/>
+        <Select label="Academic Session" value={sessionId} options={(sessions||[]).map(x=>[x._id,`${x.name}${x.active?" · Active":""}`])} onChange={changeSession}/>
         <Select label="Program" value={programId} options={(data.programs||[]).filter(p=>p.active!==false).map(p=>[p._id,`${p.name}${p.code?` (${p.code})`:""}`])} onChange={v=>{setProgramId(v);setSemester("");setSectionId("");}}/>
         <Select label="Semester" value={semester} options={semesters.map(x=>[x,x])} onChange={v=>{setSemester(v);setSectionId("");}}/>
         <Select label="Section" value={sectionId} options={filteredSections.map(x=>[x._id,`${x.program||""} · Sem ${x.semester} · ${x.name}`])} onChange={v=>setSectionId(v)}/>

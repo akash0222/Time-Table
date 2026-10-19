@@ -49,6 +49,7 @@ import { normalizeProgramDates, programDateInputIssue, sessionDateBounds, sessio
 import { workflowNoteRequired } from "./services/timetableWorkflow.js";
 import { seedDemoData } from "./services/demoSeed.js";
 import { resolveTimeSlotsForSection, resolveProgramCalendar } from "./services/timetable/academicCalendar.js";
+import { holidayDateRangeIssue } from "./services/sessionPlanHolidayDates.js";
 
 const app = express();
 globalThis.__APP_STARTED_AT = Date.now();
@@ -282,6 +283,8 @@ app.put("/api/sessions/:id", requireAuth, async (req,res)=>{
       const bounds=sessionDateBounds(programDates,body.startDate,body.endDate);
       const boundsIssue=sessionDateBoundsIssue(programDates,bounds.startDate,bounds.endDate);
       if(boundsIssue)return res.status(400).json({message:boundsIssue});
+      const holidayIssue=holidayDateRangeIssue(row.holidayDates||[],bounds.startDate,bounds.endDate);
+      if(holidayIssue)return res.status(400).json({message:"Cannot change academic session dates while configured holidays fall outside the proposed range. Remove or update those holiday dates first. "+holidayIssue});
       row.programDates=programDates;
       row.startDate=new Date(bounds.startDate+"T00:00:00.000Z");
       row.endDate=new Date(bounds.endDate+"T00:00:00.000Z");

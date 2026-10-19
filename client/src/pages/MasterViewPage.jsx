@@ -54,7 +54,7 @@ export default function MasterView({type,data,setData,reload,sessions=[],setMess
 
     if(key==="programs") body={
       name:body.name,code:body.code,department:body.department,
-      durationYears:Number(body.durationYears||4),active:true
+      durationYears:Number(body.durationYears||4),active:body.active!==false
     };
 
     if(key==="faculty") body={
@@ -156,6 +156,10 @@ export default function MasterView({type,data,setData,reload,sessions=[],setMess
         <Input label="Code" value={form.code} onChange={v=>setForm({...form,code:v})}/>
         <Input label="Department" value={form.department} onChange={v=>setForm({...form,department:v})}/>
         <Input label="Duration (Years)" type="number" value={form.durationYears||4} onChange={v=>setForm({...form,durationYears:v})}/>
+        <label className="master-active-field" style={{display:"flex",alignItems:"center",gap:10,gridColumn:"1 / -1",padding:"11px 13px",border:"1px solid #dbe3ef",borderRadius:10,background:"#f8fafc",cursor:"pointer"}}>
+          <input type="checkbox" checked={form.active!==false} onChange={event=>setForm({...form,active:event.target.checked})}/>
+          <span><strong>Active for new academic mappings</strong><small style={{display:"block",marginTop:3,color:"#64748b"}}>Inactive programs remain in historical records but cannot be selected for new mappings.</small></span>
+        </label>
       </>}
 
       {key==="semesters" && <>
@@ -265,7 +269,7 @@ export default function MasterView({type,data,setData,reload,sessions=[],setMess
               <h3>{key==="programs"?x.name:key==="semesters"?x.name:key==="faculty"?x.name:key==="subjects"?x.name:key==="sections"?x.name:key==="rooms"?x.name:`${x.startTime||""} – ${x.endTime||""}`}</h3>
               <span>{key==="programs"?x.code||"Program":key==="semesters"?`${x.program?.name||"Program"} · ${x.academicSession?.name||"Session"}`:key==="faculty"?x.code||"Faculty":key==="subjects"?x.code||"Subject":key==="sections"?`${x.program||""} · ${x.semester||""}`:key==="rooms"?x.type||"Room":x.day||"Time Slot"}</span>
             </div>
-            <span className="master-status">Active</span>
+            <span className={`master-status ${x.active===false?"inactive":"active"}`}>{x.active===false?"Inactive":"Active"}</span>
           </div>
           <div className="master-card-details">
             {key==="semesters" && <>
