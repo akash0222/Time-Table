@@ -75,7 +75,7 @@ router.put("/:id", canManage, async (req, res) => {
     if(!Number.isInteger(order)||order<1||order>20) return res.status(400).json({message:"Display order must be a whole number from 1 to 20."});
     if(req.body.active!==undefined&&typeof req.body.active!=="boolean") return res.status(400).json({message:"Active must be true or false."});
     const session = await AcademicSession.findById(academicSession).lean();
-    if (!session || !(session.programDates||[]).some(row=>String(row.program)===String(program))) return res.status(400).json({message:"The selected Program must be linked to the selected Academic Session first."});
+    if (!session || !(session.programDates||[]).some(row=>String(row.program?._id ?? row.program)===String(program))) return res.status(400).json({message:"The selected Program must be linked to the selected Academic Session first."});
     const scopedRows=await Semester.find({academicSession,program,_id:{$ne:current._id}}).select("name").lean();
     if(scopedRows.some(row=>normalize(row.name)===normalize(name))) return res.status(409).json({message:"This semester already exists for the selected program and academic session."});
     const moved = String(current.academicSession)!==String(academicSession) || String(current.program)!==String(program) || current.name!==name;
