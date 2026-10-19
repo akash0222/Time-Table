@@ -149,10 +149,15 @@ function sig(e){return `${e.date}|${e.startTime}|${e.endTime}|${idOf(e.subject)}
 async function generatePlan({session,holidays,faculty,subjects,sections,rooms,slots,settings,weeks,programs=[]}){
   const totalRequired=requiredSessionCount(subjects,weeks);
   const activeSlots=slots.filter(s=>!s.isBreak);
-  const attempts=Math.min(12,Math.max(3,Number(settings?.sessionGenerationAttempts||6)));
+  // Full-session generation runs once per academic week. A request-wide budget
+  // prevents nested allocation/trial/run limits from multiplying into minutes.
+  const generationBudgetMs=Math.min(55000,Math.max(15000,Number(settings?.fullSessionGenerationTimeLimitMs||55000)));
+  const generationDeadline=Date.now()+generationBudgetMs;
+  const attempts=Math.min(2,Math.max(1,Number(settings?.sessionGenerationAttempts||2)));
   let best=null;
 
   for(let allocationAttempt=0;allocationAttempt<attempts;allocationAttempt++){
+    if(Date.now()>=generationDeadline)break;
     let allocation;
     try{allocation=buildAllocation(subjects,weeks,activeSlots,allocationAttempt*7919+17,{sections,programs,academicSessionId:idOf(session)});}catch(e){return {error:e.message};}
 
@@ -162,6 +167,10 @@ async function generatePlan({session,holidays,faculty,subjects,sections,rooms,sl
     let failed=null;
 
     for(let wi=0;wi<weeks.length;wi++){
+      if(Date.now()>=generationDeadline){
+        failed=`Full-session generation reached its ${Math.round(generationBudgetMs/1000)}-second time budget after scheduling ${totalScheduled}/${totalRequired} classes. No partial plan was saved. Review subject targets, time slots and faculty availability, then retry.`;
+        break;
+      }
       const week=weeks[wi];
       if(!week.workingDates.length){
         planned.push({...week,entries:[],variationPercent:100});
@@ -187,23 +196,37 @@ async function generatePlan({session,holidays,faculty,subjects,sections,rooms,sl
         return {...s,allowedDays};
       }).filter(s=>s.allowedDays.length);
       const candidates=[];
-
-      for(let trial=0;trial<4;trial++){
+      const expected=weekSubjectsWithWindows.reduce((n,s)=>n+Number(s.classesPerWeek||0),0);
+      // The old loop ran four candidates per week, each with several runs that
+      // could each consume seconds. That work multiplied across every week of
+      // the academic year and caused the browser request to time out.
+      const maxTrials=weeks.length>30?1:2;
+      for(let trial=0;trial<maxTrials;trial++){
+        const remainingMs=generationDeadline-Date.now();
+        if(remainingMs<=0)break;
+        const weeksRemaining=Math.max(1,weeks.length-wi);
+        const perWeekShare=Math.floor(remainingMs/weeksRemaining);
+        const trialBudget=Math.max(250,Math.min(1500,Math.floor(perWeekShare/maxTrials)));
         const r=generateBestTimetable({
           faculty,subjects:weekSubjectsWithWindows,sections,rooms,slots:weekSlots,programs,academicSessionId:idOf(session),
           settings:{...settings,avoidSameSubjectSameDay:false},
-          runs:Number(settings?.generationRuns||4),
-          totalMaxMillis:Math.min(12000,Number(settings?.generationTimeLimitMs||10000)),
-          perRunMillis:Math.min(4000,Number(settings?.generationTimeLimitMs||10000)),
-          attemptsPerRun:Math.max(200,Number(settings?.generationAttempts||500))
+          runs:Math.min(3,Math.max(1,Number(settings?.generationRuns||3))),
+          totalMaxMillis:trialBudget,
+          perRunMillis:Math.min(500,trialBudget),
+          attemptsPerRun:Math.min(300,Math.max(100,Number(settings?.generationAttempts||300))),
+          stopAfterFullSchedule:true
         });
         const repeated=r.entries.filter(e=>previous.has(`${e.day}|${e.startTime}|${idOf(e.subject)}|${idOf(e.section)}|${idOf(e.faculty)}`)).length;
         candidates.push({r,repeated,quality:r.entries.length*100000-repeated*100+(r.optimization?.metrics?.optimizationScore||0)+Math.random()*50});
+        if(r.entries.length===expected&&repeated===0)break;
       }
 
+      if(!candidates.length){
+        failed=`Full-session generation reached its time budget after scheduling ${totalScheduled}/${totalRequired} classes. No partial plan was saved. Retry after reviewing scheduling constraints.`;
+        break;
+      }
       candidates.sort((a,b)=>b.quality-a.quality);
       const chosen=candidates[0];
-      const expected=weekSubjectsWithWindows.reduce((n,s)=>n+Number(s.classesPerWeek||0),0);
 
       if(chosen.r.entries.length!==expected){
         failed=`Week ${week.weekNumber} (${week.startDate}–${week.endDate}) could only schedule ${chosen.r.entries.length}/${expected} planned classes. No partial plan saved.`;
