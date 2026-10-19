@@ -143,6 +143,25 @@ export default function Dashboard({ cards, generate, loading, latest, role, onNa
 
   return (
     <div className="dashboard-page dashboard-clean">
+      <section className="scheduly-dashboard-hero" aria-label="Scheduly dashboard welcome">
+        <div className="scheduly-hero-glow" aria-hidden="true" />
+        <div className="scheduly-hero-main">
+          <div className="scheduly-brand-kicker"><span className="scheduly-brand-mark"><CalendarDays size={17}/></span> SCHEDULY WORKSPACE</div>
+          <h2>Plan your campus, <span>one timetable at a time.</span></h2>
+          <p>Your academic scheduling overview — track readiness, review class distribution, and get to your most-used tools faster.</p>
+          <div className="scheduly-hero-tags">
+            <span><ShieldCheck size={14}/> Smart scheduling</span>
+            <span><Users size={14}/> Connected academics</span>
+            <span><CalendarDays size={14}/> Session-aware planning</span>
+          </div>
+        </div>
+        <div className="scheduly-session-card">
+          <span className="scheduly-session-label"><span className="scheduly-live-dot"/> ACTIVE ACADEMIC SESSION</span>
+          <strong>{activeSession?.name || "No active session"}</strong>
+          <small>{activeSession?._id ? "Dashboard data for your selected session" : "Set an active session to begin planning"}</small>
+          {!activeSession?._id && ["ADMIN","SCHEDULER"].includes(role) && <button type="button" onClick={() => navigate("Academic Sessions")}>Set up session <ArrowRight size={14}/></button>}
+        </div>
+      </section>
       {["ADMIN", "SCHEDULER"].includes(role) && (
         <div className="dashboard-toolbar">
           <button className="primary dashboard-generate" onClick={generate} disabled={loading}>
