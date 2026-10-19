@@ -184,7 +184,7 @@ export default function Login({ onLogin }) {
       <div className="login-shell">
         <section className="login-story" aria-label="Scheduly overview">
           <div className="login-story-brand">
-            <span className="login-story-logo"><CalendarDays size={24} aria-hidden="true" /></span>
+            <span className="login-story-logo"><img src="/scheduly.svg" alt="" /></span>
             <span className="login-story-brand-copy">
               <strong>Scheduly</strong>
             </span>
