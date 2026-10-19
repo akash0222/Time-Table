@@ -382,6 +382,7 @@ export function generateTimetable({
     return {entries:[],score:0,warnings:[...warnings,"No subject sessions are configured."]};
   }
 
+  const defaultAvailableDays=new Set(usableSlots.map(s=>s.day));
   const candidatesByTask=tasks.map(task=>{
     const section=sMap.get(idOf(task.subject.section));
     const subjectSlots=resolveTimeSlotsForSection(usableSlots,section,programs,academicSessionId).filter(slot=>!slot.isBreak);
@@ -507,8 +508,9 @@ export function generateTimetable({
 
       if(!f || !sec) return [];
 
+      // Precomputed task metadata avoids repeatedly filtering all rooms and
+      // rebuilding faculty availability sets during recursive search.
       const wantedType=normalizeRoomType(sub.roomType);
-
       const requiredCapacity=Math.max(0,Number(sec.capacity||0));
       const roomsAllowed=rooms.filter(room=>{
         const roomType=normalizeRoomType(room.type);
@@ -517,42 +519,37 @@ export function generateTimetable({
         const capacityMatches=!requiredCapacity || roomCapacity>=requiredCapacity;
         return typeMatches && capacityMatches;
       });
-
       if(!roomsAllowed.length) return [];
 
-      const unavailable=new Set(
-        Array.isArray(f.unavailableSlots)?f.unavailableSlots:[]
-      );
-
-      const availableDays=Array.isArray(f.availableDays)
-        ? f.availableDays
-        : [];
-
+      const unavailable=new Set(Array.isArray(f.unavailableSlots)?f.unavailableSlots:[]);
+      const availableDays=Array.isArray(f.availableDays)?f.availableDays:[];
       const effectiveAvailableDays=availableDays.length
         ? new Set(availableDays)
-        : new Set(usableSlots.map(s=>s.day));
-
+        : defaultAvailableDays;
+      const existingEntries=[...fixedEntries,...entries];
+      const calendarEntries=existingEntries.filter(e=>calendarWindowsOverlap(e,sec));
+      const facultyEntries=calendarEntries.filter(e=>idOf(e.faculty)===fid);
+      const workingDays=new Set(facultyEntries.map(e=>String(e.day)));
+      const maxWorkingDays=Number(f.maxWorkingDays||7);
+      const maxFacultyDay=Number(f.maxClassesPerDay||99);
+      const maxSectionDay=Number(sec.maxClassesPerDay||99);
       const opts=[];
 
       for(const block of item.blocks){
+        if(Date.now()>=deadline){timedOut=true;return opts;}
         if(!block.length) continue;
 
         const day=block[0].day;
 
         if(!effectiveAvailableDays.has(day)) continue;
 
-        const calendarEntries=[...fixedEntries,...entries].filter(e=>calendarWindowsOverlap(e,sec));
-        const facultyEntries=calendarEntries.filter(e=>idOf(e.faculty)===fid);
-        const workingDays=new Set(facultyEntries.map(e=>String(e.day)));
-        const maxWorkingDays=Number(f.maxWorkingDays||7);
         if(!workingDays.has(day)&&workingDays.size>=maxWorkingDays)continue;
 
-        const maxFacultyDay=Number(f.maxClassesPerDay||99);
+
         const facultyCount=facultyEntries.filter(e=>String(e.day)===day)
           .reduce((sum,e)=>sum+Math.max(1,Number(e.duration||1)),0);
         if(facultyCount+block.length>maxFacultyDay)continue;
 
-        const maxSectionDay=Number(sec.maxClassesPerDay||99);
         const sectionCount=calendarEntries.filter(e=>idOf(e.section)===sid&&String(e.day)===day)
           .reduce((sum,e)=>sum+Math.max(1,Number(e.duration||1)),0);
         if(sectionCount+block.length>maxSectionDay)continue;
@@ -577,7 +574,7 @@ export function generateTimetable({
           const roomId=idOf(room);
 
           const conflict=block.some(slot=>
-            [...fixedEntries,...entries].some(existing=>{
+            existingEntries.some(existing=>{
               if(String(existing?.day)!==String(slot.day))return false;
               const sameFaculty=idOf(existing.faculty)===fid;
               const sameSection=idOf(existing.section)===sid;
