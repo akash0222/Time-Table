@@ -154,6 +154,8 @@ async function installApiMocks(page, options = {}) {
     if (path === "/sessions" && method === "GET") return json(sessions);
     if (path === "/sessions/active" && method === "GET") return json(options.emptyActiveSessionEndpoint ? null : activeSession);
     if (path === "/semesters" && method === "GET") return json(semesters);
+    if (path === "/subject-mappings" && method === "GET") return json(options.subjectMappings || []);
+    if (path === "/subject-mappings/summary" && method === "GET") return json(options.subjectMappingSummary || {sections:[],totalSubjects:0,totalWeeklyLoad:0,unmappedSections:0});
     if (path === "/sessions" && method === "POST") {
       const created = {
         _id: "session-created",
@@ -623,6 +625,55 @@ test("student mapping resets selection and scopes semester filters when the acad
   await expect(page.getByText("Alpha Student", { exact: true })).toHaveCount(0);
   await expect(page.getByText("Gamma Student", { exact: true })).toHaveCount(0);
   await expect(page.getByText("0 selected", { exact: false })).toBeVisible();
+});
+
+test("subject mapping clears an old edit when changing academic sessions", async ({ page }) => {
+  const firstSession = makeActiveSession();
+  const secondSession = {
+    _id: "session-2",
+    name: "Academic Year 2027-28",
+    startDate: "2027-04-01",
+    endDate: "2028-03-31",
+    programDates: [{ program: "program-2", startDate: "2027-04-01", endDate: "2028-03-31" }],
+    holidayDates: [],
+    holidayDetails: [],
+    active: false
+  };
+  const secondProgram = { _id: "program-2", name: "PGDM", code: "PGDM", active: true };
+  const firstSection = { ...sampleSection };
+  const secondSection = { _id: "section-2", name: "B", program: "PGDM", programId: "program-2", semester: "I", academicSession: "session-2" };
+  const mapping = {
+    _id: "mapping-1",
+    name: "Mathematics",
+    code: "MATH101",
+    faculty: { _id: "faculty-1", name: "Ms. Faculty" },
+    section: { _id: "section-1", name: "A", program: "MBA", semester: "I" },
+    academicSession: "session-1",
+    subjectType: "CORE",
+    classesPerWeek: 3,
+    totalSessions: 0,
+    maxClassesPerWeek: 3,
+    duration: 1,
+    roomType: "Classroom",
+    active: true
+  };
+  await signIn(page, {
+    sessions: [firstSession, secondSession],
+    programs: [sampleProgram, secondProgram],
+    faculty: [sampleFaculty],
+    sections: [firstSection, secondSection],
+    subjectMappings: [mapping],
+    subjectMappingSummary: { sections: [], totalSubjects: 1, totalWeeklyLoad: 3, unmappedSections: 0 }
+  });
+  await navigateToPage(page, "Subject & Faculty Mapping");
+  await page.getByRole("button", { name: "Edit", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Edit Subject Mapping" })).toBeVisible();
+  await expect(page.getByLabel("Subject Name")).toHaveValue("Mathematics");
+  await page.getByLabel("Academic Session").selectOption("session-2");
+  await expect(page.getByRole("heading", { name: "Add Subject Mapping" })).toBeVisible();
+  await expect(page.getByLabel("Subject Name")).toHaveValue("");
+  await expect(page.getByLabel("Section")).toHaveValue("");
+  await expect(page.getByLabel("Faculty")).toHaveValue("");
 });
 
 test("admin can configure a holiday for an academic session", async ({ page }) => {
