@@ -1402,10 +1402,14 @@ app.get("/api/timetable/readiness", requireAuth, allowRoles("ADMIN","SCHEDULER")
 
     const requestedProgramIds=String(req.query.programIds||"").split(",").map(value=>value.trim()).filter(Boolean);
     if(requestedProgramIds.some(id=>!mongoose.isValidObjectId(id))) return res.status(400).json({message:"One or more selected program IDs are invalid."});
-    const [allSections, programs]=await Promise.all([
+    const [allSections, programs, schedulerSettings]=await Promise.all([
       Section.find({ academicSession: sessionId }).lean(),
-      Program.find({active:{$ne:false}}).lean()
+      Program.find({active:{$ne:false}}).lean(),
+      SchedulerSetting.findOne({key:"default"}).lean()
     ]);
+    const sessionSettings=schedulerSettings?.sessionOverrides?.find(x=>String(x.academicSession)===sessionId);
+    const readinessSettings={...(schedulerSettings||{}),...(sessionSettings||{})};
+    const holidayDays=new Set(["Sunday",...(Array.isArray(readinessSettings.holidayDays)?readinessSettings.holidayDays.map(String):[])]);
     const programMap=new Map(programs.map(program=>[String(program._id),program]));
     const selectedPrograms=requestedProgramIds.map(id=>programMap.get(id));
     if(requestedProgramIds.length&&selectedPrograms.some(program=>!program)) return res.status(400).json({message:"One or more selected programs do not exist or are inactive."});
@@ -1433,7 +1437,7 @@ app.get("/api/timetable/readiness", requireAuth, allowRoles("ADMIN","SCHEDULER")
     const sectionMap=new Map(sections.map(x=>[String(x._id),x]));
     const issues=[];
     const warnings=[];
-    const usableSlots=slots.filter(x=>x&&!x.isBreak&&String(x.day)!=="Sunday"
+    const usableSlots=slots.filter(x=>x&&!x.isBreak&&!holidayDays.has(String(x.day))
       &&(!String(x.academicSession||"")||String(x.academicSession)===sessionId));
     const days=[...new Set(usableSlots.map(x=>String(x.day)))];
 
@@ -1478,9 +1482,13 @@ app.get("/api/timetable/readiness", requireAuth, allowRoles("ADMIN","SCHEDULER")
         push("ERROR","Subject Mapping",`${sub.name||"Unnamed subject"} has an invalid Faculty or Section reference.`);
         continue;
       }
-      facultyLoad.set(fid,(facultyLoad.get(fid)||0)+weekly);
-      sectionLoad.set(sid,(sectionLoad.get(sid)||0)+weekly);
-      const type=String(sub.roomType||"Classroom");
+      // The generator consumes period blocks (duration), not just session count,
+      // when enforcing daily faculty and section capacity.
+      const weeklyPeriods=weekly*Math.max(1,Number(sub.duration||1));
+      facultyLoad.set(fid,(facultyLoad.get(fid)||0)+weeklyPeriods);
+      sectionLoad.set(sid,(sectionLoad.get(sid)||0)+weeklyPeriods);
+      const rawType=String(sub.roomType||"Classroom").trim().toLowerCase();
+      const type=rawType==="any"?"Any":(rawType==="lab"||rawType==="laboratory")?"Lab":"Classroom";
       roomNeeds.set(type,(roomNeeds.get(type)||0)+weekly);
       if(weekly<1) push("ERROR","Weekly Load",`${sub.name||"Unnamed subject"} has zero classes per week.`);
       const scopedSlots=resolveTimeSlotsForSection(usableSlots,sec,programs,sessionId);
@@ -1507,7 +1515,11 @@ app.get("/api/timetable/readiness", requireAuth, allowRoles("ADMIN","SCHEDULER")
     }
 
     const roomTypes={Classroom:0,Lab:0,Any:0};
-    for(const room of rooms){ const t=String(room.type||"Classroom"); roomTypes[t]=(roomTypes[t]||0)+1; }
+    for(const room of rooms){
+      const rawType=String(room.type||"Classroom").trim().toLowerCase();
+      const type=rawType==="any"?"Any":(rawType==="lab"||rawType==="laboratory")?"Lab":"Classroom";
+      roomTypes[type]=(roomTypes[type]||0)+1;
+    }
     if(!roomTypes.Classroom&&!roomTypes.Any) push("ERROR","Room Capacity","No Classroom/Any room is configured for classroom subjects.");
     if(!roomTypes.Lab&&!roomTypes.Any && (roomNeeds.get("Lab")||0)>0) push("ERROR","Room Capacity","Lab subjects are mapped, but no Lab/Any room is configured.");
 
