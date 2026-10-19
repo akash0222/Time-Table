@@ -74,6 +74,35 @@ assert.equal(result.validation?.valid, true, "Generated entries should be valida
 assert.equal(result.validation?.stats?.hardErrors, 0, "A valid one-class fixture should have no hard validation errors.");
 
 console.log("PASS  Generator imports timetable validator successfully");
+
+const originalDateNow = Date.now;
+function measuredGeneration(stopAfterFullSchedule) {
+  let calls = 0;
+  Date.now = () => { calls += 1; return 1_000_000; };
+  try {
+    const generated = generateBestTimetable({
+      faculty, subjects, sections, rooms, slots, programs: [],
+      settings: {
+        maxConsecutiveFaculty: 2, maxConsecutiveSection: 3,
+        avoidSameSubjectSameDay: true, distributeSubjectAcrossDays: true,
+        avoidFirstLastPeriod: false, holidayDays: ["Sunday"]
+      },
+      runs: 3, totalMaxMillis: 100_000, perRunMillis: 100_000,
+      attemptsPerRun: 10, stopAfterFullSchedule
+    });
+    assert.equal(generated.entries.length, 1, "The full-schedule option must still place every requested class.");
+    assert.equal(generated.validation?.valid, true, "The early-stopped candidate must still pass hard validation.");
+    return calls;
+  } finally {
+    Date.now = originalDateNow;
+  }
+}
+const earlyStopCalls = measuredGeneration(true);
+const exhaustiveCalls = measuredGeneration(false);
+assert.ok(earlyStopCalls < exhaustiveCalls,
+  `A valid complete weekly schedule should stop repeated generator runs (early=${earlyStopCalls}, exhaustive=${exhaustiveCalls}).`);
+console.log("PASS  Full-session mode stops repeated generator runs once a valid complete weekly schedule is found");
+
 console.log("PASS  One-class fixture is generated");
 const capacitySection = { ...sections[0], capacity:45 };
 const labSubject = { ...subjects[0], name:"QA Lab Subject", roomType:"Lab" };
