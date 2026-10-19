@@ -162,7 +162,7 @@ async function installApiMocks(page, options = {}) {
       semesters.push(created);
       return json(created,201);
     }
-    const semesterRecordMatch = path.match(/^\\/semesters\\/([^/]+)$/);
+    const semesterRecordMatch = path.match(/^\/semesters\/([^/]+)$/);
     if (semesterRecordMatch && method === "PUT") {
       const index = semesters.findIndex(row => String(row._id) === semesterRecordMatch[1]);
       if(index<0)return json({message:"Semester not found."},404);
