@@ -1273,3 +1273,51 @@ html:has(.app .erp-sidebar),body:has(.app .erp-sidebar),#root:has(.app .erp-side
 @media(prefers-reduced-motion:reduce){
   .app .page-search-result{transition:none}
 }
+
+
+/* Compact, balanced application topbar across all workspace pages */
+.app .erp-main>.app-topbar{
+  min-height:72px;
+  margin-bottom:16px!important;
+  padding:10px 30px!important;
+  gap:18px;
+  background:rgba(255,255,255,.96)!important;
+  border-bottom:1px solid #e7edf4;
+  box-shadow:0 4px 14px rgba(15,23,42,.035);
+}
+.app .erp-main>.app-topbar .topbar-leading,
+.app .erp-main>.app-topbar .topbar-actions{
+  min-height:48px;
+}
+.app .erp-main>.app-topbar .topbar-session-icon{
+  width:36px;height:36px;flex-basis:36px;
+}
+.app .erp-main>.app-topbar .topbar-search{
+  min-height:42px;
+  border-radius:12px;
+  background:#f9fbff;
+  border-color:#dce5f1;
+}
+.app .erp-main>.app-topbar .topbar-search:focus-within{
+  border-color:#9bbcff;
+  box-shadow:0 0 0 3px rgba(37,99,235,.08);
+}
+.app .erp-main>.app-topbar .profile-trigger,
+.app .erp-main>.app-topbar .topbar-profile-trigger{
+  border-radius:12px;
+}
+@media(max-width:1000px){
+  .app .erp-main>.app-topbar{
+    min-height:66px;
+    margin-bottom:14px!important;
+    padding:9px 18px!important;
+    gap:12px;
+  }
+}
+@media(max-width:640px){
+  .app .erp-main>.app-topbar{
+    min-height:60px;
+    margin-bottom:12px!important;
+    padding:8px 12px!important;
+  }
+}
