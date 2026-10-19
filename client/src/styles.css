@@ -2109,66 +2109,6 @@ button.danger:hover{background:#fff1f2}
 }
 
 
-/* Semester master-data form and cards */
-.semester-form-intro{
-  display:flex;align-items:center;gap:12px;
-  padding:13px 15px;border:1px solid #dbeafe;border-radius:12px;
-  background:linear-gradient(110deg,#f5f8ff 0%,#fbfdff 100%);
-}
-.semester-form-icon{
-  display:grid;place-items:center;width:38px;height:38px;flex:0 0 38px;
-  border-radius:11px;background:#e4edff;color:#2456c5;
-}
-.semester-form-intro strong{display:block;color:#15294b;font-size:13px;font-weight:800}
-.semester-form-intro p{margin:4px 0 0;color:#63728b;font-size:11px;line-height:1.5}
-.semester-active-toggle{
-  display:flex;align-items:center;gap:11px;min-width:0;
-  padding:12px 14px;border:1px solid #dce4f0;border-radius:11px;
-  background:#f8fafc;cursor:pointer;
-}
-.semester-active-toggle input{width:16px;height:16px;flex:0 0 16px;margin:0;accent-color:#2563eb}
-.semester-active-toggle span{min-width:0}
-.semester-active-toggle strong{display:block;color:#25334a;font-size:12px}
-.semester-active-toggle small{display:block;margin-top:4px;color:#64748b;font-size:10px;line-height:1.45}
-.master-settings-content .form-grid>.message.error.wide{
-  margin:0;padding:10px 12px;border:1px solid #fecaca;border-radius:9px;
-  background:#fff7f7;color:#b91c1c;font-size:12px;line-height:1.45;
-}
-.master-card .semester-card-context{
-  display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);
-  gap:8px;margin-top:14px;
-}
-.semester-card-context>span{
-  min-width:0;padding:10px 11px;border:1px solid #eef2f7;
-  border-radius:10px;background:#f8fafc;
-}
-.semester-card-context small{
-  display:block;margin-bottom:5px;color:#7b8799;font-size:9px;
-  font-weight:800;text-transform:uppercase;letter-spacing:.45px;
-}
-.semester-card-context strong{
-  display:block;overflow-wrap:anywhere;color:#344054;font-size:11px;line-height:1.45;
-}
-.master-card .semester-card-context+.master-card-details{
-  margin-top:10px;padding-top:0;border-top:0;
-}
-.master-card .semester-card-context+.master-card-details>div{
-  padding:9px 11px;border:1px solid #eef2f7;border-radius:10px;background:#fff;
-}
-.master-card .semester-card-context+.master-card-details>div strong{
-  font-size:12px;color:#1f2937;
-}
-.master-card:has(.semester-card-context){display:flex;flex-direction:column}
-.master-card:has(.semester-card-context) .master-card-actions{margin-top:auto}
-.master-card .semester-card-context~.master-card-details{grid-template-columns:repeat(2,minmax(0,1fr))}
-@media(max-width:700px){
-  .semester-form-intro{align-items:flex-start;padding:12px}
-  .master-card .semester-card-context{grid-template-columns:1fr 1fr}
-}
-@media(max-width:420px){
-  .master-card .semester-card-context{grid-template-columns:1fr}
-}
-
 /* Targeted layout correction for the Semesters master-data editor.
    Use the full content width instead of compressing fields beside the intro. */
 .master-settings-content>.panel:has(.semester-form-intro) .form-grid{
