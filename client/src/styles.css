@@ -2196,3 +2196,107 @@ button.danger:hover{background:#fff1f2}
     grid-template-columns:1fr!important;
   }
 }
+
+
+/* Faculty master-data form: compact availability controls and aligned actions */
+.form-grid:has(.checks){
+  align-items:start;
+  gap:16px;
+}
+.form-grid:has(.checks) .checks{
+  display:grid;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:8px;
+  margin-top:2px;
+}
+.form-grid:has(.checks) .checks label{
+  display:flex;
+  align-items:center;
+  justify-content:flex-start;
+  gap:8px;
+  min-height:38px;
+  padding:8px 10px;
+  border:1px solid #dbe5f0;
+  border-radius:10px;
+  background:#f8fafc;
+  color:#475569;
+  font-size:12px;
+  font-weight:600;
+  cursor:pointer;
+  transition:background .15s ease,border-color .15s ease,color .15s ease;
+}
+.form-grid:has(.checks) .checks label:has(input:checked){
+  border-color:#9cc5ff;
+  background:#eff6ff;
+  color:#1d4ed8;
+}
+.form-grid:has(.checks) .checks input[type="checkbox"]{
+  appearance:auto;
+  -webkit-appearance:checkbox;
+  width:16px!important;
+  height:16px!important;
+  min-width:16px;
+  flex:0 0 16px;
+  margin:0;
+  padding:0;
+  accent-color:#2563eb;
+  box-shadow:none;
+}
+.form-grid:has(.checks)>.field:has(.checks){
+  grid-column:span 2;
+}
+.form-grid:has(.checks)>.form-actions{
+  grid-column:span 2;
+  align-self:end;
+  display:flex;
+  align-items:center;
+  justify-content:flex-end;
+  flex-wrap:wrap;
+  gap:10px;
+  min-height:80px;
+  margin:0;
+  padding-top:18px;
+}
+.form-grid:has(.checks)>.form-actions button{
+  min-height:42px;
+  border-radius:10px;
+  padding:0 18px;
+}
+.form-grid:has(.checks)>.form-actions .secondary{
+  background:#fff;
+  border:1px solid #d6deea;
+  color:#475569;
+}
+.master-card-grid:has(.master-card){
+  align-items:stretch;
+}
+.master-card-grid .master-card{
+  height:100%;
+}
+.master-card-grid .master-card-actions{
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+}
+@media(max-width:900px){
+  .form-grid:has(.checks) .checks{
+    grid-template-columns:repeat(3,minmax(0,1fr));
+  }
+}
+@media(max-width:640px){
+  .form-grid:has(.checks)>.field:has(.checks),
+  .form-grid:has(.checks)>.form-actions{
+    grid-column:1 / -1;
+  }
+  .form-grid:has(.checks) .checks{
+    grid-template-columns:repeat(2,minmax(0,1fr));
+  }
+  .form-grid:has(.checks)>.form-actions{
+    justify-content:flex-start;
+    padding-top:0;
+    min-height:0;
+  }
+  .form-grid:has(.checks)>.form-actions button{
+    flex:1 1 130px;
+  }
+}
