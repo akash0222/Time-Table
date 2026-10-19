@@ -527,6 +527,9 @@ export default function App(){
   }
 
   function navigateToNavPage(page,groupLabel){
+    // Clear page-scoped status (for example, "Editing mappings" from User Management)
+    // before switching modules, so it does not appear to describe the next page.
+    setMessage("");
     setTab(page);
     setNavQuery("");
     setSearchResultsOpen(false);
@@ -706,6 +709,7 @@ export default function App(){
         return;
       }
     }
+    setMessage("");
     setTab(page);
     setNavQuery("");
     setMobileNavOpen(false);

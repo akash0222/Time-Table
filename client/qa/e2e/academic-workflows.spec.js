@@ -144,6 +144,7 @@ async function installApiMocks(page, options = {}) {
     }
 
     if (path === "/auth/me" && method === "GET") return json({ user: admin });
+    if (path === "/auth/users" && method === "GET") return json(options.users || [{ _id:"user-viewer-1", name:"Demo Viewer", username:"demo.viewer", role:"VIEWER", active:true, section:sampleSection, faculty:null }]);
     if (path === "/programs" && method === "GET") return json(programs);
     if (path === "/faculty" && method === "GET") return json(faculty);
     if (path === "/sections" && method === "GET") return json(sections);
@@ -486,7 +487,7 @@ test("admin can open and refresh a direct module URL", async ({ page }) => {
   await signIn(page);
   await navigateToPage(page, "Academic Sessions");
   await expect(page.getByRole("heading", { name: "Create Academic Session", exact: true })).toBeVisible();
-  await expect(page.getByText("Set the session year and overall dates, then configure program/semester calendar overrides.")).toBeVisible();
+  await expect(page.getByText("Create a new session using the next available year, then configure program/semester calendar dates.")).toBeVisible();
   await page.reload();
   await expect(page.getByRole("heading", { name: "Create Academic Session", exact: true })).toBeVisible();
   await expect(page).toHaveURL(/\/academic-sessions$/);
@@ -552,9 +553,22 @@ test("dashboard falls back to active session from session list if active endpoin
   await expect(page.getByText("No active academic session")).toHaveCount(0);
 });
 
-test("admin can create an academic session with program-wise dates", async ({ page }) => {
+test("clears User Management editing banner after navigating to another module", async ({ page }) => {
   await signIn(page);
+  await navigateToPage(page, "User Management");
+  await page.getByRole("button", { name: "Edit", exact: true }).click();
+  await expect(page.getByRole("status").filter({ hasText: "Editing mappings for demo.viewer. Save changes when finished." })).toBeVisible();
   await navigateToPage(page, "Academic Sessions");
+  await expect(page.getByRole("heading", { name: "Create Academic Session", exact: true })).toBeVisible();
+  await expect(page.getByText("Editing mappings for demo.viewer. Save changes when finished.", { exact: true })).toHaveCount(0);
+});
+
+test("admin can create an academic session with program-wise dates", async ({ page }) => {
+  const existingSession = makeActiveSession({name:"2026-2027",startDate:"2026-04-01",endDate:"2027-03-31"});
+  await signIn(page, { sessions:[existingSession] });
+  await navigateToPage(page, "Academic Sessions");
+  await expect(page.locator("#session-start-year")).toHaveValue("2027");
+  await expect(page.locator("#session-generated-name")).toHaveValue("2027-2028");
   await expect(page.getByRole("button", { name: "+ Add Semester Calendar" })).toBeDisabled();
   await page.locator("#session-start-year").fill("2028");
   await page.locator(".field").filter({ hasText: "Description (optional)" }).locator("input").fill("Created by automated browser test");
