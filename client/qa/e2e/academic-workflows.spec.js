@@ -553,8 +553,11 @@ test("dashboard falls back to active session from session list if active endpoin
 });
 
 test("admin can create an academic session with program-wise dates", async ({ page }) => {
-  await signIn(page);
+  const existingSession = makeActiveSession({name:"2026-2027",startDate:"2026-04-01",endDate:"2027-03-31"});
+  await signIn(page, { sessions:[existingSession] });
   await navigateToPage(page, "Academic Sessions");
+  await expect(page.locator("#session-start-year")).toHaveValue("2027");
+  await expect(page.locator("#session-generated-name")).toHaveValue("2027-2028");
   await expect(page.getByRole("button", { name: "+ Add Semester Calendar" })).toBeDisabled();
   await page.locator("#session-start-year").fill("2028");
   await page.locator(".field").filter({ hasText: "Description (optional)" }).locator("input").fill("Created by automated browser test");
