@@ -210,9 +210,9 @@ async function generatePlan({session,holidays,faculty,subjects,sections,rooms,sl
         const r=generateBestTimetable({
           faculty,subjects:weekSubjectsWithWindows,sections,rooms,slots:weekSlots,programs,academicSessionId:idOf(session),
           settings:{...settings,avoidSameSubjectSameDay:false},
-          runs:Math.min(3,Math.max(1,Number(settings?.generationRuns||3))),
+          runs:weeks.length>30?1:Math.min(2,Math.max(1,Number(settings?.generationRuns||2))),
           totalMaxMillis:trialBudget,
-          perRunMillis:Math.min(500,trialBudget),
+          perRunMillis:Math.min(weeks.length>30?900:500,trialBudget),
           attemptsPerRun:Math.min(300,Math.max(100,Number(settings?.generationAttempts||300))),
           stopAfterFullSchedule:true
         });
