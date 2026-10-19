@@ -201,11 +201,17 @@ export function generateBestTimetable({
   totalMaxMillis=12000,
   perRunMillis=4000,
   attemptsPerRun=500,
-  academicSessionId=""
+  academicSessionId="",
+  stopAfterFullSchedule=false
 }) {
   const started=Date.now();
   let best=null;
   const count=Math.max(1, Number(runs)||1);
+  const facultyIds=new Set(faculty.map(idOf));
+  const sectionIds=new Set(sections.map(idOf));
+  const expectedSessions=subjects
+    .filter(subject=>facultyIds.has(idOf(subject.faculty))&&sectionIds.has(idOf(subject.section)))
+    .reduce((total,subject)=>total+Math.max(0,Number(subject.classesPerWeek||0)),0);
 
   for(let i=0;i<count;i++){
     const remaining=Number(totalMaxMillis||12000)-(Date.now()-started);
@@ -267,6 +273,13 @@ export function generateBestTimetable({
     }
 
     if(result?.warnings?.some(w=>String(w).startsWith('No valid subjects'))){
+      break;
+    }
+    // Full-session generation invokes this search for many calendar weeks. Once
+    // a hard-valid candidate covers every requested class, another stochastic
+    // run cannot improve coverage and only adds latency. Other callers retain
+    // the original multi-run quality search unless they opt in explicitly.
+    if(stopAfterFullSchedule&&candidateValid&&expectedSessions>0&&candidateEntryCount>=expectedSessions){
       break;
     }
   }

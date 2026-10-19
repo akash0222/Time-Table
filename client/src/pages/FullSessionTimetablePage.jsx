@@ -44,7 +44,22 @@ export default function FullSessionTimetable({sessions,activeSession,role}){
     return ()=>{current=false};
   },[sessionId]);
   async function openPlan(id){setBusy(true);setError("");try{const r=await axios.get(`${API}/session-plans/${id}`);setPlan(r.data);setWeekIndex(0)}catch(e){setError(e.response?.data?.message||e.message)}finally{setBusy(false)}}
-  async function generateFull(){if(!window.confirm('Generate and save a new full academic session plan? Existing plans will be preserved.'))return;setBusy(true);setError("");try{const dates=holidays.split(/[\s,;]+/).map(x=>x.trim()).filter(Boolean);const r=await axios.post(`${API}/session-plans/generate`,{sessionId,holidays:dates});const p=await axios.get(`${API}/session-plans?sessionId=${sessionId}`);setPlans(p.data||[]);await openPlan(r.data.id)}catch(e){setError(e.response?.data?.message||e.message)}finally{setBusy(false)}}
+  async function generateFull(){
+    if(!window.confirm("Generate and save a new full academic session plan? This may take up to a minute for a full-year session. Existing plans will be preserved."))return;
+    setBusy(true);setError("");
+    try{
+      const dates=holidays.split(/[\s,;]+/).map(x=>x.trim()).filter(Boolean);
+      const r=await axios.post(`${API}/session-plans/generate`,{sessionId,holidays:dates},{timeout:75000});
+      const p=await axios.get(`${API}/session-plans?sessionId=${encodeURIComponent(sessionId)}`);
+      setPlans(p.data||[]);
+      await openPlan(r.data.id);
+    }catch(e){
+      const timedOut=e.code==="ECONNABORTED"||/timeout/i.test(String(e.message||""));
+      setError(timedOut
+        ?"Full-session generation did not respond within 75 seconds. No partial plan is saved. Refresh Saved Full-Session Versions before retrying, then review the subject targets, time slots and faculty availability."
+        :(e.response?.data?.message||e.message||"Full-session generation failed."));
+    }finally{setBusy(false);}
+  }
   async function publish(){if(!plan||!window.confirm('Publish this full-session timetable version?'))return;setBusy(true);try{await axios.patch(`${API}/session-plans/${plan._id}/publish`);const r=await axios.get(`${API}/session-plans?sessionId=${sessionId}`);setPlans(r.data||[]);await openPlan(plan._id)}catch(e){setError(e.response?.data?.message||e.message)}finally{setBusy(false)}}
   async function exportPlan(format,targetPlan=plan,applyFilters=true){
     if(!targetPlan||exportBusy)return;
