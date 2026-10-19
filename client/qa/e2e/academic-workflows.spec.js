@@ -156,6 +156,8 @@ async function installApiMocks(page, options = {}) {
     if (path === "/semesters" && method === "GET") return json(semesters);
     if (path === "/subject-mappings" && method === "GET") {
       const requestedSession = url.searchParams.get("sessionId");
+      const delay = Number(options.subjectMappingDelayBySession?.[requestedSession] || 0);
+      if (delay > 0) await new Promise(resolve => setTimeout(resolve, delay));
       return json((options.subjectMappings || []).filter(row => !requestedSession || String(row.academicSession?._id || row.academicSession || "") === requestedSession));
     }
     if (path === "/subject-mappings/summary" && method === "GET") {
@@ -653,6 +655,51 @@ test("inactive programs show their real status and stay inactive in the edit for
   await expect(archivedCard.locator(".master-status")).toHaveText("Inactive");
   await archivedCard.getByRole("button", { name: "Edit" }).click();
   await expect(page.locator(".master-active-field input")).not.toBeChecked();
+});
+
+test("subject mapping ignores an older response after switching sessions quickly", async ({ page }) => {
+  const firstSession = makeActiveSession();
+  const secondSession = {
+    _id: "session-2",
+    name: "Academic Year 2027-28",
+    startDate: "2027-04-01",
+    endDate: "2028-03-31",
+    programDates: [{ program: "program-2", startDate: "2027-04-01", endDate: "2028-03-31" }],
+    holidayDates: [],
+    holidayDetails: [],
+    active: false
+  };
+  const secondProgram = { _id: "program-2", name: "PGDM", code: "PGDM", active: true };
+  const secondSection = { _id: "section-2", name: "B", program: "PGDM", programId: "program-2", semester: "I", academicSession: "session-2" };
+  const baseMapping = {
+    faculty: { _id: "faculty-1", name: "Ms. Faculty" },
+    subjectType: "CORE",
+    classesPerWeek: 3,
+    totalSessions: 0,
+    maxClassesPerWeek: 3,
+    duration: 1,
+    roomType: "Classroom",
+    active: true
+  };
+  await signIn(page, {
+    sessions: [firstSession, secondSession],
+    programs: [sampleProgram, secondProgram],
+    faculty: [sampleFaculty],
+    sections: [sampleSection, secondSection],
+    subjectMappings: [
+      { ...baseMapping, _id: "mapping-slow", name: "Old Session Subject", code: "OLD101", academicSession: "session-1", section: { _id: "section-1", name: "A", program: "MBA", semester: "I" } },
+      { ...baseMapping, _id: "mapping-fast", name: "Current Session Subject", code: "NEW101", academicSession: "session-2", section: { _id: "section-2", name: "B", program: "PGDM", semester: "I" } }
+    ],
+    subjectMappingDelayBySession: { "session-1": 1800 },
+    subjectMappingSummary: { sections: [], totalSubjects: 1, totalWeeklyLoad: 3, unmappedSections: 0 }
+  });
+  await navigateToPage(page, "Subject & Faculty Mapping");
+  await page.getByLabel("Academic Session").selectOption("session-2");
+  await expect(page.getByText("Current Session Subject", { exact: true })).toBeVisible();
+  await expect(page.getByText("Old Session Subject", { exact: true })).toHaveCount(0);
+  await page.waitForTimeout(2100);
+  await expect(page.getByText("Current Session Subject", { exact: true })).toBeVisible();
+  await expect(page.getByText("Old Session Subject", { exact: true })).toHaveCount(0);
 });
 
 test("subject mapping clears an old edit when changing academic sessions", async ({ page }) => {
