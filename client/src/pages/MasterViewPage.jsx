@@ -143,10 +143,18 @@ export default function MasterView({type,data,setData,reload,sessions=[],setMess
         await axios.post(`${API}/${key}`,body);
         setMessage(`${type.slice(0,-1)} added successfully.`);
       }
-      reset();
+      if(key==="semesters"){
+        const scoped=[...(list||[]).filter(row=>refId(row.academicSession)===String(body.academicSession)&&refId(row.program)===String(body.program)),{...body,_id:editingId||"new"}];
+        const nextOrder=Math.min(20,Math.max(0,...scoped.map(row=>Number(row.order||0)))+1);
+        setForm({academicSession:body.academicSession,program:body.program,name:"",order:nextOrder,active:true});
+        setEditingId(null);
+        setFormError("");
+      }else reset();
       await reload();
     }catch(e){
-      setMessage(e.response?.data?.message||e.message);
+      const message=e.response?.data?.message||e.message||"Unable to save record.";
+      if(key==="semesters"){setFormError(message);setMessage("");}
+      else setMessage(message);
     }finally{
       setSaving(false);
     }
@@ -274,7 +282,13 @@ export default function MasterView({type,data,setData,reload,sessions=[],setMess
         const semesterProgramName=x.program?.name||(data.programs||[]).find(p=>refId(p)===refId(x.program))?.name||"Unlinked program";
         const semesterProgramCode=x.program?.code||(data.programs||[]).find(p=>refId(p)===refId(x.program))?.code||"";
         const semesterSessionName=x.academicSession?.name||(sessions||[]).find(row=>refId(row)===refId(x.academicSession))?.name||"Unlinked session";
-        const semesterSectionCount=(data.sections||[]).filter(section=>refId(section.academicSession)===refId(x.academicSession)&&refId(section.programId||section.program)===refId(x.program)&&String(section.semester||"").trim().toLocaleLowerCase()===String(x.name||"").trim().toLocaleLowerCase()).length;
+        const semesterSectionCount=(data.sections||[]).filter(section=>{
+          if(refId(section.academicSession)!==refId(x.academicSession))return false;
+          if(String(section.semester||"").trim().toLocaleLowerCase()!==String(x.name||"").trim().toLocaleLowerCase())return false;
+          if(refId(section.programId))return refId(section.programId)===refId(x.program);
+          const value=typeof section.program==="object"?(section.program?.name||section.program?.code):section.program;
+          return [semesterProgramName,semesterProgramCode].some(alias=>String(alias||"").trim().toLocaleLowerCase()===String(value||"").trim().toLocaleLowerCase());
+        }).length;
         const section=data.sections.find(v=>refId(v)===refId(x.section));
         const sectionLabel=x.section?.name || (section ? `${section.program||""} ${section.semester||""} · ${section.name||""}` : null);
         return <article className="master-card" key={x._id}>
