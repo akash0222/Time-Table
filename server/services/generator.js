@@ -602,7 +602,6 @@ export function generateTimetable({
           .filter(entry=>idOf(entry[field])===resourceId&&String(entry.day)===String(day))
           .reduce((sum,entry)=>sum+Math.max(1,Number(entry.duration||1)),0);
       };
-      const existingEntries=[...fixedEntries,...entries];
       const subjectDayLoad=day=>existingEntries
         .filter(entry=>idOf(entry.subject)===idOf(sub)&&String(entry.day)===String(day))
         .length;
