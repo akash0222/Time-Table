@@ -596,11 +596,41 @@ export function generateTimetable({
         }
       }
 
-      return shuffle(opts).sort((a,b)=>{
-        const ap=(cfg.avoidSameSubjectSameDay&&a.sameSubjectDay)?100:0;
-        const bp=(cfg.avoidSameSubjectSameDay&&b.sameSubjectDay)?100:0;
-        return (ap+a.repeated)-(bp+b.repeated);
-      });
+      // Rank feasible placements by soft quality constraints. Hard constraints
+      // are filtered above; this score prefers balanced days, distributed subjects,
+      // and less-contended rooms without ever sacrificing feasibility.
+      const periodLoad=(items,field,resourceId,day)=>{
+        return items
+          .filter(entry=>idOf(entry[field])===resourceId&&String(entry.day)===String(day))
+          .reduce((sum,entry)=>sum+Math.max(1,Number(entry.duration||1)),0);
+      };
+      const existingEntries=[...fixedEntries,...entries];
+      const subjectDayLoad=day=>existingEntries
+        .filter(entry=>idOf(entry.subject)===idOf(sub)&&String(entry.day)===String(day))
+        .length;
+      const optionPenalty=option=>{
+        const day=String(option.block[0]?.day||"");
+        const facultyLoad=periodLoad(existingEntries,"faculty",fid,day);
+        const sectionLoad=periodLoad(existingEntries,"section",sid,day);
+        const roomLoad=periodLoad(existingEntries,"room",idOf(option.room),day);
+        const daySubjectLoad=subjectDayLoad(day);
+        const startOrder=Number(option.block[0]?.order||0);
+        const endOrder=Number(option.block.at(-1)?.order||0);
+        const edgePenalty=cfg.avoidFirstLastPeriod?0:
+          (startOrder===Number(firstOrder)||endOrder===Number(lastOrder)?1:0);
+        // The largest weight is the duplicate-subject/day preference. The
+        // remaining weights are deliberately smaller and only break ties among
+        // otherwise feasible choices.
+        return (cfg.avoidSameSubjectSameDay&&option.sameSubjectDay?10000:0)
+          +option.repeated*1000
+          +daySubjectLoad*500
+          +facultyLoad*12
+          +sectionLoad*10
+          +roomLoad*3
+          +edgePenalty*0.5
+          +startOrder*0.01;
+      };
+      return shuffle(opts).sort((a,b)=>optionPenalty(a)-optionPenalty(b));
     }
 
     function place(index){
