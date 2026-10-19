@@ -154,6 +154,16 @@ async function installApiMocks(page, options = {}) {
     if (path === "/sessions" && method === "GET") return json(sessions);
     if (path === "/sessions/active" && method === "GET") return json(options.emptyActiveSessionEndpoint ? null : activeSession);
     if (path === "/semesters" && method === "GET") return json(semesters);
+    if (path === "/subject-mappings" && method === "GET") {
+      const requestedSession = url.searchParams.get("sessionId");
+      return json((options.subjectMappings || []).filter(row => !requestedSession || String(row.academicSession?._id || row.academicSession || "") === requestedSession));
+    }
+    if (path === "/subject-mappings/summary" && method === "GET") {
+      const requestedSession = url.searchParams.get("sessionId");
+      return json(requestedSession && sessions.some(row => String(row._id) === requestedSession && !row.active)
+        ? {sections:[],totalSubjects:0,totalWeeklyLoad:0,unmappedSections:0}
+        : (options.subjectMappingSummary || {sections:[],totalSubjects:0,totalWeeklyLoad:0,unmappedSections:0}));
+    }
     if (path === "/subject-mappings" && method === "GET") return json(options.subjectMappings || []);
     if (path === "/subject-mappings/summary" && method === "GET") return json(options.subjectMappingSummary || {sections:[],totalSubjects:0,totalWeeklyLoad:0,unmappedSections:0});
     if (path === "/sessions" && method === "POST") {
@@ -672,7 +682,7 @@ test("subject mapping clears an old edit when changing academic sessions", async
   await page.getByLabel("Academic Session").selectOption("session-2");
   await expect(page.getByRole("heading", { name: "Add Subject Mapping" })).toBeVisible();
   await expect(page.getByLabel("Subject Name")).toHaveValue("");
-  await expect(page.getByLabel("Section")).toHaveValue("");
+  await expect(page.locator(".mapping-form-grid").getByLabel("Section")).toHaveValue("");
   await expect(page.getByLabel("Faculty")).toHaveValue("");
 });
 
