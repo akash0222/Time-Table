@@ -933,6 +933,66 @@ test("full-session timetable resets filters and ad hoc holidays when changing se
   await expect(page.getByText("Section B · Room 101", { exact: false })).toBeVisible();
 });
 
+test("admin can generate a full-session timetable and open the saved version", async ({ page }) => {
+  const activeSession = makeActiveSession();
+  const plan = {
+    _id: "session-plan-created",
+    academicSession: activeSession._id,
+    version: 1,
+    status: "DRAFT",
+    totalEntries: 1,
+    holidays: [],
+    weeks: [{
+      weekNumber: 1,
+      startDate: "2026-06-15",
+      endDate: "2026-06-21",
+      workingDates: ["2026-06-15"],
+      calendarDates: [{ date: "2026-06-15", day: "Monday", status: "WORKING" }],
+      entries: [{
+        date: "2026-06-15",
+        day: "Monday",
+        startTime: "09:00",
+        endTime: "10:00",
+        order: 1,
+        duration: 1,
+        subject: { _id: "subject-1", name: "Mathematics", code: "MATH101" },
+        faculty: { _id: "faculty-1", name: "Ms. Faculty" },
+        section: { _id: "section-1", name: "A", program: "MBA", semester: "I" },
+        room: { _id: "room-1", name: "Room 101" }
+      }]
+    }]
+  };
+  let saved = false;
+  await signIn(page, { sessions: [activeSession], includeSchedulingData: true });
+  await page.route("**/api/session-plans**", async route => {
+    const request = route.request();
+    const url = new URL(request.url());
+    const path = url.pathname.replace(/^\/api/, "");
+    const json = (payload, status = 200) => route.fulfill({
+      status, contentType: "application/json", body: JSON.stringify(payload)
+    });
+    if (request.method() === "GET" && path === "/session-plans") {
+      return json(saved ? [{ _id: plan._id, version: 1, status: "DRAFT", weeks: [{ weekNumber: 1 }] }] : []);
+    }
+    if (request.method() === "POST" && path === "/session-plans/generate") {
+      const body = request.postDataJSON();
+      expect(body.sessionId).toBe(activeSession._id);
+      expect(Array.isArray(body.holidays)).toBe(true);
+      saved = true;
+      return json({ id: plan._id, version: 1, weeks: 1, totalEntries: 1 }, 201);
+    }
+    if (request.method() === "GET" && path === "/session-plans/" + plan._id) return json(plan);
+    return json({ message: "Unexpected session plan request: " + request.method() + " " + path }, 404);
+  });
+
+  page.on("dialog", dialog => dialog.accept());
+  await navigateToPage(page, "Full Session Timetable");
+  await page.getByRole("button", { name: "Generate Full Session" }).click();
+  await expect(page.getByRole("button", { name: "Version 1 · DRAFT · 1 weeks" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Version 1 · DRAFT · 1 academic weeks · 1 classes" })).toBeVisible();
+  await expect(page.getByText("Mathematics", { exact: true })).toBeVisible();
+});
+
 test("admin can download saved full-session timetable as Excel and PDF", async ({ page }) => {
   const activeSession = makeActiveSession();
   const plan = {
