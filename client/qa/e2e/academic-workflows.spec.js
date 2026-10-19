@@ -487,7 +487,7 @@ test("admin can open and refresh a direct module URL", async ({ page }) => {
   await signIn(page);
   await navigateToPage(page, "Academic Sessions");
   await expect(page.getByRole("heading", { name: "Create Academic Session", exact: true })).toBeVisible();
-  await expect(page.getByText("Set the session year and overall dates, then configure program/semester calendar overrides.")).toBeVisible();
+  await expect(page.getByText("Create a new session using the next available year, then configure program/semester calendar dates.")).toBeVisible();
   await page.reload();
   await expect(page.getByRole("heading", { name: "Create Academic Session", exact: true })).toBeVisible();
   await expect(page).toHaveURL(/\/academic-sessions$/);
