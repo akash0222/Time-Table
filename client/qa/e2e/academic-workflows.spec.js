@@ -701,7 +701,7 @@ test("subject mapping clears an old edit when changing academic sessions", async
   await expect(page.getByRole("heading", { name: "Add Subject Mapping" })).toBeVisible();
   await expect(page.getByLabel("Subject Name")).toHaveValue("");
   await expect(page.locator(".mapping-form-grid").getByLabel("Section")).toHaveValue("");
-  await expect(page.getByLabel("Faculty")).toHaveValue("");
+  await expect(page.locator(".mapping-form-grid").getByLabel("Faculty", { exact: true })).toHaveValue("");
 });
 
 test("admin can configure a holiday for an academic session", async ({ page }) => {
