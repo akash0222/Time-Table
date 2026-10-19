@@ -191,7 +191,29 @@ export default function Login({ onLogin }) {
           </div>
 
           <div className="login-story-copy">
+            <span className="login-story-kicker"><span className="login-kicker-dot" aria-hidden="true" /> ACADEMIC WORKSPACE</span>
             <h2>Academic timetable management</h2>
+            <p className="login-story-description">
+              Plan schedules with confidence. Manage academic sessions, faculty, rooms and student sections from one connected workspace.
+            </p>
+            <div className="login-feature-list">
+              <div className="login-feature">
+                <span className="login-feature-icon"><CalendarDays size={19} aria-hidden="true" /></span>
+                <span className="login-feature-copy"><strong>Smart timetable planning</strong><small>Build structured schedules around your academic requirements.</small></span>
+              </div>
+              <div className="login-feature">
+                <span className="login-feature-icon"><UserRound size={19} aria-hidden="true" /></span>
+                <span className="login-feature-copy"><strong>Connected academic data</strong><small>Keep programs, faculty, rooms and sections aligned.</small></span>
+              </div>
+              <div className="login-feature">
+                <span className="login-feature-icon"><ShieldCheck size={19} aria-hidden="true" /></span>
+                <span className="login-feature-copy"><strong>Controlled access</strong><small>Workspace access is managed by your administrator.</small></span>
+              </div>
+            </div>
+          </div>
+          <div className="login-story-footer">
+            <ShieldCheck size={16} aria-hidden="true" />
+            <span>One workspace for your academic scheduling workflow</span>
           </div>
 
           <span className="login-decor-orb login-decor-orb-one" aria-hidden="true" />
