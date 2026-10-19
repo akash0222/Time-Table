@@ -565,7 +565,7 @@ test("mobile navigation drawer opens and its flyout navigates without collapsing
 
   await trigger.click();
   await expect(sidebar).toBeVisible();
-  await expect(sidebar.getByText("Time Table", { exact:true })).toBeVisible();
+  await expect(sidebar.getByText("Scheduly", { exact:true })).toBeVisible();
   await expect(sidebar.locator(".nav-module-button[data-nav-module=\"Academic Setup\"]")).toBeVisible();
 
   await sidebar.locator('.nav-module-button[data-nav-module="Academic Setup"]').click();
