@@ -21,11 +21,17 @@ export default function StudentMapping({data,sessions=[],activeSession,reload,se
     const programId=refId(section?.programId);
     if(programId)return programId===sourceProgram;
     const selectedProgram=programs.find(program=>refId(program)===sourceProgram);
-    const legacyName=String(section?.program||"").trim().toLowerCase();
+    const rawProgram=section?.program;
+    const legacyName=String(typeof rawProgram==="object"?(rawProgram?.name||rawProgram?.code||""):rawProgram||"").trim().toLowerCase();
     return Boolean(selectedProgram&&[selectedProgram.name,selectedProgram.code].some(value=>String(value||"").trim().toLowerCase()===legacyName));
   };
   const sourceSections=sections.filter(s=>sessionMatches(s)&&sectionMatchesProgram(s)&&(!sourceSemester||String(s.semester)===sourceSemester));
-  const students=(data.students||[]).filter(s=>sessionMatches(s.section)).filter(s=>!sourceSection||refId(s.section)===sourceSection).filter(s=>!q||`${s.name} ${s.admissionNo} ${s.rollNo}`.toLowerCase().includes(q.toLowerCase()));
+  const students=(data.students||[])
+    .filter(student=>sessionMatches(student.section||{academicSession:student.academicSession}))
+    .filter(student=>sectionMatchesProgram(student.section||{program:student.program,programId:student.programId}))
+    .filter(student=>!sourceSemester||String(student.section?.semester||student.semester||"")===String(sourceSemester))
+    .filter(student=>!sourceSection||refId(student.section)===sourceSection)
+    .filter(student=>!q||`${student.name} ${student.admissionNo} ${student.rollNo}`.toLowerCase().includes(q.toLowerCase()));
   const targetOptions=sections.filter(s=>sessionMatches(s)&&refId(s)!==sourceSection);
   useEffect(()=>{setSelected([])},[sourceProgram,sourceSemester,sourceSection]);
   useEffect(()=>{
