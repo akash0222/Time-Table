@@ -566,11 +566,13 @@ test("student mapping resets selection and scopes semester filters when the acad
   const sections = [
     { _id: "section-1", name: "A", program: "MBA", programId: "program-1", semester: "I", academicSession: "session-1" },
     { _id: "section-1b", name: "B", program: "MBA", programId: null, semester: "I", academicSession: "session-1" },
+    { _id: "section-1d", name: "B", program: "PGDM", programId: "program-2", semester: "I", academicSession: "session-1" },
     { _id: "section-2", name: "A", program: "PGDM", programId: "program-2", semester: "II", academicSession: "session-2" }
   ];
   const students = [
     { _id: "student-1", name: "Alpha Student", admissionNo: "ADM-001", rollNo: "1", active: true, section: { _id: "section-1", name: "A", program: "MBA", semester: "I", academicSession: "session-1" } },
     { _id: "student-1c", name: "Gamma Student", admissionNo: "ADM-003", rollNo: "3", active: true, section: { _id: "section-1", name: "A", program: "MBA", semester: "I", academicSession: "session-1" } },
+    { _id: "student-1d", name: "Delta Student", admissionNo: "ADM-004", rollNo: "4", active: true, section: { _id: "section-1d", name: "B", program: "PGDM", semester: "I", academicSession: "session-1" } },
     { _id: "student-2", name: "Beta Student", admissionNo: "ADM-002", rollNo: "2", active: true, section: { _id: "section-2", name: "A", program: "PGDM", semester: "II", academicSession: "session-2" } }
   ];
 
@@ -592,6 +594,9 @@ test("student mapping resets selection and scopes semester filters when the acad
   await expect(semesterSelect.locator('option[value="II"]')).toHaveCount(0);
   await programSelect.selectOption("program-1");
   await expect(sectionSelect.locator("option").filter({ hasText: "MBA · I · B" })).toHaveCount(1);
+  await expect(page.getByText("Alpha Student", { exact: true })).toBeVisible();
+  await expect(page.getByText("Gamma Student", { exact: true })).toBeVisible();
+  await expect(page.getByText("Delta Student", { exact: true })).toHaveCount(0);
   await semesterSelect.selectOption("I");
   await sectionSelect.selectOption("section-1");
   await expect(page.getByText("Alpha Student", { exact: true })).toBeVisible();
