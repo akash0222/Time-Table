@@ -560,7 +560,7 @@ test("semester master data removes blank success field and enforces session/prog
   await form.getByRole("button", { name: "+ Add Semesters", exact: true }).click();
   const newCard = page.locator(".master-card").filter({ hasText: "Semester II" });
   await expect(newCard).toBeVisible();
-  await expect(newCard.getByText("MBA", { exact: true })).toBeVisible();
+  await expect(newCard.locator(".semester-card-context").getByText("MBA", { exact: true })).toBeVisible();
   await expect(newCard.getByText("2026-2027", { exact: true })).toBeVisible();
   await expect(newCard.getByText("2", { exact: true })).toBeVisible();
   await expect(newCard.getByText("Active", { exact: true })).toBeVisible();
