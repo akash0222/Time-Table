@@ -53,7 +53,6 @@ export default function Login({ onLogin }) {
   const [busy, setBusy] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [capsLockOn, setCapsLockOn] = useState(false);
-  const [forgotPasswordOpen, setForgotPasswordOpen] = useState(false);
   const [serviceStatus, setServiceStatus] = useState("checking");
   const signInLocked = lockoutSeconds > 0;
 
@@ -321,18 +320,7 @@ export default function Login({ onLogin }) {
               </div>
 
               <div className="login-field">
-                <div className="login-password-label-row">
-                  <label htmlFor="login-password">Password</label>
-                  <button
-                    type="button"
-                    className="login-forgot-link"
-                    onClick={() => { setForgotPasswordOpen(value => !value); setError(""); }}
-                    aria-expanded={forgotPasswordOpen}
-                    aria-controls="login-forgot-password-help"
-                  >
-                    Forgot password?
-                  </button>
-                </div>
+                <label htmlFor="login-password">Password</label>
                 <div className="login-input-wrap login-password-wrap">
                   <LockKeyhole size={18} aria-hidden="true" />
                   <input
@@ -368,17 +356,6 @@ export default function Login({ onLogin }) {
                   </p>
                 )}
               </div>
-
-              {forgotPasswordOpen && (
-                <div className="login-forgot-help" id="login-forgot-password-help" role="status">
-                  <span className="login-forgot-help-icon"><ShieldCheck size={18} aria-hidden="true" /></span>
-                  <div>
-                    <strong>Need to reset your password?</strong>
-                    <p>For account security, password resets are handled by your system administrator. Please contact your administrator to reset your Time Table account.</p>
-                    <button type="button" onClick={() => setForgotPasswordOpen(false)}>Back to sign in</button>
-                  </div>
-                </div>
-              )}
 
               {error && <div className="login-error" role="alert" aria-live="assertive">
                 <span>{error}</span>
