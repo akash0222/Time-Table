@@ -11,10 +11,12 @@ export default function AcademicSessions({sessions,programs,semesters=[],activeS
   function nextAvailableStartYear(fromYear=defaultStartYear,rows=sessions){
     const usedYears=new Set();
     for(const session of rows||[]){
-      const name=String(session?.name||"");
-      const namedYear=name.match(/(?:^|[^0-9])(\\d{4})\\s*[-–/]/);
-      const dateYear=String(session?.startDate||"").match(/^(\\d{4})-/);
-      const year=namedYear?Number(namedYear[1]):dateYear?Number(dateYear[1]):0;
+      const name=String(session?.name||"").trim();
+      const namePrefix=name.slice(0,4);
+      const datePrefix=String(session?.startDate||"").slice(0,4);
+      const namedYear=/^\d{4}$/.test(namePrefix)&&/[-–/]/.test(name.slice(4))?Number(namePrefix):0;
+      const dateYear=/^\d{4}$/.test(datePrefix)?Number(datePrefix):0;
+      const year=namedYear||dateYear;
       if(year)usedYears.add(year);
     }
     let candidate=Number(fromYear)||defaultStartYear;
