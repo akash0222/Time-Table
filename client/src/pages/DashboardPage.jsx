@@ -66,6 +66,20 @@ export default function Dashboard({ cards, generate, loading, latest, role, onNa
   }));
   const maxDayCount = Math.max(1, ...dayCounts.map(item => item.count));
   const totalEntries = entries.length;
+  const [selectedDay, setSelectedDay] = useState("All");
+  const visibleEntries = selectedDay === "All" ? entries : entries.filter(entry => String(entry.day || "").toLowerCase() === dayNames[shortDays.indexOf(selectedDay)].toLowerCase());
+  const visibleCount = visibleEntries.length;
+  const facultyWorkload = useMemo(() => {
+    const totals = new Map();
+    visibleEntries.forEach(entry => {
+      const faculty = entry.facultyName || entry.faculty?.name || entry.faculty?.fullName || entry.faculty || entry.teacherName || entry.teacher;
+      const name = typeof faculty === "string" ? faculty.trim() : "";
+      if (!name || name === "[object Object]") return;
+      totals.set(name, (totals.get(name) || 0) + 1);
+    });
+    return [...totals.entries()].map(([name, count]) => ({name, count})).sort((a,b) => b.count-a.count || a.name.localeCompare(b.name)).slice(0, 6);
+  }, [visibleEntries]);
+  const maxFacultyLoad = Math.max(1, ...facultyWorkload.map(item => item.count));
   const coverage = latest?.optimizationMetrics?.coveragePercent;
   const quality = latest?.optimizationScore ?? latest?.optimizationMetrics?.optimizationScore;
   const runs = latest?.optimizationRuns ?? latest?.optimization?.runsCompleted;
@@ -230,8 +244,11 @@ export default function Dashboard({ cards, generate, loading, latest, role, onNa
       <section className="dashboard-section dashboard-visual-grid">
         <div className="dashboard-card dashboard-chart-card">
           <div className="section-heading compact">
-            <div><h3>Class distribution</h3></div>
+            <div><h3>Class distribution</h3><p>Select a day to filter the dashboard workload.</p></div>
             <span className="dashboard-chart-icon"><TrendingUp size={18} /></span>
+          </div>
+          <div className="dashboard-chart-filters" role="group" aria-label="Filter timetable by day">
+            {["All", ...shortDays].map(day => <button type="button" key={day} className={selectedDay === day ? "active" : ""} aria-pressed={selectedDay === day} onClick={() => setSelectedDay(day)}>{day === "All" ? "All days" : day}</button>)}
           </div>
           {totalEntries > 0 ? (
             <div className="dashboard-chart" role="img" aria-label="Bar chart of scheduled classes by day">
@@ -242,14 +259,14 @@ export default function Dashboard({ cards, generate, loading, latest, role, onNa
               </div>
               <div className="dashboard-chart-bars">
                 {dayCounts.map(({ day, count }) => (
-                  <div className="dashboard-chart-column" key={day} title={day + ": " + count + " classes"}>
+                  <button type="button" className={"dashboard-chart-column " + (selectedDay === day ? "selected" : "")} key={day} title={day + ": " + count + " classes"} aria-label={day + ": " + count + " classes"} aria-pressed={selectedDay === day} onClick={() => setSelectedDay(selectedDay === day ? "All" : day)}>
                     <div className="dashboard-chart-bar-track">
                       <div className="dashboard-chart-bar" style={{ height: Math.max(count > 0 ? 8 : 0, count / maxDayCount * 100) + "%" }}>
                         <span>{count || ""}</span>
                       </div>
                     </div>
                     <small>{day}</small>
-                  </div>
+                  </button>
                 ))}
               </div>
             </div>
@@ -258,7 +275,7 @@ export default function Dashboard({ cards, generate, loading, latest, role, onNa
           )}
           <div className="dashboard-chart-footer">
             <span><i /> Classes scheduled</span>
-            <strong>{totalEntries}</strong>
+            <strong>{visibleCount} / {totalEntries}</strong>
           </div>
         </div>
 
@@ -285,11 +302,27 @@ export default function Dashboard({ cards, generate, loading, latest, role, onNa
           <div className="dashboard-health-stats">
             <div><span><Clock3 size={14} /> Generation runs</span><strong>{runs ?? "—"}</strong></div>
             <div><span><BarChart3 size={14} /> Optimization score</span><strong>{quality ?? "—"}</strong></div>
+            <div><span><CalendarDays size={14} /> Selected day</span><strong>{selectedDay === "All" ? "All days" : selectedDay}</strong></div>
           </div>
           <button className="dashboard-health-link" type="button" onClick={() => navigate("Generation Readiness")}>
             Generation readiness <ArrowUpRight size={15} />
           </button>
         </div>
+      </section>
+      
+      <section className="dashboard-section dashboard-card dashboard-workload-card">
+        <div className="section-heading">
+          <div><h3>Faculty workload</h3><p>{selectedDay === "All" ? "Scheduled classes by faculty across the current timetable." : "Scheduled classes for " + selectedDay + "."}</p></div>
+          <span className="dashboard-chart-icon"><Users size={18}/></span>
+        </div>
+        {facultyWorkload.length ? <div className="dashboard-workload-list">
+          {facultyWorkload.map(({name,count}) => <div className="dashboard-workload-row" key={name}>
+            <div className="dashboard-workload-person"><span className="dashboard-workload-avatar">{name.split(/\s+/).filter(Boolean).slice(0,2).map(part=>part[0]).join("").toUpperCase()}</span><strong title={name}>{name}</strong></div>
+            <div className="dashboard-workload-track" role="img" aria-label={name + ": " + count + " scheduled classes"}><span style={{width:(count/maxFacultyLoad*100)+"%"}}/></div>
+            <strong className="dashboard-workload-count">{count}<small> classes</small></strong>
+          </div>)}
+        </div> : <div className="dashboard-workload-empty"><Users size={20}/><strong>No faculty workload data available</strong><span>Workload appears when generated timetable entries include faculty names.</span></div>}
+        {facultyWorkload.length > 0 && <p className="dashboard-workload-note">Showing up to 6 faculty members, ranked by scheduled class count. Use the day filters above to compare daily workloads.</p>}
       </section>
     </div>
   );
