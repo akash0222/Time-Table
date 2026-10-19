@@ -637,6 +637,24 @@ test("student mapping resets selection and scopes semester filters when the acad
   await expect(page.getByText("0 selected", { exact: false })).toBeVisible();
 });
 
+test("inactive programs show their real status and stay inactive in the edit form", async ({ page }) => {
+  const inactiveProgram = {
+    _id: "program-inactive",
+    name: "Archived Program",
+    code: "ARCH",
+    department: "Legacy",
+    durationYears: 3,
+    active: false
+  };
+  await signIn(page, { programs: [sampleProgram, inactiveProgram] });
+  await navigateToPage(page, "Master Data Settings");
+
+  const archivedCard = page.locator(".master-card").filter({ hasText: "Archived Program" });
+  await expect(archivedCard.locator(".master-status")).toHaveText("Inactive");
+  await archivedCard.getByRole("button", { name: "Edit" }).click();
+  await expect(page.locator(".master-active-field input")).not.toBeChecked();
+});
+
 test("subject mapping clears an old edit when changing academic sessions", async ({ page }) => {
   const firstSession = makeActiveSession();
   const secondSession = {
