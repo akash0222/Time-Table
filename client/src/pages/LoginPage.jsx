@@ -182,11 +182,11 @@ export default function Login({ onLogin }) {
   return (
     <div className="login-page">
       <div className="login-shell">
-        <section className="login-story" aria-label="Time Table overview">
+        <section className="login-story" aria-label="Scheduly overview">
           <div className="login-story-brand">
             <span className="login-story-logo"><CalendarDays size={24} aria-hidden="true" /></span>
             <span className="login-story-brand-copy">
-              <strong>Time Table</strong>
+              <strong>Scheduly</strong>
             </span>
           </div>
 
@@ -278,7 +278,7 @@ export default function Login({ onLogin }) {
           <div className="login-form-shell">
             <div className="login-mobile-brand">
               <span className="login-mobile-brand-icon"><CalendarDays size={22} aria-hidden="true" /></span>
-              <span>Time Table</span>
+              <span>Scheduly</span>
             </div>
 
             <div className="login-heading">
