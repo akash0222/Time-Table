@@ -1,4 +1,4 @@
-import React, {useEffect, useState} from "react";
+import React, {useEffect, useRef, useState} from "react";
 import axios from "axios";
 import {API} from "../core/api";
 import {refId} from "../core/utils.js";
@@ -17,6 +17,7 @@ export default function SubjectFacultyMapping({data,sessions,activeSession,reloa
   const [saving,setSaving]=useState(false);
   const [editingId,setEditingId]=useState(null);
   const [form,setForm]=useState({name:"",code:"",faculty:"",section:"",subjectType:"CORE",classesPerWeek:3,totalSessions:0,maxClassesPerWeek:3,duration:1,roomType:"Classroom",active:true});
+  const mappingRequestSequence=useRef(0);
 
   useEffect(()=>{ if(!sessionId&&activeSession?._id) setSessionId(activeSession._id); },[activeSession?._id]);
   function changeSession(nextSessionId){
@@ -46,16 +47,25 @@ export default function SubjectFacultyMapping({data,sessions,activeSession,reloa
   const faculties=data.faculty||[];
 
   async function loadMappings(){
-    if(!sessionId){setRows([]);setSummary(null);return;}
+    const requestId=++mappingRequestSequence.current;
+    if(!sessionId){setRows([]);setSummary(null);setLoading(false);return;}
     setLoading(true);
     try{
       const q=new URLSearchParams({sessionId});
       if(sectionId) q.set("sectionId",sectionId);
       if(facultyId) q.set("facultyId",facultyId);
       if(programId) q.set("programId",programId);
-      const r=await axios.get(`${API}/subject-mappings?${q}`); setRows(r.data||[]);
-      const sr=await axios.get(`${API}/subject-mappings/summary?sessionId=${encodeURIComponent(sessionId)}`); setSummary(sr.data||null);
-    }catch(e){setMessage(e.response?.data?.message||e.message)}finally{setLoading(false)}
+      const r=await axios.get(`${API}/subject-mappings?${q}`);
+      if(requestId!==mappingRequestSequence.current)return;
+      setRows(r.data||[]);
+      const sr=await axios.get(`${API}/subject-mappings/summary?sessionId=${encodeURIComponent(sessionId)}`);
+      if(requestId!==mappingRequestSequence.current)return;
+      setSummary(sr.data||null);
+    }catch(e){
+      if(requestId===mappingRequestSequence.current)setMessage(e.response?.data?.message||e.message);
+    }finally{
+      if(requestId===mappingRequestSequence.current)setLoading(false);
+    }
   }
   useEffect(()=>{loadMappings();},[sessionId,sectionId,facultyId,programId]);
 
