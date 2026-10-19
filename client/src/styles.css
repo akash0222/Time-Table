@@ -2504,3 +2504,34 @@ button.danger:hover{background:#fff1f2}
   .settings-grid>.field:has(.checks)>.checks>label{flex-direction:row;justify-content:flex-start;min-height:48px;padding:10px}
   .settings-footer .primary{width:100%}
 }
+
+
+/* Scheduly dashboard brand refresh */
+.scheduly-dashboard-hero{isolation:isolate;position:relative;overflow:hidden;display:flex;align-items:stretch;justify-content:space-between;gap:28px;min-height:214px;margin:0 0 22px;padding:27px 30px;border:1px solid rgba(147,197,253,.22);border-radius:22px;background:linear-gradient(118deg,#0e1b35 0%,#17366f 57%,#2456b5 100%);color:#fff;box-shadow:0 16px 36px rgba(30,64,175,.14)}
+.scheduly-hero-glow{position:absolute;z-index:-1;width:340px;height:340px;right:20%;top:-230px;border:1px solid rgba(191,219,254,.16);border-radius:50%;box-shadow:0 0 0 30px rgba(191,219,254,.035),0 0 0 68px rgba(191,219,254,.025)}
+.scheduly-hero-main{position:relative;z-index:1;max-width:700px;min-width:0}
+.scheduly-brand-kicker{display:flex;align-items:center;gap:9px;color:#bfdbfe;font-size:10px;font-weight:850;letter-spacing:1.7px}
+.scheduly-brand-mark{display:grid;place-items:center;width:31px;height:31px;border:1px solid rgba(191,219,254,.25);border-radius:10px;background:rgba(255,255,255,.09);color:#fff}
+.scheduly-dashboard-hero h2{max-width:700px;margin:17px 0 9px;font-size:clamp(24px,2.4vw,34px);line-height:1.13;letter-spacing:-.9px;font-weight:800;color:#fff}
+.scheduly-dashboard-hero h2 span{color:#93c5fd}
+.scheduly-dashboard-hero p{max-width:650px;margin:0;color:#dbeafe;font-size:13px;line-height:1.65}
+.scheduly-hero-tags{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:18px}
+.scheduly-hero-tags span{display:inline-flex;align-items:center;gap:6px;padding:7px 10px;border:1px solid rgba(219,234,254,.17);border-radius:999px;background:rgba(255,255,255,.07);color:#eff6ff;font-size:10px;font-weight:650}
+.scheduly-session-card{position:relative;z-index:1;display:flex;flex-direction:column;justify-content:center;align-self:stretch;flex:0 0 245px;min-width:210px;padding:19px;border:1px solid rgba(219,234,254,.2);border-radius:17px;background:rgba(8,20,45,.32);backdrop-filter:blur(8px)}
+.scheduly-session-label{display:flex;align-items:center;gap:7px;color:#bfdbfe;font-size:9px;font-weight:800;letter-spacing:1.15px}
+.scheduly-live-dot{width:7px;height:7px;border-radius:50%;background:#4ade80;box-shadow:0 0 0 4px rgba(74,222,128,.13)}
+.scheduly-session-card>strong{margin-top:12px;color:#fff;font-size:21px;line-height:1.25;overflow-wrap:anywhere}
+.scheduly-session-card>small{margin-top:7px;color:#dbeafe;font-size:11px;line-height:1.5}
+.scheduly-session-card button{display:inline-flex;align-items:center;gap:7px;align-self:flex-start;margin-top:13px;padding:8px 11px;border:1px solid rgba(219,234,254,.25);border-radius:9px;background:rgba(255,255,255,.1);color:#fff;font-size:11px;font-weight:700;cursor:pointer}
+.scheduly-session-card button:hover{background:rgba(255,255,255,.18)}
+.dashboard-clean .metric-card{position:relative;overflow:hidden;border-color:#e2e8f0;border-radius:16px;box-shadow:0 4px 14px rgba(15,23,42,.035)}
+.dashboard-clean .metric-card:hover{border-color:#bfdbfe;box-shadow:0 12px 25px rgba(37,99,235,.09)}
+.dashboard-clean .metric-icon{border-radius:13px;background:linear-gradient(145deg,#eff6ff,#dbeafe);color:#2563eb}
+.dashboard-clean .dashboard-card{border-radius:17px;border-color:#e2e8f0;box-shadow:0 4px 16px rgba(15,23,42,.035)}
+.dashboard-clean .dashboard-action-center{padding:17px 18px;border:1px solid #e2e8f0;border-radius:17px;background:#fff;box-shadow:0 4px 16px rgba(15,23,42,.03)}
+.dashboard-clean .section-heading h3{color:#14213d;font-weight:800;letter-spacing:-.2px}
+.dashboard-clean .quick-card{border-radius:14px}
+.dashboard-clean .quick-card-icon{background:linear-gradient(145deg,#eff6ff,#dbeafe);color:#2563eb}
+.dashboard-clean .quick-card:focus-visible,.scheduly-session-card button:focus-visible{outline:3px solid #93c5fd;outline-offset:3px}
+@media(max-width:850px){.scheduly-dashboard-hero{flex-direction:column;gap:20px;padding:24px}.scheduly-session-card{flex-basis:auto;min-width:0;width:100%}.scheduly-dashboard-hero h2{max-width:620px}}
+@media(max-width:650px){.scheduly-dashboard-hero{padding:20px;border-radius:17px;margin-bottom:17px}.scheduly-dashboard-hero h2{font-size:25px;letter-spacing:-.5px;margin-top:14px}.scheduly-dashboard-hero p{font-size:12px}.scheduly-hero-tags{gap:6px}.scheduly-hero-tags span{font-size:9px;padding:6px 8px}.scheduly-session-card{padding:15px}.dashboard-clean .dashboard-action-center{padding:13px}}
