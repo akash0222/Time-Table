@@ -183,7 +183,7 @@ export default function App(){
       // A successful sign-in always starts from the Dashboard, regardless of
       // which protected URL was last visited before the session expired.
       if(currentPath!=="/login")window.history.replaceState({page:"Login"},"","/login");
-      document.title="Sign in | Time Table";
+      document.title="Sign in | Scheduly";
       return;
     }
 
@@ -205,7 +205,7 @@ export default function App(){
       try { sessionStorage.removeItem("tt_return_to"); } catch {}
       window.history.replaceState({page:"Dashboard"},"",getPathForPage("Dashboard"));
       if(tab!=="Dashboard")setTabState("Dashboard");
-      document.title="Time Table";
+      document.title="Scheduly";
       return;
     }
 
@@ -215,7 +215,7 @@ export default function App(){
     }else if(currentPath!==targetPath){
       window.history.pushState({page:tab},"",targetPath);
     }
-    document.title=tab==="Dashboard" ? "Time Table" : `${tab} | Time Table`;
+    document.title=tab==="Dashboard" ? "Scheduly" : `${tab} | Scheduly`;
   },[tab,auth?.role,Boolean(auth)]);
   const [mobileNavOpen,setMobileNavOpen]=useState(false);
   const [sidebarCollapsed,setSidebarCollapsed]=useState(()=>{
@@ -612,7 +612,7 @@ export default function App(){
     setAuth(null);
     setTabState("Dashboard");
     window.history.replaceState({page:"Login"},"","/login");
-    document.title="Sign in | Time Table";
+    document.title="Sign in | Scheduly";
   }
 
   async function changePassword(event){
@@ -729,7 +729,7 @@ export default function App(){
     window.history.replaceState({page:"Dashboard"},"",getPathForPage("Dashboard"));
     setAuth(u);
     try { sessionStorage.removeItem("tt_return_to"); } catch {}
-    document.title="Time Table";
+    document.title="Scheduly";
   }} /></Suspense>;
 
   async function generate(programIds=selectedProgramIds){
@@ -835,7 +835,7 @@ export default function App(){
       <div className="sidebar-brand-row">
         <div className="brand">
           <CalendarDays size={22}/>
-          <span>Time Table</span>
+          <span>Scheduly</span>
         </div>
         <button
           type="button"
