@@ -201,7 +201,6 @@ export default function AcademicSessions({sessions,programs,semesters=[],activeS
       <div className="field"><label htmlFor="session-end-date">Overall End Date</label><input id="session-end-date" type="date" value={form.sessionEndDate||""} min={form.sessionStartDate||undefined} onChange={e=>updateGlobalDate("sessionEndDate",e.target.value)}/></div>
       <Input label="Description (optional)" value={form.description} onChange={v=>{setFormDirty(true);setForm({...form,description:v});}}/>
     </div>
-    <div className="message success" style={{marginTop:14}}><strong>Automatic session naming:</strong> Entering 2026 generates 2026-2027. Overall dates default to 1 April through 31 March; adjust them as needed. Each Program and Semester calendar below can still use its own start and end dates, independent of the shared session.</div>
     <div className="table-wrap" style={{marginTop:14}}><table><thead><tr><th>Program</th><th>Semester (optional)</th><th>Start Date</th><th>End Date</th><th>Action</th></tr></thead><tbody>
       {(form.programDates||[]).map((x,index)=>(
         <tr key={index}>

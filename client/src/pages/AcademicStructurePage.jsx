@@ -74,7 +74,6 @@ export default function AcademicStructure({sessions=[],activeSession,programs=[]
       </div>
       {form.academicSession&&!formPrograms.length&&<div className="message" role="status" style={{marginTop:14}}>No active Programs are linked to this Academic Session. Link a Program under Academic Sessions first.</div>}
       {form.academicSession&&form.programId&&!formSemesters.length&&!keepingLegacySemesterForDisplay&&<div className="message" role="status" style={{marginTop:14}}>No active Semester is configured for this Program and Academic Session. Add it under Master Data Settings → Semesters before mapping a Section.</div>}
-      <div className="message success" style={{marginTop:14}}><strong>Mapping rule:</strong> Program and Section are stored by ID. Semester and Section Name are labels. Students are mapped to Section, so their Program/Semester follows the Section automatically.</div>
     </section>
 
     <section className="panel">

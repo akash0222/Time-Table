@@ -167,7 +167,8 @@ export default function MasterView({type,data,setData,reload,sessions=[],setMess
         <Select label="Program" value={form.program||""} options={[["","Select program"],...(data.programs||[]).filter(p=>p.active!==false&&(sessions||[]).find(s=>refId(s)===String(form.academicSession))?.programDates?.some(d=>refId(d.program)===refId(p))).map(p=>[p._id,p.name])]} onChange={v=>setForm({...form,program:v})} />
         <Input label="Semester Name" value={form.name||""} placeholder="e.g. Semester I" onChange={v=>setForm({...form,name:v})}/>
         <Input label="Display Order" type="number" value={form.order||1} onChange={v=>setForm({...form,order:v})}/>
-        <div className="message success wide">Semester master records are unique to the selected Academic Session + Program. Configure the program under Academic Sessions first.</div>
+        <div className="message success wide">
+        </div>
       </>}
 
       {key==="faculty" && <>
@@ -220,8 +221,7 @@ export default function MasterView({type,data,setData,reload,sessions=[],setMess
         <Input label="Section Name" value={form.name||""} placeholder="e.g. Section A" onChange={v=>setForm({...form,name:v})}/>
         <div className="field">
           <label>Daily class limit</label>
-          <div className="message success">Default: 5 classes per day. The section name is the only text field required.</div>
-        </div>
+         </div>
       </>}
 
       {key==="rooms" && <>
@@ -239,7 +239,6 @@ export default function MasterView({type,data,setData,reload,sessions=[],setMess
         <Input label="End Time" type="time" value={form.endTime||""} onChange={v=>setForm({...form,endTime:v})}/>
         <Input label="Period Order" type="number" value={form.order||1} onChange={v=>setForm({...form,order:v})}/>
         <div className="message success wide" style={{marginTop:4}}>
-          <strong>Scope:</strong> Select the same academic session, program and semester to define its own clock schedule (for example, BBA ENT Semester I at 09:00 and BBA COM Semester I at 09:30). Leave Program and Semester blank only for a shared default.
         </div>
       </>}
 
@@ -252,8 +251,7 @@ export default function MasterView({type,data,setData,reload,sessions=[],setMess
     </div>
 
     {key==="subjects" && <div className="message success" style={{marginTop:12}}>
-      <strong>Important:</strong> Every subject must have a Faculty and Section. Set Total Sessions for the full academic session. Max Classes / Week controls how many times the subject may appear in one week.
-    </div>}
+      </div>}
 
     <div className="master-card-grid">
       {list.map(x=>{
