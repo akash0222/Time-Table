@@ -298,7 +298,7 @@ export default function MasterView({type,data,setData,reload,sessions=[],setMess
             </div>
             <div className="master-card-title">
               <h3>{key==="programs"?x.name:key==="semesters"?x.name:key==="faculty"?x.name:key==="subjects"?x.name:key==="sections"?x.name:key==="rooms"?x.name:`${x.startTime||""} – ${x.endTime||""}`}</h3>
-              <span>{key==="programs"?x.code||"Program":key==="semesters"?`${semesterProgramName}${semesterProgramCode?` · ${semesterProgramCode}`:""}`:key==="faculty"?x.code||"Faculty":key==="subjects"?x.code||"Subject":key==="sections"?`${x.program||""} · ${x.semester||""}`:key==="rooms"?x.type||"Room":x.day||"Time Slot"}</span>
+              <span>{key==="programs"?x.code||"Program":key==="semesters"?`${semesterProgramName}${semesterProgramCode&&semesterProgramCode.trim().toLocaleLowerCase()!==semesterProgramName.trim().toLocaleLowerCase()?` · ${semesterProgramCode}`:""}`:key==="faculty"?x.code||"Faculty":key==="subjects"?x.code||"Subject":key==="sections"?`${x.program||""} · ${x.semester||""}`:key==="rooms"?x.type||"Room":x.day||"Time Slot"}</span>
             </div>
             <span className={`master-status ${x.active===false?"inactive":"active"}`}>{x.active===false?"Inactive":"Active"}</span>
           </div>
