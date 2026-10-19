@@ -833,8 +833,8 @@ export default function App(){
   >
     <aside className="erp-sidebar" onMouseEnter={cancelNavClose} onMouseLeave={scheduleNavClose}>
       <div className="sidebar-brand-row">
-        <div className="brand">
-          <CalendarDays size={22}/>
+        <div className="brand" aria-label="Scheduly home">
+          <img className="scheduly-logo-mark" src="/scheduly.svg" alt="" />
           <span>Scheduly</span>
         </div>
         <button
