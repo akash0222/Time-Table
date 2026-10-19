@@ -48,7 +48,7 @@ export default function FullSessionTimetable({sessions,activeSession,role}){
     if(!window.confirm("Generate and save a new full academic session plan? This may take up to a minute for a full-year session. Existing plans will be preserved."))return;
     setBusy(true);setError("");
     try{
-      const dates=holidays.split(/[\\s,;]+/).map(x=>x.trim()).filter(Boolean);
+      const dates=holidays.split(/[\s,;]+/).map(x=>x.trim()).filter(Boolean);
       const r=await axios.post(`${API}/session-plans/generate`,{sessionId,holidays:dates},{timeout:75000});
       const p=await axios.get(`${API}/session-plans?sessionId=${encodeURIComponent(sessionId)}`);
       setPlans(p.data||[]);
