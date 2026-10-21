@@ -615,20 +615,24 @@ export default function App(){
     document.title="Sign in | Scheduly";
   }
 
-  // Enforce JWT expiry on the client even when the app remains idle for hours.
-  // The backend remains authoritative; this timer only keeps the UI in sync.
+  // End the session after 30 minutes without user interaction. JWT expiry
+  // remains a separate hard limit enforced by the backend.
   useEffect(()=>{
     if(!auth)return undefined;
-    let timeoutId;
-    const token=localStorage.getItem("tt_token");
-    const expireSession=()=>{
-      try {
-        sessionStorage.setItem("tt_auth_notice","Your session has expired. Please sign in again.");
-      } catch {}
+    let tokenTimeoutId=null;
+    let idleTimeoutId=null;
+    let idleDeadline=Date.now()+30*60*1000;
+    const clearTimers=()=>{
+      if(tokenTimeoutId)window.clearTimeout(tokenTimeoutId);
+      if(idleTimeoutId)window.clearTimeout(idleTimeoutId);
+    };
+    const expireSession=(message="Your session has expired. Please sign in again.")=>{
+      clearTimers();
+      try { sessionStorage.setItem("tt_auth_notice",message); } catch {}
       logout();
     };
-    const scheduleExpiry=()=>{
-      if(timeoutId)window.clearTimeout(timeoutId);
+    const scheduleTokenExpiry=()=>{
+      if(tokenTimeoutId)window.clearTimeout(tokenTimeoutId);
       const currentToken=localStorage.getItem("tt_token");
       if(!currentToken){logout();return;}
       try{
@@ -640,57 +644,47 @@ export default function App(){
           expireSession();
           return;
         }
-        timeoutId=window.setTimeout(expireSession,Math.min(expiresAt-Date.now(),2147480000));
+        tokenTimeoutId=window.setTimeout(()=>expireSession(),Math.min(expiresAt-Date.now(),2147480000));
       }catch{
         expireSession();
       }
     };
-    scheduleExpiry();
+    const checkIdle=()=>{
+      if(Date.now()>=idleDeadline){
+        expireSession("You were signed out after 30 minutes of inactivity. Please sign in again.");
+        return;
+      }
+      if(idleTimeoutId)window.clearTimeout(idleTimeoutId);
+      idleTimeoutId=window.setTimeout(checkIdle,Math.max(1000,idleDeadline-Date.now()));
+    };
+    const recordActivity=()=>{
+      idleDeadline=Date.now()+30*60*1000;
+      checkIdle();
+    };
+    const activityEvents=["pointerdown","pointermove","keydown","scroll","touchstart","click"];
+    activityEvents.forEach(eventName=>window.addEventListener(eventName,recordActivity,{passive:true}));
     const handleStorage=(event)=>{
       if(event.key==="tt_token"&&!event.newValue){
-        try { sessionStorage.setItem("tt_auth_notice","You have been signed out. Please sign in again."); } catch {}
-        logout();
+        expireSession("You have been signed out. Please sign in again.");
       } else if(event.key==="tt_token"&&event.newValue){
-        scheduleExpiry();
+        scheduleTokenExpiry();
+        recordActivity();
       }
     };
+    const handleVisibility=()=>{
+      if(document.visibilityState==="visible")checkIdle();
+    };
+    scheduleTokenExpiry();
+    checkIdle();
     window.addEventListener("storage",handleStorage);
+    document.addEventListener("visibilitychange",handleVisibility);
     return ()=>{
-      if(timeoutId)window.clearTimeout(timeoutId);
+      clearTimers();
+      activityEvents.forEach(eventName=>window.removeEventListener(eventName,recordActivity));
       window.removeEventListener("storage",handleStorage);
+      document.removeEventListener("visibilitychange",handleVisibility);
     };
   },[Boolean(auth)]);
-
-  async function changePassword(event){
-    event.preventDefault();
-    if(passwordForm.newPassword.length<10){
-      setMessage("New password must contain at least 10 characters.");
-      return;
-    }
-    if(passwordForm.newPassword!==passwordForm.confirmPassword){
-      setMessage("New password and confirmation do not match.");
-      return;
-    }
-    if(passwordForm.currentPassword===passwordForm.newPassword){
-      setMessage("New password must be different from the current password.");
-      return;
-    }
-    setPasswordSaving(true);
-    try{
-      await axios.post(`${API}/auth/change-password`,{
-        currentPassword:passwordForm.currentPassword,
-        newPassword:passwordForm.newPassword
-      });
-      setMessage("Password changed successfully.");
-      setPasswordForm({currentPassword:"",newPassword:"",confirmPassword:""});
-      setShowPasswordModal(false);
-      setProfileOpen(false);
-    }catch(error){
-      setMessage(error.response?.data?.message||"Unable to change password. Check your current password and try again.");
-    }finally{
-      setPasswordSaving(false);
-    }
-  }
 
   function positionFlyout(event){
     const rect=event.currentTarget.getBoundingClientRect();
