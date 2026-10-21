@@ -3976,6 +3976,50 @@ app.get("/api/system/health", requireAuth, allowRoles("ADMIN"), async (_req, res
 });
 
 // Keep API failures JSON-shaped and avoid stack traces in production.
+// Temporary, authenticated cleanup endpoint. Remove after successful execution.
+app.post("/api/admin/cleanup-academic-data", requireAuth, allowRoles("ADMIN"), async (req, res) => {
+  const confirmation = req.headers["x-cleanup-confirmation"];
+  if (confirmation !== "DELETE_SCHEDULY_ACADEMIC_DATA") {
+    return res.status(400).json({ message: "Missing cleanup confirmation header." });
+  }
+  const db = mongoose.connection.db;
+  if (!db || db.databaseName !== "test") {
+    return res.status(409).json({ message: "Refusing cleanup: connected database is not test." });
+  }
+  const preserve = new Set(["users", "schedulersettings", "auditlogs", "__production_reset_markers", "_appSeedOperations", "system.profile"]);
+  const targets = [
+    "academicsessions", "programs", "semesters", "sections", "faculties", "subjects",
+    "rooms", "timeslots", "students", "timetables", "attendancesessions", "notifications",
+    "studentpromotions", "sessionplans", "sharelinks", "feeheads", "feeinvoices", "feepayments"
+  ];
+  try {
+    const names = new Set((await db.listCollections({}, { nameOnly: true }).toArray()).map(c => c.name));
+    const usersBefore = names.has("users") ? await db.collection("users").countDocuments() : 0;
+    const settingsBefore = names.has("schedulersettings") ? await db.collection("schedulersettings").countDocuments() : 0;
+    const results = [];
+    for (const name of targets) {
+      if (preserve.has(name) || !names.has(name)) {
+        results.push({ collection: name, deleted: 0, status: "preserved or absent" });
+        continue;
+      }
+      const result = await db.collection(name).deleteMany({});
+      results.push({ collection: name, deleted: result.deletedCount, status: "deleted" });
+    }
+    if (names.has("users")) {
+      await db.collection("users").updateMany({}, { $set: { faculty: null, section: null } });
+    }
+    const usersAfter = names.has("users") ? await db.collection("users").countDocuments() : 0;
+    const settingsAfter = names.has("schedulersettings") ? await db.collection("schedulersettings").countDocuments() : 0;
+    if (usersBefore !== usersAfter || settingsBefore !== settingsAfter) {
+      return res.status(500).json({ message: "Cleanup ran, but preservation counts changed; investigate immediately.", usersBefore, usersAfter, settingsBefore, settingsAfter, results });
+    }
+    return res.json({ ok: true, database: db.databaseName, backupCreated: false, usersBefore, usersAfter, settingsBefore, settingsAfter, results, message: "Cleanup completed. Remove this temporary endpoint after verifying." });
+  } catch (error) {
+    console.error("Academic cleanup endpoint failed:", error.message);
+    return res.status(500).json({ message: "Cleanup failed; inspect server logs." });
+  }
+});
+
 app.use(notFoundHandler);
 app.use(errorHandler);
 
