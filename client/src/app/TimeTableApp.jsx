@@ -615,6 +615,52 @@ export default function App(){
     document.title="Sign in | Scheduly";
   }
 
+  // Enforce JWT expiry on the client even when the app remains idle for hours.
+  // The backend remains authoritative; this timer only keeps the UI in sync.
+  useEffect(()=>{
+    if(!auth)return undefined;
+    let timeoutId;
+    const token=localStorage.getItem("tt_token");
+    const expireSession=()=>{
+      try {
+        sessionStorage.setItem("tt_auth_notice","Your session has expired. Please sign in again.");
+      } catch {}
+      logout();
+    };
+    const scheduleExpiry=()=>{
+      if(timeoutId)window.clearTimeout(timeoutId);
+      const currentToken=localStorage.getItem("tt_token");
+      if(!currentToken){logout();return;}
+      try{
+        const parts=currentToken.split(".");
+        if(parts.length!==3)throw new Error("Invalid session token");
+        const payload=JSON.parse(window.atob(parts[1].replace(/-/g,"+").replace(/_/g,"/")));
+        const expiresAt=Number(payload.exp)*1000;
+        if(!Number.isFinite(expiresAt)||expiresAt<=Date.now()){
+          expireSession();
+          return;
+        }
+        timeoutId=window.setTimeout(expireSession,Math.min(expiresAt-Date.now(),2147480000));
+      }catch{
+        expireSession();
+      }
+    };
+    scheduleExpiry();
+    const handleStorage=(event)=>{
+      if(event.key==="tt_token"&&!event.newValue){
+        try { sessionStorage.setItem("tt_auth_notice","You have been signed out. Please sign in again."); } catch {}
+        logout();
+      } else if(event.key==="tt_token"&&event.newValue){
+        scheduleExpiry();
+      }
+    };
+    window.addEventListener("storage",handleStorage);
+    return ()=>{
+      if(timeoutId)window.clearTimeout(timeoutId);
+      window.removeEventListener("storage",handleStorage);
+    };
+  },[Boolean(auth)]);
+
   async function changePassword(event){
     event.preventDefault();
     if(passwordForm.newPassword.length<10){
