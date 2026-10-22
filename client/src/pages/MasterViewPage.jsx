@@ -276,83 +276,40 @@ export default function MasterView({type,data,setData,reload,sessions=[],setMess
       </div>
     </div>
 
-    <div className="master-card-grid">
-      {list.map(x=>{
-        const facultyName=x.faculty?.name || data.faculty.find(f=>refId(f)===refId(x.faculty))?.name;
-        const semesterProgramName=x.program?.name||(data.programs||[]).find(p=>refId(p)===refId(x.program))?.name||"Unlinked program";
-        const semesterProgramCode=x.program?.code||(data.programs||[]).find(p=>refId(p)===refId(x.program))?.code||"";
-        const semesterSessionName=x.academicSession?.name||(sessions||[]).find(row=>refId(row)===refId(x.academicSession))?.name||"Unlinked session";
-        const semesterSectionCount=(data.sections||[]).filter(section=>{
-          if(refId(section.academicSession)!==refId(x.academicSession))return false;
-          if(String(section.semester||"").trim().toLocaleLowerCase()!==String(x.name||"").trim().toLocaleLowerCase())return false;
-          if(refId(section.programId))return refId(section.programId)===refId(x.program);
-          const value=typeof section.program==="object"?(section.program?.name||section.program?.code):section.program;
-          return [semesterProgramName,semesterProgramCode].some(alias=>String(alias||"").trim().toLocaleLowerCase()===String(value||"").trim().toLocaleLowerCase());
-        }).length;
-        const section=data.sections.find(v=>refId(v)===refId(x.section));
-        const sectionLabel=x.section?.name || (section ? `${section.program||""} ${section.semester||""} · ${section.name||""}` : null);
-        return <article className="master-card" key={x._id}>
-          <div className="master-card-top">
-            <div className="master-card-icon">
-              {key==="programs"?<BookOpen size={19}/>:key==="faculty"?<Users size={19}/>:key==="subjects"?<BookOpen size={19}/>:key==="sections"?<Users size={19}/>:key==="rooms"?<DoorOpen size={19}/>:<Clock3 size={19}/>} 
-            </div>
-            <div className="master-card-title">
-              <h3>{key==="programs"?x.name:key==="semesters"?x.name:key==="faculty"?x.name:key==="subjects"?x.name:key==="sections"?x.name:key==="rooms"?x.name:`${x.startTime||""} – ${x.endTime||""}`}</h3>
-              <span>{key==="programs"?x.code||"Program":key==="semesters"?`${semesterProgramName}${semesterProgramCode&&semesterProgramCode.trim().toLocaleLowerCase()!==semesterProgramName.trim().toLocaleLowerCase()?` · ${semesterProgramCode}`:""}`:key==="faculty"?x.code||"Faculty":key==="subjects"?x.code||"Subject":key==="sections"?`${x.program||""} · ${x.semester||""}`:key==="rooms"?x.type||"Room":x.day||"Time Slot"}</span>
-            </div>
-            <span className={`master-status ${x.active===false?"inactive":"active"}`}>{x.active===false?"Inactive":"Active"}</span>
-          </div>
-          {key==="semesters"&&<div className="semester-card-context">
-            <span><small>Academic session</small><strong>{semesterSessionName}</strong></span>
-            <span><small>Program</small><strong>{semesterProgramName}</strong></span>
-          </div>}
-          <div className="master-card-details">
-            {key==="semesters" && <>
-              <div><small>Display order</small><strong>{x.order||1}</strong></div>
-              <div><small>Linked sections</small><strong>{semesterSectionCount}</strong></div>
-            </>}
-            {key==="programs" && <>
-              <div><small>Department</small><strong>{x.department||"—"}</strong></div>
-              <div><small>Duration</small><strong>{x.durationYears||"—"} years</strong></div>
-            </>}
-            {key==="faculty" && <>
-              <div><small>Max Days</small><strong>{x.maxWorkingDays||"—"} / week</strong></div>
-              <div><small>Max Classes</small><strong>{x.maxClassesPerDay||"—"} / day</strong></div>
-              <div className="wide"><small>Available Days</small><strong>{(x.availableDays||[]).join(" · ")||"—"}</strong></div>
-            </>}
-            {key==="subjects" && <>
-              <div><small>Faculty</small><strong className={!refId(x.faculty)?"text-danger":""}>{facultyName||"Not mapped"}</strong></div>
-              <div><small>Section</small><strong className={!refId(x.section)?"text-danger":""}>{sectionLabel||"Not mapped"}</strong></div>
-              <div><small>Total Sessions</small><strong>{x.totalSessions||"—"}</strong></div>
-              <div><small>Max / Week</small><strong>{x.maxClassesPerWeek||x.classesPerWeek||"—"}</strong></div>
-              <div><small>Room Type</small><strong>{x.roomType||"—"}</strong></div>
-            </>}
-            {key==="sections" && <>
-              <div><small>Academic Session</small><strong>{(sessions||[]).find(s=>refId(s)===refId(x.academicSession))?.name||"—"}</strong></div>
-              <div><small>Program</small><strong>{x.program||"—"}</strong></div>
-              <div><small>Semester</small><strong>{x.semester||"—"}</strong></div>
-              <div><small>Max Classes / Day</small><strong>{x.maxClassesPerDay||"—"}</strong></div>
-            </>}
-            {key==="rooms" && <>
-              <div><small>Type</small><strong>{x.type||"—"}</strong></div>
-              <div><small>Capacity</small><strong>{x.capacity||"—"} seats</strong></div>
-            </>}
-            {key==="timeslots" && <>
-              <div><small>Day</small><strong>{x.day||"—"}</strong></div>
-              <div><small>Time</small><strong>{x.startTime||"—"} – {x.endTime||"—"}</strong></div>
-              <div><small>Period Order</small><strong>{x.order||"—"}</strong></div>
-              <div><small>Academic Session</small><strong>{(sessions||[]).find(s=>refId(s)===refId(x.academicSession))?.name||"All sessions"}</strong></div>
-              <div><small>Program</small><strong>{(data.programs||[]).find(p=>refId(p)===refId(x.program))?.name||"All programs"}</strong></div>
-              <div><small>Semester</small><strong>{x.semester||"All semesters"}</strong></div>
-            </>}
-          </div>
-          <div className="master-card-actions">
-            <button className="secondary" onClick={()=>edit(x)}>Edit</button>
-            <button className="icon-btn danger-btn" onClick={()=>del(x._id)} title="Delete"><Trash2 size={16}/></button>
-          </div>
-        </article>
-      })}
-      {!list.length && <div className="master-empty"><BookOpen size={28}/><h3>No {type.toLowerCase()} yet</h3><p>Add your first {type.slice(0,-1).toLowerCase()} using the form above.</p></div>}
+    <div className="master-table-wrap">
+      {list.length ? <table className="master-data-table">
+        <thead><tr>
+          {(key==="programs"?["Program","Code","Department","Duration","Status"]:
+            key==="semesters"?["Semester","Academic Session","Program","Order","Linked Sections","Status"]:
+            key==="faculty"?["Faculty","Code","Max Working Days","Max Classes / Day","Available Days"]:
+            key==="subjects"?["Subject","Code","Faculty","Section","Classes / Week","Total Sessions","Max / Week","Room Type"]:
+            key==="sections"?["Section","Academic Session","Program","Semester","Max Classes / Day"]:
+            key==="rooms"?["Room","Type","Capacity"]:
+            ["Day","Start Time","End Time","Order","Academic Session","Program","Semester"]).map(label=><th key={label}>{label}</th>)}
+          <th>Actions</th>
+        </tr></thead>
+        <tbody>{list.map(x=>{
+          const facultyName=x.faculty?.name || data.faculty.find(f=>refId(f)===refId(x.faculty))?.name || "Not mapped";
+          const section=data.sections.find(v=>refId(v)===refId(x.section));
+          const sectionLabel=x.section?.name || (section ? `${section.program||""} ${section.semester||""} · ${section.name||""}`.trim() : "Not mapped");
+          const programName=x.program?.name || (data.programs||[]).find(p=>refId(p)===refId(x.program))?.name || "Unlinked program";
+          const sessionName=x.academicSession?.name || (sessions||[]).find(s=>refId(s)===refId(x.academicSession))?.name || "Unlinked session";
+          let cells=[];
+          if(key==="programs") cells=[x.name||"—",x.code||"—",x.department||"—",x.durationYears? `${x.durationYears} years`:"—",x.active===false?"Inactive":"Active"];
+          else if(key==="semesters"){
+            const linked=(data.sections||[]).filter(s=>refId(s.academicSession)===refId(x.academicSession)&&String(s.semester||"").trim().toLowerCase()===String(x.name||"").trim().toLowerCase()&&(refId(s.programId)===refId(x.program)||[programName,x.program?.code||""].some(alias=>String(alias||"").trim().toLowerCase()===String(typeof s.program==="object"?(s.program?.name||s.program?.code):s.program||"").trim().toLowerCase()))).length;
+            cells=[x.name||"—",sessionName,programName,x.order||1,linked,x.active===false?"Inactive":"Active"];
+          } else if(key==="faculty") cells=[x.name||"—",x.code||"—",x.maxWorkingDays||"—",x.maxClassesPerDay||"—",(x.availableDays||[]).join(", ")||"—"];
+          else if(key==="subjects") cells=[x.name||"—",x.code||"—",facultyName,sectionLabel,x.classesPerWeek||1,x.totalSessions||"—",x.maxClassesPerWeek||x.classesPerWeek||1,x.roomType||"—"];
+          else if(key==="sections") cells=[x.name||"—",(sessions||[]).find(s=>refId(s)===refId(x.academicSession))?.name||"—",x.program||"—",x.semester||"—",x.maxClassesPerDay||"—"];
+          else if(key==="rooms") cells=[x.name||"—",x.type||"Classroom",x.capacity||"—"];
+          else cells=[x.day||"—",x.startTime||"—",x.endTime||"—",x.order||"—",(sessions||[]).find(s=>refId(s)===refId(x.academicSession))?.name||"All sessions",(data.programs||[]).find(p=>refId(p)===refId(x.program))?.name||"All programs",x.semester||"All semesters"];
+          return <tr key={x._id}>
+            {cells.map((value,i)=><td key={i}>{(key==="programs"&&i===4)||(key==="semesters"&&i===5)?<span className={value==="Inactive"?"master-status inactive":"master-status active"}>{value}</span>:value}</td>)}
+            <td><div className="master-table-actions"><button className="secondary" onClick={()=>edit(x)}>Edit</button><button className="icon-btn danger-btn" onClick={()=>del(x._id)} title="Delete"><Trash2 size={16}/></button></div></td>
+          </tr>
+        })}</tbody>
+      </table> : <div className="master-empty"><BookOpen size={28}/><h3>No {type.toLowerCase()} yet</h3><p>Add your first {type.slice(0,-1).toLowerCase()} using the form above.</p></div>}
     </div>
   </div>
 }
