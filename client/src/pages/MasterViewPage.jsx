@@ -136,7 +136,11 @@ export default function MasterView({type,data,setData,reload,sessions=[],setMess
 
     setSaving(true);
     try{
-      if(editingId){
+      if(key==="timeslots" && body.day==="All" && !editingId){
+        const allDays=[...days];
+        for(const day of allDays) await axios.post(`${API}/${key}`,{...body,day});
+        setMessage(`Time slot added for all ${allDays.length} days.`);
+      }else if(editingId){
         await axios.put(`${API}/${key}/${editingId}`,body);
         setMessage(`${type.slice(0,-1)} updated successfully.`);
       }else{
@@ -262,7 +266,7 @@ export default function MasterView({type,data,setData,reload,sessions=[],setMess
         <Select label="Academic Session" value={form.academicSession||""} options={[["","All sessions (shared default)"],...(sessions||[]).map(s=>[s._id,s.name])]} onChange={v=>setForm({...form,academicSession:v,program:"",semester:""})}/>
         <Select label="Program" value={form.program||""} options={[["","All programs (shared default)"],...(data.programs||[]).filter(p=>p.active!==false&&(sessions||[]).find(s=>refId(s)===String(form.academicSession))?.programDates?.some(d=>refId(d.program)===refId(p))).map(p=>[p._id,p.name])]} onChange={v=>setForm({...form,program:v,semester:""})}/>
         <Select label="Semester (optional)" value={form.semester||""} options={[["","All semesters (program default)"],...(data.semesters||[]).filter(s=>refId(s.academicSession)===String(form.academicSession)&&refId(s.program)===String(form.program)&&s.active!==false).map(s=>[s.name,s.name])]} onChange={v=>setForm({...form,semester:v})}/>
-        <Select label="Day" value={form.day||"Monday"} options={days.map(d=>[d,d])} onChange={v=>setForm({...form,day:v})}/>
+        <Select label="Day" value={form.day||"Monday"} options={[...(!editingId?[["All","All days"]]:[]),...days.map(d=>[d,d])]} onChange={v=>setForm({...form,day:v})}/>
         <Input label="Start Time" type="time" value={form.startTime||""} onChange={v=>setForm({...form,startTime:v})}/>
         <Input label="End Time" type="time" value={form.endTime||""} onChange={v=>setForm({...form,endTime:v})}/>
         <Input label="Period Order" type="number" value={form.order||1} min={1} max={30} step={1} onChange={v=>setForm({...form,order:v})}/>
