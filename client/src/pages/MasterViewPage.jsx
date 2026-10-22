@@ -175,7 +175,22 @@ export default function MasterView({type,data,setData,reload,sessions=[],setMess
     }
   }
 
-  const list=data[key]||[];
+  const list=[...(data[key]||[])].sort((a,b)=>{
+    if(key==="semesters"){
+      const activeA=a.active!==false?1:0, activeB=b.active!==false?1:0;
+      if(activeA!==activeB)return activeB-activeA;
+      const sessionA=(sessions||[]).find(s=>refId(s)===refId(a.academicSession))?.name||"";
+      const sessionB=(sessions||[]).find(s=>refId(s)===refId(b.academicSession))?.name||"";
+      const sessionCompare=sessionB.localeCompare(sessionA,undefined,{numeric:true});
+      if(sessionCompare)return sessionCompare;
+      const programA=(data.programs||[]).find(p=>refId(p)===refId(a.program))?.name||"";
+      const programB=(data.programs||[]).find(p=>refId(p)===refId(b.program))?.name||"";
+      const programCompare=programA.localeCompare(programB);
+      if(programCompare)return programCompare;
+      return Number(a.order||a.name||0)-Number(b.order||b.name||0);
+    }
+    return 0;
+  });
 
   return <div className="panel">
     <div className="form-grid">
