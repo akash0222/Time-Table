@@ -78,13 +78,22 @@ export default function AcademicStructure({sessions=[],activeSession,programs=[]
 
     <section className="panel">
       <div className="panel-head"><div><h3>Program → Semester → Section</h3><p>{session?`Academic Session: ${session.name}`:"Showing all sections"}</p></div><Select label="Filter Sections by Session" value={sessionId} options={[["","All Sessions"],...sessions.map(s=>[s._id,s.name+(s.active?" · Active":"")])]} onChange={setSessionId}/></div>
-      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(280px,1fr))',gap:14}}>
-        {activePrograms.map(p=>{
-          const rows=sections.filter(s=>String(s.programId?._id||s.programId||'')===String(p._id) || String(s.program||'').toLowerCase()===String(p.name||'').toLowerCase());
-          const semesters=[...new Set(rows.map(s=>s.semester))];
-          return <article key={p._id} style={{border:'1px solid #e2e8f0',borderRadius:14,padding:16,background:'#fff'}}><div style={{display:'flex',justifyContent:'space-between',gap:8}}><div><strong>{p.name}</strong><div className="muted">{p.code||'—'} · {rows.length} section(s)</div></div><span className="status-badge approved">{semesters.length} Sem</span></div>{semesters.map(sem=><div key={sem} style={{marginTop:12}}><b>Semester {sem}</b><div style={{display:'flex',gap:7,flexWrap:'wrap',marginTop:7}}>{rows.filter(s=>s.semester===sem).map(s=><span key={s._id} style={{display:'inline-flex',alignItems:'center',gap:6,padding:'7px 9px',borderRadius:9,background:'#f8fafc',border:'1px solid #e2e8f0'}}><span>{s.name}</span><small className="muted">{s.studentCount||0}/{s.capacity||"∞"} students</small><button className="secondary" style={{padding:'3px 7px'}} onClick={()=>editSection(s)}>Edit</button><button className="secondary" style={{padding:'3px 7px'}} onClick={()=>remove(s._id)}>×</button></span>)}</div></div>)}</article>
-        })}
-        {!activePrograms.length&&<div className="empty-state">Create an active Program first.</div>}
+      <div className="academic-structure-table-wrap">
+        <table className="academic-structure-table">
+          <thead><tr><th>Program</th><th>Semester</th><th>Section</th><th>Students</th><th>Capacity</th><th>Actions</th></tr></thead>
+          <tbody>
+            {activePrograms.flatMap(p=>{
+              const rows=sections.filter(s=>String(s.programId?._id||s.programId||'')===String(p._id) || String(s.program||'').toLowerCase()===String(p.name||'').toLowerCase());
+              return rows.map(s=><tr key={s._id}>
+                <td><strong>{p.name}</strong><small className="academic-structure-muted">{p.code||"—"}</small></td>
+                <td>{s.semester||"—"}</td><td><strong>{s.name}</strong></td>
+                <td>{s.studentCount||0}</td><td>{s.capacity||"Unlimited"}</td>
+                <td><div className="academic-structure-actions"><button className="secondary" onClick={()=>editSection(s)}>Edit</button><button className="secondary" onClick={()=>remove(s._id)} aria-label={`Delete section ${s.name}`}>Delete</button></div></td>
+              </tr>);
+            })}
+            {!activePrograms.some(p=>sections.some(s=>String(s.programId?._id||s.programId||'')===String(p._id) || String(s.program||'').toLowerCase()===String(p.name||'').toLowerCase()))&&<tr><td colSpan={6} className="academic-structure-empty">No sections configured for the selected session.</td></tr>}
+          </tbody>
+        </table>
       </div>
     </section>
   </div>;
