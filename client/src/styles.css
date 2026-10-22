@@ -2610,3 +2610,17 @@ a:focus-visible,button:focus-visible,[role="button"]:focus-visible{outline-color
  .master-menu-options .master-menu-item{width:100%;min-width:0}
  .master-settings-menu-top .master-menu-search input{max-width:none}
 }
+
+
+/* Academic Structure: compact table instead of program cards */
+.academic-structure-table-wrap{width:100%;overflow-x:auto;border:1px solid #e2e8f0;border-radius:12px;background:#fff}
+.academic-structure-table{width:100%;min-width:720px;border-collapse:separate;border-spacing:0;font-size:13px;color:#243449}
+.academic-structure-table th{padding:12px 14px;text-align:left;white-space:nowrap;background:#f8fafc;color:#64748b;font-size:10px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;border-bottom:1px solid #e2e8f0}
+.academic-structure-table td{padding:12px 14px;border-bottom:1px solid #edf1f6;vertical-align:middle}
+.academic-structure-table tbody tr:last-child td{border-bottom:0}
+.academic-structure-table tbody tr:hover td{background:#f8fbff}
+.academic-structure-table td:first-child strong,.academic-structure-table td:nth-child(3) strong{display:block;color:#1e293b}
+.academic-structure-muted{display:block;margin-top:3px;font-size:11px;color:#94a3b8}
+.academic-structure-actions{display:flex;gap:7px;white-space:nowrap}
+.academic-structure-actions .secondary{padding:6px 10px}
+.academic-structure-empty{text-align:center;color:#64748b;padding:24px!important}
