@@ -31,14 +31,16 @@ export default function MasterDataSettings({data,setData,reload,setMessage,sessi
       <div className="master-settings-total"><strong>{total}</strong><span>configured records</span></div>
     </section>
 
-    <section className="master-settings-body">
-      <aside className="master-settings-menu">
-        <div className="master-menu-title">Data Categories</div>
-        <div className="master-menu-search"><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search categories..."/></div>
-        {filteredItems.map(({name,icon:Icon,desc})=><button key={name} className={`master-menu-item ${section===name?"active":""}`} onClick={()=>select(name)}>
-          <span className="master-menu-icon"><Icon size={17}/></span><span><b>{name}</b><small>{desc}</small></span><span className="master-menu-arrow">›</span>
+    <section className="master-settings-menu master-settings-menu-top">
+      <div className="master-menu-title">Data Categories</div>
+      <div className="master-menu-search"><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search categories..."/></div>
+      <div className="master-menu-options">
+        {filteredItems.map(({name,icon:Icon,desc})=><button key={name} title={desc} className={`master-menu-item ${section===name?"active":""}`} onClick={()=>select(name)}>
+          <span className="master-menu-icon"><Icon size={17}/></span><span><b>{name}</b></span>
         </button>)}
-      </aside>
+      </div>
+    </section>
+    <section className="master-settings-body master-settings-body-content">
       <div className="master-settings-content">
         <div className="master-settings-heading">
           <div><span className="master-settings-kicker">MASTER DATA</span><h3>{selected.name}</h3><p>{selected.desc}</p></div>
