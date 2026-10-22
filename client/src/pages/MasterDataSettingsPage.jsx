@@ -31,14 +31,6 @@ export default function MasterDataSettings({data,setData,reload,setMessage,sessi
       <div className="master-settings-total"><strong>{total}</strong><span>configured records</span></div>
     </section>
 
-    <section className="master-overview-grid">
-      {items.slice(0,7).map(({name,key,icon:Icon})=><button key={name} className={`master-overview-card ${section===name?"active":""}`} onClick={()=>select(name)}>
-        <span className="master-overview-icon"><Icon size={18}/></span>
-        <span className="master-overview-copy"><b>{name}</b><small>{counts[key]} record{counts[key]===1?"":"s"}</small></span>
-        <span className="master-overview-arrow">›</span>
-      </button>)}
-    </section>
-
     <section className="master-settings-body">
       <aside className="master-settings-menu">
         <div className="master-menu-title">Data Categories</div>
