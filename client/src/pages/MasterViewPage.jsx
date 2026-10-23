@@ -145,14 +145,13 @@ export default function MasterView({type,data,setData,reload,sessions=[],setMess
       if(key==="timeslots" && !editingId && applyToSelectedPrograms){
         if(!selectedProgramIds.length){setMessage("Select at least one program to apply this time slot.");return;}
         const targetDays=body.day==="All"?[...days]:[body.day];
-        for(const programId of selectedProgramIds){
-          for(const day of targetDays) await axios.post(`${API}/${key}`,{...body,program:programId,day});
-        }
-        setMessage(`Time slot applied to ${selectedProgramIds.length} selected program(s) across ${targetDays.length} day(s).`);
+        const slots=selectedProgramIds.flatMap(programId=>targetDays.map(day=>({...body,program:programId,day})));
+        const response=await axios.post(`${API}/${key}/bulk`,{slots});
+        setMessage(`Time slot applied successfully to ${response.data.created} program/day combination(s).`);
       }else if(key==="timeslots" && body.day==="All" && !editingId){
-        const allDays=[...days];
-        for(const day of allDays) await axios.post(`${API}/${key}`,{...body,day});
-        setMessage(`Time slot added for all ${allDays.length} days.`);
+        const slots=[...days].map(day=>({...body,day}));
+        const response=await axios.post(`${API}/${key}/bulk`,{slots});
+        setMessage(`Time slot added successfully for all ${response.data.created} days.`);
       }else if(editingId){
         await axios.put(`${API}/${key}/${editingId}`,body);
         setMessage(`${type.slice(0,-1)} updated successfully.`);

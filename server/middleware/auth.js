@@ -12,7 +12,7 @@ export function signUser(user) {
     role: user.role,
     name: user.name,
     faculty: user.faculty ? (user.faculty._id || user.faculty).toString() : null
-  }, secret, { expiresIn: "8h" });
+  }, secret, { expiresIn: "8h", algorithm: "HS256" });
 }
 
 function normalizedId(value) {
@@ -37,7 +37,7 @@ export async function requireAuth(req, res, next) {
 
   let payload;
   try {
-    payload = jwt.verify(token, secret);
+    payload = jwt.verify(token, secret, { algorithms: ["HS256"] });
   } catch {
     return res.status(401).json({ message: "Session expired. Please login again." });
   }

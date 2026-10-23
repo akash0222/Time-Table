@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { timeToMinutes, timeSlotInputIssue, timeSlotConflictIssue } from "../services/timeSlotValidation.js";
+import { timeToMinutes, timeSlotInputIssue, timeSlotConflictIssue, timeSlotBatchInputIssue } from "../services/timeSlotValidation.js";
 
 const sessionA = "64b000000000000000000010";
 const sessionB = "64b000000000000000000011";
@@ -37,5 +37,16 @@ assert.equal(timeSlotConflictIssue({day:"Monday",startTime:"09:30",endTime:"10:3
 assert.equal(timeSlotConflictIssue({day:"Monday",startTime:"09:30",endTime:"10:30",order:2,academicSession:sessionA},[{...shared,academicSession:sessionB}]), "");
 assert.equal(timeSlotConflictIssue({day:"Monday",startTime:"09:00",endTime:"10:00",order:1,program:programB},[{...shared,program:programA}], "ignored"), "");
 assert.equal(timeSlotConflictIssue({day:"Monday",startTime:"10:00",endTime:"11:00",order:2,program:programA,semester:"Semester I"},[ent], "slot-ent"), "");
+
+
+const batchBase = { day:"Monday", startTime:"09:00", endTime:"10:00", order:1, academicSession:sessionA, program:programA, semester:"Semester I", isBreak:false };
+assert.equal(timeSlotBatchInputIssue([], []), "Add at least one time slot.");
+assert.equal(timeSlotBatchInputIssue([{...batchBase}, {...batchBase, day:"Tuesday"}]), "");
+assert.match(timeSlotBatchInputIssue([{...batchBase}, {...batchBase}]), /Time slot 2:.*order 1/);
+assert.match(timeSlotBatchInputIssue([{...batchBase}, {...batchBase, order:2, startTime:"09:30", endTime:"10:30"}]), /Time slot 2:.*overlaps/);
+assert.equal(timeSlotBatchInputIssue([{...batchBase}, {...batchBase, order:2, program:programB, startTime:"09:30", endTime:"10:30"}]), "");
+assert.match(timeSlotBatchInputIssue([{...batchBase, day:"Funday"}]), /Time slot 1:.*valid weekday/);
+assert.match(timeSlotBatchInputIssue([{...batchBase}], [{...batchBase, _id:"existing-batch-slot"}]), /Time slot 1:.*order 1/);
+assert.match(timeSlotBatchInputIssue(Array.from({length:501}, (_,index)=>({...batchBase, order:index+1}))), /at most 500/);
 
 console.log("Time slot validation regression tests passed.");

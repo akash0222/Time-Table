@@ -80,6 +80,39 @@ try {
   assert.equal(me.user?.role, "ADMIN", "QA account must have ADMIN role.");
   pass("Admin role confirmed");
 
+  const adminToken = token;
+  const qaViewerPassword = "DisposableViewer-Only-Password-123!";
+  const qaViewer = await post("/api/auth/users", {
+    name: "QA Read-only Viewer",
+    username: "qa-readonly",
+    password: qaViewerPassword,
+    role: "VIEWER"
+  }, "Create isolated read-only QA account");
+  assert.equal(qaViewer.role, "VIEWER");
+  const viewerLogin = expectStatus(
+    "Read-only QA account can authenticate",
+    await call("POST", "/api/auth/login", {
+      username: "qa-readonly",
+      password: qaViewerPassword
+    }, { auth: false }),
+    200
+  );
+  token = viewerLogin.token;
+  const viewerIdentity = await get("/api/auth/me", "Read-only QA identity loads");
+  assert.equal(viewerIdentity.user?.role, "VIEWER");
+  expectStatus(
+    "Read-only QA account cannot create time slots",
+    await call("POST", "/api/timeslots/bulk", { slots: [] }),
+    403
+  );
+  expectStatus(
+    "Read-only QA account cannot access administrator health",
+    await call("GET", "/api/system/health"),
+    403
+  );
+  token = adminToken;
+  pass("Read-only QA account is unable to perform protected writes");
+
   const program = await post("/api/programs", {
     name: "QA Integration Program",
     code: "QA-INTEG",
@@ -260,6 +293,58 @@ try {
     type: "Classroom",
     capacity: 60
   }, "Create timetable room");
+
+
+  const slotBatchBase = {
+    academicSession: session._id,
+    program: program._id,
+    semester: "Semester I",
+    day: "Saturday",
+    startTime: "09:00",
+    endTime: "10:00",
+    order: 1,
+    isBreak: false
+  };
+  const beforeBatchRows = await get("/api/timeslots", "Read time slots before batch validation");
+  const slotScopeCount = rows => rows.filter(row =>
+    String(row.academicSession?._id || row.academicSession || "") === String(session._id) &&
+    String(row.program?._id || row.program || "") === String(program._id) &&
+    String(row.day) === "Saturday"
+  ).length;
+  const beforeBatchCount = slotScopeCount(beforeBatchRows);
+  const rejectedBatch = await call("POST", "/api/timeslots/bulk", {
+    slots: [
+      slotBatchBase,
+      { ...slotBatchBase, order: 2, startTime: "09:30", endTime: "10:30" }
+    ]
+  });
+  expectStatus("Reject overlapping bulk time slots", rejectedBatch, 400);
+  const afterRejectedBatchRows = await get("/api/timeslots", "Verify rejected batch changed no data");
+  assert.equal(slotScopeCount(afterRejectedBatchRows), beforeBatchCount, "Rejected batch must not insert any time slots.");
+  pass("Rejected time-slot batch leaves the database unchanged");
+
+  const acceptedBatch = expectStatus(
+    "Create valid bulk time-slot batch",
+    await call("POST", "/api/timeslots/bulk", {
+      slots: [
+        slotBatchBase,
+        { ...slotBatchBase, order: 2, startTime: "10:00", endTime: "11:00" }
+      ]
+    }),
+    201
+  );
+  assert.equal(acceptedBatch.ok, true);
+  assert.equal(acceptedBatch.created, 2);
+  pass("Bulk time-slot endpoint creates all validated slots");
+  // Scoped slots replace broader fallback schedules for this program/semester.
+  // Remove the fixture immediately so it cannot affect the later generator checks.
+  for (const slot of acceptedBatch.slots) {
+    expectStatus(
+      "Remove temporary batch time slot",
+      await call("DELETE", `/api/timeslots/${slot._id}`, {}),
+      200
+    );
+  }
 
   const weekdays = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
   const starts = ["09:00", "10:00", "11:00", "12:00", "13:00", "14:00"];
