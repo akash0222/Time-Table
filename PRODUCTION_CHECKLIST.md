@@ -139,6 +139,11 @@ After deployment, run the QA smoke test against the Render API and manually veri
 
 ## Time-slot integrity
 
+- The bulk endpoint commits the whole batch in one MongoDB transaction; if validation or any write fails, the transaction aborts without partial rows.
+- Atomic bulk saves require MongoDB Atlas, a replica set, or a sharded cluster. A standalone local `mongod` returns HTTP 503 for this endpoint; configure local replica-set support before using multi-day or multi-program saves.
+- The endpoint accepts at most 500 slots per request and checks invalid weekdays/times, repeated period orders, overlapping clock times, configured session/program/semester references, and conflicts with already-saved slots.
+- A shared transaction guard serializes bulk validation against concurrent bulk saves. Slot writes also use a renewable database lease lock.
+
 - Time-slot writes are serialized by a MongoDB lease lock across app instances.
 - Bulk time-slot creation validates the whole batch and existing rows before any insert.
 - A failed batch attempts to remove any rows created by that batch before returning an error.
