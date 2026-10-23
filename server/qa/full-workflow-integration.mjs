@@ -303,6 +303,15 @@ try {
   assert.equal(acceptedBatch.ok, true);
   assert.equal(acceptedBatch.created, 2);
   pass("Bulk time-slot endpoint creates all validated slots");
+  // Scoped slots replace broader fallback schedules for this program/semester.
+  // Remove the fixture immediately so it cannot affect the later generator checks.
+  for (const slot of acceptedBatch.slots) {
+    expectStatus(
+      "Remove temporary batch time slot",
+      await call("DELETE", `/api/timeslots/${slot._id}`, {}),
+      200
+    );
+  }
 
   const weekdays = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
   const starts = ["09:00", "10:00", "11:00", "12:00", "13:00", "14:00"];
