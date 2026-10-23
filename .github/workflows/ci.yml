@@ -219,23 +219,28 @@ jobs:
         env:
           RUN_PRODUCTION_AUTHENTICATED_QA: ${{ vars.RUN_PRODUCTION_AUTHENTICATED_QA }}
           QA_BASE_URL: ${{ vars.QA_BASE_URL || 'https://time-table-t8t9.onrender.com' }}
-          QA_ADMIN_USERNAME: ${{ vars.QA_ADMIN_USERNAME || 'admin' }}
-          QA_ADMIN_PASSWORD: ${{ secrets.QA_ADMIN_PASSWORD }}
+          QA_USERNAME: ${{ vars.QA_USERNAME }}
+          QA_PASSWORD: ${{ secrets.QA_PASSWORD }}
+          QA_EXPECT_READ_ONLY: "true"
         run: |
           if [ "${RUN_PRODUCTION_AUTHENTICATED_QA:-}" != "true" ]; then
             echo "Authenticated production QA skipped. Set repository variable RUN_PRODUCTION_AUTHENTICATED_QA=true and secret QA_ADMIN_PASSWORD to enable read-only authenticated checks." >> "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
-          if [ -z "$QA_ADMIN_PASSWORD" ]; then
-            echo "::error::Authenticated QA is enabled but repository secret QA_ADMIN_PASSWORD is missing."
+          if [ -z "${QA_USERNAME:-}" ]; then
+            echo "::error::Authenticated production QA requires repository variable QA_USERNAME for a dedicated VIEWER account."
+            exit 1
+          fi
+          if [ -z "${QA_PASSWORD:-}" ]; then
+            echo "::error::Authenticated production QA is enabled but repository secret QA_PASSWORD is missing."
             exit 1
           fi
           node server/qa/smoke.mjs
       - name: Report optional authenticated QA failure
         if: steps.authenticated-qa.outcome == 'failure'
         run: |
-          echo "::warning::Optional authenticated production QA failed. Verify QA_ADMIN_USERNAME and update the QA_ADMIN_PASSWORD repository secret to match the live admin account."
-          echo "Warning: authenticated production QA failed with the configured test credentials. The independent read-only health, authorization-boundary, and CORS checks still run; update QA_ADMIN_PASSWORD to match the live admin account." >> "$GITHUB_STEP_SUMMARY"
+          echo "::warning::Optional authenticated production QA failed. Verify QA_USERNAME is a dedicated VIEWER account and update the QA_PASSWORD repository secret."
+          echo "Warning: authenticated production QA failed with the configured read-only QA credentials. Independent health, authorization-boundary, and CORS checks still run; verify QA_USERNAME and QA_PASSWORD." >> "$GITHUB_STEP_SUMMARY"
       - name: Verify live frontend, API health, authentication boundaries, and CORS
         env:
           APP_URL: https://time-table-beige-three.vercel.app
