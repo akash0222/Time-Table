@@ -141,10 +141,12 @@ jobs:
         ports:
           - 27017:27017
         options: >-
-          --health-cmd "mongosh --quiet --eval 'db.adminCommand({ ping: 1 }).ok' || exit 1"
+          --replSet rs0
+          --bind_ip_all
+          --health-cmd "mongosh --quiet --eval 'try { if (rs.status().myState === 1) quit(0); } catch (e) { try { rs.initiate({_id: \"rs0\", members: [{_id: 0, host: \"localhost:27017\"}]}); } catch (ignored) {} } quit(1)' || exit 1"
           --health-interval 10s
           --health-timeout 5s
-          --health-retries 10
+          --health-retries 15
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
