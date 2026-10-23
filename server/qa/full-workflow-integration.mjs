@@ -336,6 +336,21 @@ try {
   assert.equal(acceptedBatch.ok, true);
   assert.equal(acceptedBatch.created, 2);
   pass("Bulk time-slot endpoint creates all validated slots");
+
+  const conflictingWithSaved = await call("POST", "/api/timeslots/bulk", {
+    slots: [
+      { ...slotBatchBase, startTime: "09:30", endTime: "10:30" }
+    ]
+  });
+  expectStatus("Reject a bulk slot conflicting with an existing slot", conflictingWithSaved, 409);
+  const afterSavedConflictRows = await get("/api/timeslots", "Verify saved conflict changes no data");
+  assert.equal(
+    slotScopeCount(afterSavedConflictRows),
+    beforeBatchCount + 2,
+    "A conflicting batch must leave the previously saved slots untouched and add no rows."
+  );
+  pass("Conflict against saved data leaves all records unchanged");
+
   // Scoped slots replace broader fallback schedules for this program/semester.
   // Remove the fixture immediately so it cannot affect the later generator checks.
   for (const slot of acceptedBatch.slots) {
