@@ -1122,12 +1122,19 @@ export default function App(){
                 <div><span>Username</span><strong>{auth.username||"—"}</strong></div>
                 <div><span>Account role</span><strong>{String(auth.role||"USER").replace(/_/g," ")}</strong></div>
               </div>
-              <button type="button" className="header-profile-menu-item" role="menuitem" onClick={()=>{
-                setProfileOpen(false);
-                setPasswordForm({currentPassword:"",newPassword:"",confirmPassword:""});
-                // Defer modal opening until the menu's close transition/unmount has committed.
-                requestAnimationFrame(()=>setShowPasswordModal(true));
-              }}>
+              <button
+                type="button"
+                className="header-profile-menu-item"
+                role="menuitem"
+                onPointerDown={event=>event.stopPropagation()}
+                onClick={event=>{
+                  event.preventDefault();
+                  event.stopPropagation();
+                  setPasswordForm({currentPassword:"",newPassword:"",confirmPassword:""});
+                  setShowPasswordModal(true);
+                  setProfileOpen(false);
+                }}
+              >
                 <KeyRound size={16}/><span>Change Password</span>
               </button>
               <button type="button" className="header-profile-menu-item logout" role="menuitem" onClick={logout}>
