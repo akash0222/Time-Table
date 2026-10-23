@@ -257,6 +257,7 @@ export default function App(){
   const [approvalHistory,setApprovalHistory]=useState([]);
   const loadRef=useRef(null);
   const isLoadingDataRef=useRef(false);
+  const pendingRefreshRef=useRef(false);
 
   async function load({verifyAccount=true}={}){
     // Another tab, a stale browser storage entry, or a previous 401 may have
@@ -280,7 +281,11 @@ export default function App(){
       return;
     }
 
-    if(isLoadingDataRef.current)return;
+    if(isLoadingDataRef.current){
+      // Do not lose a focus/visibility refresh if the initial batch is still loading.
+      pendingRefreshRef.current=true;
+      return;
+    }
     isLoadingDataRef.current=true;
     try{
       const loadErrors=[];
@@ -358,6 +363,11 @@ export default function App(){
       }
     } finally {
       isLoadingDataRef.current=false;
+      if(pendingRefreshRef.current){
+        pendingRefreshRef.current=false;
+        Promise.resolve().then(()=>loadRef.current?.({verifyAccount:false}))
+          .catch(error=>setMessage(error.response?.data?.message||"Unable to refresh application data."));
+      }
     }
   }
   async function reloadStudentData(){
@@ -969,7 +979,7 @@ export default function App(){
       </div>;
     })()}
     {showPasswordModal&&<div className="modal-backdrop password-modal-backdrop" role="presentation" onClick={event=>{if(event.target===event.currentTarget&&!passwordSaving)setShowPasswordModal(false);}}>
-      <section className="modal-panel password-modal-panel" role="dialog" aria-modal="true" aria-labelledby="change-password-title">
+      <section className="modal-panel password-modal-panel" role="dialog" aria-modal="true" aria-label="Change Password" aria-labelledby="change-password-title">
         <div className="modal-header">
           <div><h2 id="change-password-title">Change Password</h2><p>Choose a new password with at least 10 characters.</p></div>
           <button type="button" className="icon-button" onClick={()=>setShowPasswordModal(false)} aria-label="Close Change Password" disabled={passwordSaving}><X size={18}/></button>
@@ -1112,7 +1122,12 @@ export default function App(){
                 <div><span>Username</span><strong>{auth.username||"—"}</strong></div>
                 <div><span>Account role</span><strong>{String(auth.role||"USER").replace(/_/g," ")}</strong></div>
               </div>
-              <button type="button" className="header-profile-menu-item" role="menuitem" onClick={()=>{setProfileOpen(false);setPasswordForm({currentPassword:"",newPassword:"",confirmPassword:""});setShowPasswordModal(true);}}>
+              <button type="button" className="header-profile-menu-item" role="menuitem" onClick={()=>{
+                setProfileOpen(false);
+                setPasswordForm({currentPassword:"",newPassword:"",confirmPassword:""});
+                // Defer modal opening until the menu's close transition/unmount has committed.
+                requestAnimationFrame(()=>setShowPasswordModal(true));
+              }}>
                 <KeyRound size={16}/><span>Change Password</span>
               </button>
               <button type="button" className="header-profile-menu-item logout" role="menuitem" onClick={logout}>
