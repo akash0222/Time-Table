@@ -46,7 +46,7 @@ assert.match(timeSlotBatchInputIssue([{...batchBase}, {...batchBase}]), /Time sl
 assert.match(timeSlotBatchInputIssue([{...batchBase}, {...batchBase, order:2, startTime:"09:30", endTime:"10:30"}]), /Time slot 2:.*overlaps/);
 assert.equal(timeSlotBatchInputIssue([{...batchBase}, {...batchBase, order:2, program:programB, startTime:"09:30", endTime:"10:30"}]), "");
 assert.match(timeSlotBatchInputIssue([{...batchBase, day:"Funday"}]), /Time slot 1:.*valid weekday/);
-assert.match(timeSlotBatchInputIssue([{...batchBase}], [shared]), /Time slot 1:.*overlaps/);
+assert.match(timeSlotBatchInputIssue([{...batchBase}], [{...batchBase, _id:"existing-batch-slot"}]), /Time slot 1:.*order 1/);
 assert.match(timeSlotBatchInputIssue(Array.from({length:501}, (_,index)=>({...batchBase, order:index+1}))), /at most 500/);
 
 console.log("Time slot validation regression tests passed.");
