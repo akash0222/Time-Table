@@ -26,7 +26,13 @@ export const env = Object.freeze({
   isProduction: nodeEnv === "production",
   port: Number(process.env.PORT || 5000),
   mongoUri,
-  jwtSecret: required("JWT_SECRET", { productionOnly: true, minLength: 32 }) || "local-development-only-change-me",
+  jwtSecret: (() => {
+    const value = required("JWT_SECRET", { productionOnly: true, minLength: 32 }) || "local-development-only-change-me";
+    if (nodeEnv === "production" && /replace_with|change_me|your[_ -]?secret|development-only|example/i.test(value)) {
+      throw new Error("JWT_SECRET must be a unique, randomly generated secret in production.");
+    }
+    return value;
+  })(),
   clientUrl: String(process.env.CLIENT_URL || "").trim(),
   corsOrigins: String(process.env.CORS_ORIGINS || process.env.CLIENT_URL || "").split(",").map(x => x.trim()).filter(Boolean),
   publicAppUrl: String(process.env.PUBLIC_APP_URL || process.env.CLIENT_URL || "").trim(),
