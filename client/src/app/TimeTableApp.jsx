@@ -782,6 +782,41 @@ export default function App(){
     document.title="Scheduly";
   }} /></Suspense>;
 
+  async function changePassword(event){
+    event.preventDefault();
+    if(passwordSaving)return;
+    if(!passwordForm.currentPassword||!passwordForm.newPassword||!passwordForm.confirmPassword){
+      setMessage("Complete all password fields.");
+      return;
+    }
+    if(passwordForm.newPassword!==passwordForm.confirmPassword){
+      setMessage("New password and confirmation do not match.");
+      return;
+    }
+    if(passwordForm.newPassword.length<10){
+      setMessage("New password must contain at least 10 characters.");
+      return;
+    }
+    if(!API){
+      setMessage(API_CONFIGURATION_ERROR);
+      return;
+    }
+    setPasswordSaving(true);
+    try{
+      const response=await axios.post(`${API}/auth/change-password`,{
+        currentPassword:passwordForm.currentPassword,
+        newPassword:passwordForm.newPassword
+      });
+      setMessage(response.data?.message||"Password changed successfully.");
+      setShowPasswordModal(false);
+      setPasswordForm({currentPassword:"",newPassword:"",confirmPassword:""});
+    }catch(error){
+      setMessage(error.response?.data?.message||"Unable to change password. Please try again.");
+    }finally{
+      setPasswordSaving(false);
+    }
+  }
+
   async function generate(programIds=selectedProgramIds){
     setShowGenerationDialog(false);
     setLoading(true);
