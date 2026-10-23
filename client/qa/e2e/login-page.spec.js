@@ -1,5 +1,8 @@
 import { test, expect } from "@playwright/test";
 
+// The application validates JWT expiry client-side. Keep mocked sessions structurally valid.
+const validTestToken = "eyJhbGciOiJub25lIiwidHlwIjoiSldUIn0.eyJleHAiOjQxMDI0NDQ4MDB9.dGVzdA";
+
 test.describe("Login page", () => {
   test.beforeEach(async ({ page }) => {
     await page.route("**/api/health", async route => {
@@ -185,7 +188,7 @@ test.describe("Login page", () => {
           status: 200,
           contentType: "application/json",
           body: JSON.stringify({
-            token: "qa-test-token",
+            token: validTestToken,
             user: { id: "user-1", name: "Test Admin", username: "admin", role: "ADMIN", faculty: null, section: null }
           })
         });
