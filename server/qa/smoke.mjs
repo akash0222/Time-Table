@@ -129,11 +129,12 @@ try {
           "HTTP " + deniedWrite.response.status);
       }
 
-      const missingSession = await request("/api/timetable/readiness");
+      const readinessStatus = await request("/api/timetable/readiness");
+      const expectedReadinessStatus = expectedReadOnly ? 403 : 400;
       check(
-        "Timetable readiness requires session",
-        missingSession.response.status === 400,
-        "HTTP " + missingSession.response.status
+        "Timetable readiness role/session boundary",
+        readinessStatus.response.status === expectedReadinessStatus,
+        "HTTP " + readinessStatus.response.status
       );
     }
   }
