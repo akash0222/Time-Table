@@ -44,6 +44,13 @@ async function loadContext(body = {}) {
   const selectedSection = section => !programIds.length || programIds.includes(idOf(section.programId)) || programNames.has(String(section.program || "").trim().toLowerCase());
   const sections = sectionsAll.filter(selectedSection);
   if (!sections.length) { const e = new Error("No sections are mapped to the selected program(s) for this academic session."); e.statusCode = 422; throw e; }
+  if (session.programDates?.length) {
+    const missingCalendars = sections.filter(section => !resolveProgramCalendar(session.programDates || [], section, programs));
+    if (missingCalendars.length) {
+      const e = new Error("Configure academic dates for every selected program before generating: " + missingCalendars.map(section => [section.program, section.semester, section.name].filter(Boolean).join(" · ")).join(", "));
+      e.statusCode = 422; throw e;
+    }
+  }
 
   const allSectionIds = sectionsAll.map(section => section._id);
   const allSubjects = await Subject.find({ $and: [
