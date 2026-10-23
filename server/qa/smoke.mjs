@@ -102,7 +102,7 @@ try {
         ["/api/timeslots", x => x.response.status === 200 && Array.isArray(x.body), "Time Slots"],
         ["/api/sessions", x => x.response.status === 200 && Array.isArray(x.body), "Academic Sessions"],
         ["/api/settings", x => x.response.status === 200 && typeof x.body === "object" && x.body?.key === "default", "Scheduler Settings"],
-        ["/api/academic-structure", x => x.response.status === 200 && Array.isArray(x.body?.programs), "Academic Structure"]
+        ["/api/academic-structure", x => expectedReadOnly ? x.response.status === 403 : x.response.status === 200 && Array.isArray(x.body?.programs), "Academic Structure access boundary"]
       ];
 
       for (const [path, predicate, label] of endpoints) {
