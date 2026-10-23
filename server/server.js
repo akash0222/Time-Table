@@ -39,6 +39,7 @@ import studentProfileRouter from "./routes/studentProfile.js";
 import studentPromotionRouter from "./routes/studentPromotion.js";
 import studentsRouter from "./routes/students.js";
 import semesterRouter from "./routes/semesters.js";
+import generationPreviewRouter from "./routes/generationPreview.js";
 import User from "./models/User.js";
 import ShareLink from "./models/ShareLink.js";
 import Student from "./models/Student.js";
@@ -119,6 +120,7 @@ app.use("/api/student-profiles", requireAuth, studentProfileRouter);
 app.use("/api/student-promotions", requireAuth, studentPromotionRouter);
 app.use("/api/students", requireAuth, studentsRouter);
 app.use("/api/semesters", requireAuth, semesterRouter);
+app.use("/api", generationPreviewRouter);
 
 app.get("/api/settings", requireAuth, async (_req, res) => {
   const defaults = {
