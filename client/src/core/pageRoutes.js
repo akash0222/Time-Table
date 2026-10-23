@@ -8,6 +8,7 @@ export const PAGE_NAMES = [
   "Academic Structure",
   "Holiday Management",
   "Generation Readiness",
+  "Generation Preview",
   "Full Session Timetable",
   "All Program Timetables",
   "Timetable",
