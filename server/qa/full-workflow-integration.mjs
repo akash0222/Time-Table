@@ -80,6 +80,39 @@ try {
   assert.equal(me.user?.role, "ADMIN", "QA account must have ADMIN role.");
   pass("Admin role confirmed");
 
+  const adminToken = token;
+  const qaViewerPassword = "DisposableViewer-Only-Password-123!";
+  const qaViewer = await post("/api/auth/users", {
+    name: "QA Read-only Viewer",
+    username: "qa-readonly",
+    password: qaViewerPassword,
+    role: "VIEWER"
+  }, "Create isolated read-only QA account");
+  assert.equal(qaViewer.role, "VIEWER");
+  const viewerLogin = expectStatus(
+    "Read-only QA account can authenticate",
+    await call("POST", "/api/auth/login", {
+      username: "qa-readonly",
+      password: qaViewerPassword
+    }, { auth: false }),
+    200
+  );
+  token = viewerLogin.token;
+  const viewerIdentity = await get("/api/auth/me", "Read-only QA identity loads");
+  assert.equal(viewerIdentity.user?.role, "VIEWER");
+  expectStatus(
+    "Read-only QA account cannot create time slots",
+    await call("POST", "/api/timeslots/bulk", { slots: [] }),
+    403
+  );
+  expectStatus(
+    "Read-only QA account cannot access administrator health",
+    await call("GET", "/api/system/health"),
+    403
+  );
+  token = adminToken;
+  pass("Read-only QA account is unable to perform protected writes");
+
   const program = await post("/api/programs", {
     name: "QA Integration Program",
     code: "QA-INTEG",
