@@ -1,8 +1,9 @@
 import process from "node:process";
 
 const base = String(process.env.QA_BASE_URL || "http://localhost:5000").replace(/\/$/, "");
-const username = String(process.env.QA_ADMIN_USERNAME || "admin").trim().toLowerCase();
-const password = String(process.env.QA_ADMIN_PASSWORD || process.env.DEFAULT_ADMIN_PASSWORD || "");
+const expectedReadOnly = String(process.env.QA_EXPECT_READ_ONLY || "").trim().toLowerCase() === "true";
+const username = String(process.env.QA_USERNAME || process.env.QA_ADMIN_USERNAME || (expectedReadOnly ? "" : "admin")).trim().toLowerCase();
+const password = String(process.env.QA_PASSWORD || process.env.QA_ADMIN_PASSWORD || (!expectedReadOnly ? process.env.DEFAULT_ADMIN_PASSWORD : "") || "");
 
 let passed = 0;
 const failures = [];
@@ -65,7 +66,12 @@ try {
   );
 
   if (!password) {
-    console.log("INFO  Login checks skipped: set QA_ADMIN_PASSWORD.");
+    if (expectedReadOnly) {
+      failures.push("Read-only production QA requires QA_USERNAME and QA_PASSWORD.");
+      console.error("FAIL  Read-only production QA requires QA_USERNAME and QA_PASSWORD.");
+    } else {
+      console.log("INFO  Login checks skipped: set QA_ADMIN_PASSWORD (local/CI compatibility).");
+    }
   } else {
     const login = await request("/api/auth/login", {
       method: "POST",
@@ -73,7 +79,7 @@ try {
       body: JSON.stringify({ username, password })
     });
 
-    check("Admin login", login.response.status === 200 && Boolean(login.body?.token), "HTTP " + login.response.status);
+    check("QA account login", login.response.status === 200 && Boolean(login.body?.token), "HTTP " + login.response.status);
     token = login.body?.token || "";
 
     if (token) {
@@ -83,6 +89,10 @@ try {
         me.response.status === 200 && me.body?.user?.username === username,
         "HTTP " + me.response.status
       );
+      if (expectedReadOnly) {
+        check("Production QA uses a read-only VIEWER account", me.body?.user?.role === "VIEWER",
+          "configured role: " + String(me.body?.user?.role || "unknown"));
+      }
 
       const endpoints = [
         ["/api/faculty", x => x.response.status === 200 && Array.isArray(x.body), "Faculty"],
@@ -101,11 +111,23 @@ try {
       }
 
       const systemHealth = await request("/api/system/health");
+      const expectedSystemHealthStatus = me.body?.user?.role === "ADMIN" ? 200 : 403;
       check(
-        "Admin system health",
-        systemHealth.response.status === 200 && systemHealth.body?.ok === true,
+        "Admin-only system health boundary",
+        systemHealth.response.status === expectedSystemHealthStatus &&
+          (expectedSystemHealthStatus === 403 || systemHealth.body?.ok === true),
         "HTTP " + systemHealth.response.status
       );
+
+      if (expectedReadOnly) {
+        const deniedWrite = await request("/api/timeslots/bulk", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ slots: [] })
+        });
+        check("Read-only QA account cannot write time slots", deniedWrite.response.status === 403,
+          "HTTP " + deniedWrite.response.status);
+      }
 
       const missingSession = await request("/api/timetable/readiness");
       check(
