@@ -261,6 +261,49 @@ try {
     capacity: 60
   }, "Create timetable room");
 
+
+  const slotBatchBase = {
+    academicSession: session._id,
+    program: program._id,
+    semester: "Semester I",
+    day: "Saturday",
+    startTime: "09:00",
+    endTime: "10:00",
+    order: 1,
+    isBreak: false
+  };
+  const beforeBatchRows = await get("/api/timeslots", "Read time slots before batch validation");
+  const slotScopeCount = rows => rows.filter(row =>
+    String(row.academicSession?._id || row.academicSession || "") === String(session._id) &&
+    String(row.program?._id || row.program || "") === String(program._id) &&
+    String(row.day) === "Saturday"
+  ).length;
+  const beforeBatchCount = slotScopeCount(beforeBatchRows);
+  const rejectedBatch = await call("POST", "/api/timeslots/bulk", {
+    slots: [
+      slotBatchBase,
+      { ...slotBatchBase, order: 2, startTime: "09:30", endTime: "10:30" }
+    ]
+  });
+  expectStatus("Reject overlapping bulk time slots", rejectedBatch, 400);
+  const afterRejectedBatchRows = await get("/api/timeslots", "Verify rejected batch changed no data");
+  assert.equal(slotScopeCount(afterRejectedBatchRows), beforeBatchCount, "Rejected batch must not insert any time slots.");
+  pass("Rejected time-slot batch leaves the database unchanged");
+
+  const acceptedBatch = expectStatus(
+    "Create valid bulk time-slot batch",
+    await call("POST", "/api/timeslots/bulk", {
+      slots: [
+        slotBatchBase,
+        { ...slotBatchBase, order: 2, startTime: "10:00", endTime: "11:00" }
+      ]
+    }),
+    201
+  );
+  assert.equal(acceptedBatch.ok, true);
+  assert.equal(acceptedBatch.created, 2);
+  pass("Bulk time-slot endpoint creates all validated slots");
+
   const weekdays = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
   const starts = ["09:00", "10:00", "11:00", "12:00", "13:00", "14:00"];
   let slotCount = 0;
