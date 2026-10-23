@@ -11,15 +11,21 @@ export default function MasterView({type,data,setData,reload,sessions=[],setMess
   const [editingId,setEditingId]=useState(null);
   const [saving,setSaving]=useState(false);
   const [formError,setFormError]=useState("");
+  const [applyToSelectedPrograms,setApplyToSelectedPrograms]=useState(false);
+  const [selectedProgramIds,setSelectedProgramIds]=useState([]);
 
   function reset(){
     setForm({});
     setEditingId(null);
     setFormError("");
+    setApplyToSelectedPrograms(false);
+    setSelectedProgramIds([]);
   }
 
   function edit(record){
     setFormError("");
+    setApplyToSelectedPrograms(false);
+    setSelectedProgramIds([]);
     if(key==="semesters"){
       setForm({...record,academicSession:record.academicSession?._id||record.academicSession||"",program:record.program?._id||record.program||""});
     }else if(key==="sections"){
@@ -136,7 +142,14 @@ export default function MasterView({type,data,setData,reload,sessions=[],setMess
 
     setSaving(true);
     try{
-      if(key==="timeslots" && body.day==="All" && !editingId){
+      if(key==="timeslots" && !editingId && applyToSelectedPrograms){
+        if(!selectedProgramIds.length){setMessage("Select at least one program to apply this time slot.");return;}
+        const targetDays=body.day==="All"?[...days]:[body.day];
+        for(const programId of selectedProgramIds){
+          for(const day of targetDays) await axios.post(`${API}/${key}`,{...body,program:programId,day});
+        }
+        setMessage(`Time slot applied to ${selectedProgramIds.length} selected program(s) across ${targetDays.length} day(s).`);
+      }else if(key==="timeslots" && body.day==="All" && !editingId){
         const allDays=[...days];
         for(const day of allDays) await axios.post(`${API}/${key}`,{...body,day});
         setMessage(`Time slot added for all ${allDays.length} days.`);
@@ -279,7 +292,12 @@ export default function MasterView({type,data,setData,reload,sessions=[],setMess
 
       {key==="timeslots" && <>
         <Select label="Academic Session" value={form.academicSession||""} options={[["","All sessions (shared default)"],...(sessions||[]).map(s=>[s._id,s.name])]} onChange={v=>setForm({...form,academicSession:v,program:"",semester:""})}/>
-        <Select label="Program" value={form.program||""} options={[["","All programs (shared default)"],...(data.programs||[]).filter(p=>p.active!==false&&(sessions||[]).find(s=>refId(s)===String(form.academicSession))?.programDates?.some(d=>refId(d.program)===refId(p))).map(p=>[p._id,p.name])]} onChange={v=>setForm({...form,program:v,semester:""})}/>
+        <Select label="Program" value={form.program||""} options={[["","All programs (shared default)"],...(data.programs||[]).filter(p=>p.active!==false&&(sessions||[]).find(s=>refId(s)===String(form.academicSession))?.programDates?.some(d=>refId(d.program)===refId(p))).map(p=>[p._id,p.name])]} onChange={v=>setForm({...form,program:v,semester:""})} disabled={applyToSelectedPrograms}/>
+        {!editingId && <div className="field" style={{gridColumn:"1 / -1",border:"1px solid #dbe3ef",borderRadius:10,padding:12,background:"#f8fafc"}}>
+          <label style={{display:"flex",alignItems:"center",gap:9,cursor:"pointer",fontWeight:700}}><input type="checkbox" checked={applyToSelectedPrograms} onChange={e=>{setApplyToSelectedPrograms(e.target.checked);setForm(current=>({...current,program:"",semester:""}));setSelectedProgramIds([]);}}/>Apply this time slot to selected programs</label>
+          {applyToSelectedPrograms && <div style={{display:"flex",flexWrap:"wrap",gap:"10px 18px",marginTop:10}}>{(data.programs||[]).filter(p=>p.active!==false&&(sessions||[]).find(s=>refId(s)===String(form.academicSession))?.programDates?.some(d=>refId(d.program)===refId(p))).map(p=><label key={p._id} style={{display:"flex",alignItems:"center",gap:6,cursor:"pointer"}}><input type="checkbox" checked={selectedProgramIds.includes(p._id)} onChange={e=>setSelectedProgramIds(ids=>e.target.checked?[...new Set([...ids,p._id])]:ids.filter(id=>id!==p._id))}/>{p.name}</label>)}</div>}
+          <small style={{display:"block",marginTop:6,color:"#64748b"}}>Choose one or more programs. The same day, time, and period order will be created for each selected program.</small>
+        </div>}
         <Select label="Semester (optional)" value={form.semester||""} options={[["","All semesters (program default)"],...(data.semesters||[]).filter(s=>refId(s.academicSession)===String(form.academicSession)&&refId(s.program)===String(form.program)&&s.active!==false).map(s=>[s.name,s.name])]} onChange={v=>setForm({...form,semester:v})}/>
         <Select label="Day" value={form.day||"Monday"} options={[...(!editingId?[["All","All days"]]:[]),...days.map(d=>[d,d])]} onChange={v=>setForm({...form,day:v})}/>
         <Input label="Start Time" type="time" value={form.startTime||""} onChange={v=>setForm({...form,startTime:v})}/>
