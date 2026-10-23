@@ -1,5 +1,8 @@
 import { test, expect } from "@playwright/test";
 
+// The application validates JWT expiry client-side. Keep mocked sessions structurally valid.
+const validTestToken = "eyJhbGciOiJub25lIiwidHlwIjoiSldUIn0.eyJleHAiOjQxMDI0NDQ4MDB9.dGVzdA";
+
 const password = "correct-test-password";
 
 const program = { _id: "program-1", name: "MBA", code: "MBA", active: true };
@@ -118,7 +121,7 @@ async function installRoleApiMocks(page, role) {
       if (String(body.username || "").trim().toLowerCase() !== user.username || body.password !== password) {
         return json({ message: "Invalid username or password." }, 401);
       }
-      return json({ token: "role-test-token-" + role, user });
+      return json({ token: validTestToken, user });
     }
     if (path === "/auth/me" && method === "GET") return json({ user });
     if (path === "/auth/change-password" && method === "POST") {
