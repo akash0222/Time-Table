@@ -164,7 +164,12 @@ router.post("/timetable/previews/:id/commit", requireAuth, allowRoles("ADMIN", "
     settings ||= {};
     const programIds = (preview.programIds || []).map(String), selectedPrograms = programs.filter(program => programIds.includes(idOf(program)));
     const names = new Set(selectedPrograms.flatMap(program => [program.name, program.code].filter(Boolean).map(value => String(value).trim().toLowerCase())));
-    const scopedSections = new Set(sections.filter(section => !programIds.length || programIds.includes(idOf(section.programId)) || names.has(String(section.program || "").trim().toLowerCase())).map(idOf));
+    const scopedSectionRecords = sections.filter(section => !programIds.length || programIds.includes(idOf(section.programId)) || names.has(String(section.program || "").trim().toLowerCase()));
+    if (session.programDates?.length) {
+      const missingCalendars = scopedSectionRecords.filter(section => !resolveProgramCalendar(session.programDates || [], section, programs));
+      if (missingCalendars.length) return res.status(409).json({ message: "Academic program dates changed after preview. Configure the affected program calendars and generate a fresh preview.", sections: missingCalendars.map(section => [section.program, section.semester, section.name].filter(Boolean).join(" · ")) });
+    }
+    const scopedSections = new Set(scopedSectionRecords.map(idOf));
     const scopedSubjects = subjects.filter(subject => scopedSections.has(idOf(subject.section)));
     const required = scopedSubjects.reduce((sum, subject) => sum + Math.max(0, Number(subject.classesPerWeek || 0)), 0);
     const scheduled = (preview.entries || []).filter(entry => scopedSections.has(idOf(entry.section))).length;
