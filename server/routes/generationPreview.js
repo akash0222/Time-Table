@@ -66,7 +66,7 @@ async function loadContext(body = {}) {
     const reasons = [];
     if (!facultyIds.has(idOf(subject.faculty))) reasons.push("Faculty mapping is missing or invalid.");
     if (!sectionIds.has(idOf(subject.section))) reasons.push("Section mapping is missing or outside the selected scope.");
-    if (reasons.length) invalidSubjects.push({ name: subject.name, code: subject.code, reasons });
+    if (reasons.length) invalidSubjects.push({ ...subject, reasons });
     else subjects.push(subject);
   }
   if (!subjects.length) { const e = new Error("No valid subject mappings were found for the selected program(s)."); e.statusCode = 422; e.diagnostics = invalidSubjects; throw e; }
@@ -79,7 +79,7 @@ async function loadContext(body = {}) {
     const section = sectionsAll.find(row => idOf(row) === idOf(entry.section));
     return { ...entry, calendarStartDate: entry.calendarStartDate || section?._calendarStartDate || "", calendarEndDate: entry.calendarEndDate || section?._calendarEndDate || "" };
   }) : [];
-  return { sessionId, session, programIds, selectedPrograms, faculty, sections, sectionsAll, rooms, slots, usableSlots, programs, settings, subjects, allSubjects, invalidSubjects, current, reservedEntries };
+  return { sessionId, session, programIds, selectedPrograms, faculty, sections, sectionsAll, rooms, slots, usableSlots, programs, settings, subjects, scopedSubjects, allSubjects, invalidSubjects, current, reservedEntries };
 }
 
 router.post("/timetable/preview", requireAuth, allowRoles("ADMIN", "SCHEDULER"), async (req, res) => {
@@ -92,23 +92,23 @@ router.post("/timetable/preview", requireAuth, allowRoles("ADMIN", "SCHEDULER"),
       programs: c.programs, settings: c.settings, reservedEntries: c.reservedEntries, runs, totalMaxMillis: timeLimit,
       perRunMillis: Math.max(750, Math.floor(timeLimit / runs)), attemptsPerRun: env.schedulerGenerationAttempts, academicSessionId: c.sessionId
     });
-    const required = c.subjects.reduce((sum, subject) => sum + Math.max(0, Number(subject.classesPerWeek || 0)), 0);
+    const required = c.scopedSubjects.reduce((sum, subject) => sum + Math.max(0, Number(subject.classesPerWeek || 0)), 0);
     const validation = validateTimetable({ entries: result.entries || [], faculty: c.faculty, sections: c.sections, subjects: c.subjects, rooms: c.rooms, slots: c.usableSlots, programs: c.programs, settings: c.settings, academicSessionId: c.sessionId, holidayDays: c.settings.holidayDays || ["Sunday"] });
     const mergedEntries = [...(c.programIds.length ? c.reservedEntries : []), ...(result.entries || [])];
     const fids = new Set(c.faculty.map(idOf)), sids = new Set(c.sectionsAll.map(idOf));
     const allValidSubjects = c.allSubjects.filter(subject => fids.has(idOf(subject.faculty)) && sids.has(idOf(subject.section)));
     const mergedValidation = c.programIds.length ? validateTimetable({ entries: mergedEntries, faculty: c.faculty, sections: c.sectionsAll, subjects: allValidSubjects, rooms: c.rooms, slots: c.usableSlots, programs: c.programs, settings: c.settings, academicSessionId: c.sessionId, holidayDays: c.settings.holidayDays || ["Sunday"] }) : validation;
     const report = buildGenerationReport({
-      entries: result.entries || [], subjects: c.subjects, faculty: c.faculty, sections: c.sectionsAll, rooms: c.rooms, slots: c.usableSlots,
-      programs: c.programs, settings: c.settings, warnings: result.warnings || [], validation: c.programIds.length ? mergedValidation : validation,
+      entries: result.entries || [], subjects: c.scopedSubjects, faculty: c.faculty, sections: c.sectionsAll, rooms: c.rooms, slots: c.usableSlots,
+      programs: c.programs, settings: c.settings, warnings: [...(result.warnings || []), ...c.invalidSubjects.map(item => String(item.name || item.code || "Subject") + ": " + item.reasons.join(" "))], validation: c.programIds.length ? mergedValidation : validation,
       invalidSubjects: c.invalidSubjects, academicSessionId: c.sessionId,
       scope: { academicSessionId: c.sessionId, academicSessionName: c.session.name, programIds: c.programIds, programNames: c.programIds.length ? c.selectedPrograms.map(program => program.name) : ["All programs"] },
       generationRuns: runs, generationTimeLimitMs: timeLimit, qualityMetrics: result.metrics || null
     });
-    const committable = Boolean((result.entries || []).length && result.entries.length >= required && (c.programIds.length ? mergedValidation : validation).valid && report.summary.unscheduledSessions === 0);
+    const committable = Boolean(c.invalidSubjects.length === 0 && (result.entries || []).length && result.entries.length >= required && (c.programIds.length ? mergedValidation : validation).valid && report.summary.unscheduledSessions === 0);
     const preview = await GenerationPreview.create({
       createdBy: String(req.user?.username || ""), academicSession: c.sessionId, programIds: c.programIds, entries: mergedEntries,
-      score: Number(result.score || 0), metrics: result.metrics || null, warnings: result.warnings || [], report, expectedSessions: required,
+      score: Number(result.score || 0), metrics: result.metrics || null, warnings: [...(result.warnings || []), ...c.invalidSubjects.map(item => String(item.name || item.code || "Subject") + ": " + item.reasons.join(" "))], report, expectedSessions: required,
       generationRuns: runs, baseTimetableId: c.current?._id || null, baseTimetableUpdatedAt: c.current?.updatedAt || null,
       expiresAt: new Date(Date.now() + 30 * 60 * 1000)
     });
