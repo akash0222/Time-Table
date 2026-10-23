@@ -25,7 +25,7 @@ const NAV_MENU_LAYOUT = {
     { type: "group", label: "Master Data & Mapping", pages: ["Master Data Settings", "Subject & Faculty Mapping"] }
   ],
   "Timetable & Scheduling": [
-    { type: "group", label: "Generation & Optimization", pages: ["Generation Readiness", "Availability", "Optimization"] },
+    { type: "group", label: "Generation & Optimization", pages: ["Generation Readiness", "Generation Preview", "Availability", "Optimization"] },
     { type: "group", label: "Timetable Views", pages: ["Full Session Timetable", "All Program Timetables", "Timetable", "Calendar View"] },
     { type: "page", name: "Approval & Versions" }
   ],
