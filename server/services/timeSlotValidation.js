@@ -89,3 +89,30 @@ export function timeSlotConflictIssue(candidate, existingSlots = [], exceptId = 
 export function timeSlotScopesCanOverlap(a, b) {
   return scopesCanOverlap(a, b);
 }
+
+
+/**
+ * Validate a whole slot batch against stored slots and earlier entries in the
+ * same batch. Call while holding the slot-write lock so overlapping writes
+ * cannot pass validation at the same time.
+ */
+export function timeSlotBatchInputIssue(slots, existingSlots = [], maxItems = 500) {
+  if (!Array.isArray(slots) || slots.length === 0) {
+    return "Add at least one time slot.";
+  }
+  if (slots.length > maxItems) {
+    return `A single request may contain at most ${maxItems} time slots.`;
+  }
+
+  const accepted = [];
+  for (let index = 0; index < slots.length; index += 1) {
+    const candidate = slots[index];
+    const inputIssue = timeSlotInputIssue(candidate);
+    if (inputIssue) return `Time slot ${index + 1}: ${inputIssue}`;
+
+    const conflict = timeSlotConflictIssue(candidate, [...existingSlots, ...accepted]);
+    if (conflict) return `Time slot ${index + 1}: ${conflict}`;
+    accepted.push(candidate);
+  }
+  return "";
+}
