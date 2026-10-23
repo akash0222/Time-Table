@@ -1030,7 +1030,12 @@ function crud(path, Model) {
     } finally { if (releaseTimeSlotLock) await releaseTimeSlotLock(); }
   });
   app.delete(`/api/${path}/:id`, requireAuth, allowRoles("ADMIN", "SCHEDULER"), async (req,res) => {
+    let releaseTimeSlotLock = null;
     try {
+      // Serialize deletion with single-slot edits and atomic bulk saves. Without
+      // the shared lock, an edit/delete race can invalidate the slot snapshot
+      // used by a concurrent conflict check.
+      if (path === "timeslots") releaseTimeSlotLock = await acquireTimeSlotWriteLock();
       const id = req.params.id;
       const dependencyMap = {
         faculty: [
@@ -1065,10 +1070,12 @@ function crud(path, Model) {
         const count = await Dep.countDocuments(filter);
         if(count) return res.status(409).json({message:`Cannot delete this ${path.slice(0,-1)} because ${count} ${label} depend on it. Resolve the dependencies first.`});
       }
+      if (path === "timeslots" && releaseTimeSlotLock) releaseTimeSlotLock.assertHeld();
       const deleted = await Model.findByIdAndDelete(id);
       if(!deleted) return res.status(404).json({message:"Record not found"});
       res.json({ok:true});
-    } catch(e) { res.status(400).json({message:e.message}); }
+    } catch(e) { res.status(e.statusCode || 400).json({message:e.message}); }
+    finally { if (releaseTimeSlotLock) await releaseTimeSlotLock(); }
   });
 }
 crud("faculty", Faculty);
