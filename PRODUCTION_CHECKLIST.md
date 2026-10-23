@@ -53,11 +53,13 @@ Rotate every credential that was previously committed to the repository. Updatin
 
 Recommended sequence:
 
-1. Rotate the MongoDB user password.
-2. Generate a new JWT secret.
-3. Change the initial admin password.
-4. Update Render environment variables.
-5. Remove/rotate exposed credentials from Git history before public redistribution.
+1. Rotate the MongoDB user password in Atlas; update Render's `MONGO_URI` immediately after.
+2. Use a dedicated least-privilege MongoDB database user for the production database; keep QA on a separate database and separate database user.
+3. Generate a new unique production `JWT_SECRET` (at least 32 random characters); do not reuse the disposable CI/QA secret.
+4. Change the live admin password and remove `DEFAULT_ADMIN_PASSWORD` from the runtime environment after initial admin creation, if the app no longer needs it.
+5. Rotate any other credential ever shared in chat or committed. A current example file does not erase historical Git commits; use GitHub secret scanning/history review before public redistribution.
+
+Never use the production admin password as `QA_ADMIN_PASSWORD`. Prefer a dedicated, least-privilege QA user and a separate QA database. The production smoke job should stay read-only.
 
 ## Timetable generation behavior
 
@@ -133,3 +135,11 @@ After deployment, run the QA smoke test against the Render API and manually veri
 - public share link
 - Excel/PDF export
 
+
+
+## Time-slot integrity
+
+- Time-slot writes are serialized by a MongoDB lease lock across app instances.
+- Bulk time-slot creation validates the whole batch and existing rows before any insert.
+- A failed batch attempts to remove any rows created by that batch before returning an error.
+- Use the bulk endpoint for multi-program or multi-day creation; do not loop individual POST requests from the browser.
