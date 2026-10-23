@@ -138,6 +138,7 @@ const Reports = lazy(() => import("../pages/ReportsPage.jsx"));
 const AuditLogs = lazy(() => import("../pages/AuditLogsPage.jsx"));
 const Optimization = lazy(() => import("../pages/OptimizationPage.jsx"));
 const GenerationReadiness = lazy(() => import("../pages/GenerationReadinessPage.jsx"));
+const GenerationPreviewPage = lazy(() => import("../pages/GenerationPreviewPage.jsx"));
 const Validation = lazy(() => import("../pages/ValidationPage.jsx"));
 const TimetableView = lazy(() => import("../pages/TimetableViewPage.jsx"));
 const ApprovalVersions = lazy(() => import("../pages/ApprovalVersionsPage.jsx"));
@@ -245,6 +246,7 @@ export default function App(){
 
   const [data,setData]=useState({faculty:[],subjects:[],sections:[],rooms:[],timeslots:[],programs:[],semesters:[],students:[]});
   const [latest,setLatest]=useState(null);
+  const [generationPreview,setGenerationPreview]=useState(null);
   const [message,setMessage]=useState("");
   const [loading,setLoading]=useState(false);
   const [showGenerationDialog,setShowGenerationDialog]=useState(false);
@@ -877,17 +879,18 @@ export default function App(){
         return;
       }
 
-      const r=await axios.post(`${API}/timetable/generate`,{academicSessionId:activeSession?._id,programIds:programIds||[],generationRuns:Number(settings.generationRuns||8),generationTimeLimitMs:Number(settings.generationTimeLimitMs||30000)});
-      setLatest(r.data);
-      setTab("Timetable");
-      const count=r.data.entries?.length||0;
-      const warnings=Array.isArray(r.data.warnings)?r.data.warnings:[];
-      setMessage(
-        count>0
-          ? `Generated ${count} timetable entries${programIds?.length?` for ${(data.programs||[]).filter(p=>programIds.includes(String(p._id))).map(p=>p.name).join(", ")}`:""} using the best candidate from ${r.data.optimization?.runsCompleted||1} generation run(s).${warnings.length?" "+warnings[0]:""}`
-          : `Generated 0 timetable entries. ${warnings.join(" ")||"No valid placement was found. Check your Faculty, Section, Room, Availability and Time Slot settings."}`
-      );
-      await load();
+      const r=await axios.post(`${API}/timetable/preview`,{
+        academicSessionId:activeSession?._id,
+        programIds:programIds||[],
+        generationRuns:Number(settings.generationRuns||8),
+        generationTimeLimitMs:Number(settings.generationTimeLimitMs||30000)
+      },{timeout:Math.min(135000,Math.max(45000,Number(settings.generationTimeLimitMs||30000)+15000))});
+      setGenerationPreview(r.data);
+      setTab("Generation Preview");
+      const summary=r.data.generationReport?.summary||{};
+      setMessage(r.data.committable
+        ? `Preview ready: ${summary.scheduledSessions||0}/${summary.requiredSessions||0} required sessions placed and hard validation passed. Review the report before saving as Draft.`
+        : `Preview created: ${summary.scheduledSessions||0}/${summary.requiredSessions||0} sessions placed. Review the unscheduled sessions and validation findings below; this candidate cannot be saved yet.`);
     }catch(e){
       const responseData=e.response?.data||{};
       const detailErrors=Array.isArray(responseData.validation?.errors)
@@ -900,6 +903,35 @@ export default function App(){
     }finally{
       setLoading(false);
     }
+  }
+
+  async function commitGenerationPreview(){
+    if(!generationPreview?.previewId||loading)return;
+    setLoading(true);setMessage("");
+    try{
+      const response=await axios.post(`${API}/timetable/previews/${generationPreview.previewId}/commit`);
+      setLatest(response.data);
+      setTimetableStatus("DRAFT");
+      setApprovalHistory(response.data?.approvalHistory||[]);
+      setGenerationPreview(null);
+      setTab("Timetable");
+      setMessage("Reviewed timetable saved as Draft. Check Validation before submitting it for approval.");
+      await load();
+      setLatest(response.data);
+    }catch(error){
+      setMessage(error.response?.data?.message||error.message||"Unable to save the reviewed timetable preview.");
+    }finally{setLoading(false);}
+  }
+
+  async function discardGenerationPreview(){
+    const previewId=generationPreview?.previewId;
+    if(previewId){
+      try{await axios.delete(`${API}/timetable/previews/${previewId}`);}
+      catch(error){if(error.response?.status!==404)setMessage(error.response?.data?.message||"Preview closed locally; its server-side copy will expire automatically.");}
+    }
+    setGenerationPreview(null);
+    setTab("Timetable");
+    setMessage("Preview closed. No timetable was saved.");
   }
 
   const cards=[
@@ -1210,6 +1242,7 @@ export default function App(){
       {tab==="Audit Logs" && <AuditLogs/>}
       {tab==="Optimization" && <Optimization/>}
       {tab==="Generation Readiness" && <GenerationReadiness activeSession={activeSession} onNavigate={navigateFromDashboard}/>}
+      {tab==="Generation Preview" && <GenerationPreviewPage preview={generationPreview} onCommit={commitGenerationPreview} onDiscard={discardGenerationPreview} loading={loading}/>}
       {tab==="Validation" && <Validation/>}
       {tab==="Timetable" && <TimetableView timetable={latest} data={data} onMoved={load} timetableStatus={timetableStatus} setTimetableStatus={setTimetableStatus} setMessage={setMessage} approvalHistory={approvalHistory} activeSession={activeSession} role={auth.role}/>}
       {tab==="Approval & Versions" && <ApprovalVersions activeSession={activeSession} role={auth.role} onRefresh={load} setMessage={setMessage}/>}
