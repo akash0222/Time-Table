@@ -47,7 +47,7 @@ export default function MasterView({type,data,setData,reload,sessions=[],setMess
       setForm({...record});
     }
     setEditingId(record._id);
-    window.scrollTo({top:0,behavior:"smooth"});
+    requestAnimationFrame(()=>document.getElementById("master-data-edit-form")?.scrollIntoView({behavior:"smooth",block:"start"}));
   }
 
   async function save(){
@@ -192,7 +192,7 @@ export default function MasterView({type,data,setData,reload,sessions=[],setMess
     return 0;
   });
 
-  return <div className="panel">
+  return <div className="panel" id="master-data-edit-form" style={{scrollMarginTop:100}}>
     <div className="form-grid">
       {key==="programs" && <>
         <Input label="Program Name" value={form.name} onChange={v=>setForm({...form,name:v})}/>
