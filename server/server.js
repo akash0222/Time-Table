@@ -1057,16 +1057,7 @@ app.post("/api/timeslots/bulk", requireAuth, allowRoles("ADMIN", "SCHEDULER"), a
 
     slotIds = slots.map(() => new mongoose.Types.ObjectId());
     const documents = slots.map((slot, index) => ({ _id: slotIds[index], ...slot }));
-    let created;
-    try {
-      created = await TimeSlot.insertMany(documents, { ordered: true });
-    } catch (writeError) {
-      await TimeSlot.deleteMany({ _id: { $in: slotIds } }).catch(rollbackError => {
-        console.error("Time-slot batch rollback failed:", rollbackError?.message || rollbackError);
-      });
-      slotIds = [];
-      throw writeError;
-    }
+    const created = await TimeSlot.insertMany(documents, { ordered: true });
     return res.status(201).json({ ok: true, created: created.length, slots: created });
   } catch (error) {
     if (slotIds.length) {
