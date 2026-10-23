@@ -1,4 +1,5 @@
 import "dotenv/config";
+import crypto from "node:crypto";
 import express from "express";
 import cors from "cors";
 import mongoose from "mongoose";
@@ -44,7 +45,7 @@ import Student from "./models/Student.js";
 import { filterTimetableEntriesForUser } from "./services/timetableAccess.js";
 import { subjectProgramMatchesSection } from "./services/subjectProgramMapping.js";
 import { subjectWeeklyLimitIssue } from "./services/subjectSessionConstraints.js";
-import { timeSlotInputIssue, timeSlotConflictIssue } from "./services/timeSlotValidation.js";
+import { timeSlotInputIssue, timeSlotConflictIssue, timeSlotBatchInputIssue } from "./services/timeSlotValidation.js";
 import { normalizeProgramDates, programDateInputIssue, sessionDateBounds, sessionDateBoundsIssue } from "./services/programDateValidation.js";
 import { workflowNoteRequired } from "./services/timetableWorkflow.js";
 import { seedDemoData } from "./services/demoSeed.js";
@@ -621,14 +622,118 @@ async function resolveProgramFromText(value) {
   ) || null;
 }
 
+// Mongo-backed lease lock serializes time-slot writes across app instances.
+async function acquireTimeSlotWriteLock() {
+  const collection = mongoose.connection.collection("_appWriteLocks");
+  const owner = crypto.randomUUID();
+  const maxWaitMs = 10000;
+  const leaseMs = 120000;
+  const startedAt = Date.now();
+
+  while (Date.now() - startedAt < maxWaitMs) {
+    const now = new Date();
+    try {
+      const result = await collection.findOneAndUpdate(
+        { _id: "time-slots", $or: [{ expiresAt: { $lte: now } }, { owner }] },
+        { $set: { owner, expiresAt: new Date(now.getTime() + leaseMs) } },
+        { upsert: true, returnDocument: "after" }
+      );
+      const lock = result?.value ?? result;
+      if (lock?.owner === owner) {
+        return async () => {
+          await collection.deleteOne({ _id: "time-slots", owner }).catch(error =>
+            console.error("Time-slot lock release failed:", error?.message || error)
+          );
+        };
+      }
+    } catch (error) {
+      // Two callers may both attempt the initial upsert; retry the duplicate-key loser.
+      if (error?.code !== 11000) throw error;
+    }
+    await new Promise(resolve => setTimeout(resolve, 150));
+  }
+
+  const error = new Error("Time-slot configuration is being updated by another request. Please retry.");
+  error.statusCode = 409;
+  throw error;
+}
+
+function normalizeTimeSlotInput(input = {}) {
+  return {
+    academicSession: input.academicSession || null,
+    program: input.program || null,
+    semester: String(input.semester || "").trim(),
+    day: String(input.day || "").trim(),
+    startTime: String(input.startTime || "").trim(),
+    endTime: String(input.endTime || "").trim(),
+    order: Number(input.order),
+    isBreak: input.isBreak === true
+  };
+}
+
+async function validateTimeSlotReferences(slots) {
+  const sessionIds = [...new Set(slots.map(slot => slot.academicSession).filter(Boolean).map(String))];
+  const programIds = [...new Set(slots.map(slot => slot.program).filter(Boolean).map(String))];
+  const [sessions, programs] = await Promise.all([
+    sessionIds.length ? AcademicSession.find({ _id: { $in: sessionIds } }).select("_id programDates").lean() : [],
+    programIds.length ? Program.find({ _id: { $in: programIds } }).select("_id name").lean() : []
+  ]);
+  const sessionById = new Map(sessions.map(row => [String(row._id), row]));
+  const programById = new Map(programs.map(row => [String(row._id), row]));
+
+  if (sessionById.size !== sessionIds.length) {
+    const error = new Error("One or more selected academic sessions no longer exist.");
+    error.statusCode = 404; throw error;
+  }
+  if (programById.size !== programIds.length) {
+    const error = new Error("One or more selected programs no longer exist.");
+    error.statusCode = 404; throw error;
+  }
+
+  const semesterKeys = new Set();
+  for (const [index, slot] of slots.entries()) {
+    if (slot.academicSession && slot.program) {
+      const session = sessionById.get(String(slot.academicSession));
+      const linked = (session?.programDates || []).some(row => String(row.program?._id || row.program) === String(slot.program));
+      if (!linked) {
+        const error = new Error(`Time slot ${index + 1}: selected program is not linked to the selected academic session.`);
+        error.statusCode = 400; throw error;
+      }
+    }
+    if (slot.semester && slot.program && slot.academicSession) {
+      semesterKeys.add(`${slot.academicSession}|${slot.program}|${slot.semester}`);
+    }
+  }
+  const semesterResults = await Promise.all([...semesterKeys].map(async key => {
+    const [academicSession, program, name] = key.split("|");
+    const found = await Semester.exists({ academicSession, program, name, active: true });
+    return [key, Boolean(found)];
+  }));
+  const validSemesters = new Map(semesterResults);
+  for (const [index, slot] of slots.entries()) {
+    if (slot.semester && slot.program && slot.academicSession &&
+        !validSemesters.get(`${slot.academicSession}|${slot.program}|${slot.semester}`)) {
+      const error = new Error(`Time slot ${index + 1}: select a semester configured for this academic session and program.`);
+      error.statusCode = 400; throw error;
+    }
+  }
+}
+
 function crud(path, Model) {
   app.get(`/api/${path}`, requireAuth, async (_req,res) => {
     try { res.json(await Model.find().sort({ createdAt: -1 })); }
     catch(e) { res.status(500).json({message:e.message}); }
   });
   app.post(`/api/${path}`, requireAuth, allowRoles("ADMIN", "SCHEDULER"), async (req,res) => {
+    let releaseTimeSlotLock = null;
     try {
       const body = {...(req.body || {})};
+      if (path === "timeslots") {
+        releaseTimeSlotLock = await acquireTimeSlotWriteLock();
+        const normalized = normalizeTimeSlotInput(body);
+        for (const key of Object.keys(body)) if (!Object.hasOwn(normalized, key)) delete body[key];
+        Object.assign(body, normalized);
+      }
 
       if (path === "sections") {
         if (body.programId) {
@@ -704,11 +809,13 @@ function crud(path, Model) {
           const program = await Program.findById(body.program).lean();
           if (!program) return res.status(404).json({ message: "Program not found." });
         }
-        if (body.semester && body.program && body.academicSession) {
+        if (body.program && body.academicSession) {
           const session = await AcademicSession.findById(body.academicSession).lean();
-          if (!(session?.programDates || []).some(row => String(row.program) === String(body.program))) {
+          if (!(session?.programDates || []).some(row => String(row.program?._id || row.program) === String(body.program))) {
             return res.status(400).json({message:"The selected Program is not linked to this Academic Session."});
           }
+        }
+        if (body.semester && body.program && body.academicSession) {
           const semester = await Semester.findOne({academicSession:body.academicSession,program:body.program,name:body.semester,active:true}).lean();
           if (!semester) return res.status(400).json({message:"Select a Semester configured for this Academic Session and Program."});
         }
@@ -717,11 +824,18 @@ function crud(path, Model) {
       }
 
       res.status(201).json(await Model.create(body));
-    } catch(e) { res.status(400).json({message:e.message}); }
+    } catch(e) { res.status(e.statusCode || 400).json({message:e.message}); }
+    finally { if (releaseTimeSlotLock) await releaseTimeSlotLock(); }
   });
   app.put(`/api/${path}/:id`, requireAuth, allowRoles("ADMIN", "SCHEDULER"), async (req,res) => {
+    let releaseTimeSlotLock = null;
     try {
       const body = {...req.body};
+      if (path === "timeslots") {
+        releaseTimeSlotLock = await acquireTimeSlotWriteLock();
+        const allowed = new Set(["academicSession","program","semester","day","startTime","endTime","order","isBreak"]);
+        for (const key of Object.keys(body)) if (!allowed.has(key)) delete body[key];
+      }
       delete body._id;
       delete body.createdAt;
       delete body.updatedAt;
@@ -844,11 +958,13 @@ function crud(path, Model) {
           const program = await Program.findById(candidate.program).lean();
           if (!program) return res.status(404).json({ message: "Program not found." });
         }
-        if (candidate.semester && candidate.program && candidate.academicSession) {
+        if (candidate.program && candidate.academicSession) {
           const session = await AcademicSession.findById(candidate.academicSession).lean();
-          if (!(session?.programDates || []).some(item => String(item.program) === String(candidate.program))) {
+          if (!(session?.programDates || []).some(item => String(item.program?._id || item.program) === String(candidate.program))) {
             return res.status(400).json({message:"The selected Program is not linked to this Academic Session."});
           }
+        }
+        if (candidate.semester && candidate.program && candidate.academicSession) {
           const semester = await Semester.findOne({academicSession:candidate.academicSession,program:candidate.program,name:candidate.semester,active:true}).lean();
           if (!semester) return res.status(400).json({message:"Select a Semester configured for this Academic Session and Program."});
         }
@@ -869,8 +985,8 @@ function crud(path, Model) {
       if (!updated) return res.status(404).json({message: "Record not found"});
       res.json(updated);
     } catch(e) {
-      res.status(400).json({message:e.message});
-    }
+      res.status(e.statusCode || 400).json({message:e.message});
+    } finally { if (releaseTimeSlotLock) await releaseTimeSlotLock(); }
   });
   app.delete(`/api/${path}/:id`, requireAuth, allowRoles("ADMIN", "SCHEDULER"), async (req,res) => {
     try {
@@ -919,6 +1035,56 @@ crud("subjects", Subject);
 crud("sections", Section);
 crud("rooms", Room);
 crud("timeslots", TimeSlot);
+
+app.post("/api/timeslots/bulk", requireAuth, allowRoles("ADMIN", "SCHEDULER"), async (req, res) => {
+  let releaseTimeSlotLock = null;
+  let slotIds = [];
+  try {
+    releaseTimeSlotLock = await acquireTimeSlotWriteLock();
+    const input = req.body?.slots;
+    if (!Array.isArray(input) || input.length < 1 || input.length > 500) {
+      return res.status(400).json({ message: "Provide between 1 and 500 time slots in the slots array." });
+    }
+    const slots = input.map(normalizeTimeSlotInput);
+    const inputIssue = timeSlotBatchInputIssue(slots, [], 500);
+    if (inputIssue) return res.status(400).json({ message: inputIssue });
+
+    await validateTimeSlotReferences(slots);
+    const daysInBatch = [...new Set(slots.map(slot => slot.day))];
+    const existingSlots = await TimeSlot.find({ day: { $in: daysInBatch } }).lean();
+    const conflict = timeSlotBatchInputIssue(slots, existingSlots, 500);
+    if (conflict) return res.status(409).json({ message: conflict });
+
+    slotIds = slots.map(() => new mongoose.Types.ObjectId());
+    const documents = slots.map((slot, index) => ({ _id: slotIds[index], ...slot }));
+    let created;
+    try {
+      created = await TimeSlot.insertMany(documents, { ordered: true });
+    } catch (writeError) {
+      await TimeSlot.deleteMany({ _id: { $in: slotIds } }).catch(rollbackError => {
+        console.error("Time-slot batch rollback failed:", rollbackError?.message || rollbackError);
+      });
+      slotIds = [];
+      throw writeError;
+    }
+    return res.status(201).json({ ok: true, created: created.length, slots: created });
+  } catch (error) {
+    if (slotIds.length) {
+      await TimeSlot.deleteMany({ _id: { $in: slotIds } }).catch(rollbackError => {
+        console.error("Time-slot batch rollback failed:", rollbackError?.message || rollbackError);
+      });
+    }
+    const status = error.statusCode || 500;
+    if (status >= 500) console.error("POST /api/timeslots/bulk failed:", error?.message || error);
+    return res.status(status).json({
+      message: error.statusCode ? error.message : "Unable to save the time-slot batch. The operation was rolled back where possible; please retry."
+    });
+  } finally {
+    if (releaseTimeSlotLock) await releaseTimeSlotLock();
+  }
+});
+
+
 crud("programs", Program);
 
 
