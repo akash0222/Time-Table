@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { timeToMinutes, timeSlotInputIssue, timeSlotConflictIssue } from "../services/timeSlotValidation.js";
+import { timeToMinutes, timeSlotInputIssue, timeSlotConflictIssue, timeSlotBatchInputIssue } from "../services/timeSlotValidation.js";
 
 const sessionA = "64b000000000000000000010";
 const sessionB = "64b000000000000000000011";
