@@ -160,7 +160,7 @@ router.post("/timetable/previews/:id/commit", requireAuth, allowRoles("ADMIN", "
     const scopedSections = new Set(sections.filter(section => !programIds.length || programIds.includes(idOf(section.programId)) || names.has(String(section.program || "").trim().toLowerCase())).map(idOf));
     const scopedSubjects = subjects.filter(subject => scopedSections.has(idOf(subject.section)));
     const required = scopedSubjects.reduce((sum, subject) => sum + Math.max(0, Number(subject.classesPerWeek || 0)), 0);
-    const scheduled = (preview.entries || []).filter(entry => scopedSections.has(idOf(entry.section)).length;
+    const scheduled = (preview.entries || []).filter(entry => scopedSections.has(idOf(entry.section))).length;
     if (required !== Number(preview.expectedSessions || 0) || scheduled !== required) return res.status(409).json({ message: "Subject targets or section mappings changed since preview. Generate a new preview." });
     const validation = validateTimetable({ entries: preview.entries || [], faculty, sections, subjects, rooms, slots, programs, settings, academicSessionId: sessionId, holidayDays: settings.holidayDays || ["Sunday"] });
     if (!validation.valid) return res.status(422).json({ message: "Preview no longer passes validation. Generate a fresh preview.", errors: validation.errors || [], warnings: validation.warnings || [] });
