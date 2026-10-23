@@ -59,7 +59,7 @@ Recommended sequence:
 4. Change the live admin password and remove `DEFAULT_ADMIN_PASSWORD` from the runtime environment after initial admin creation, if the app no longer needs it.
 5. Rotate any other credential ever shared in chat or committed. A current example file does not erase historical Git commits; use GitHub secret scanning/history review before public redistribution.
 
-Never use the production admin password as `QA_ADMIN_PASSWORD`. Prefer a dedicated, least-privilege QA user and a separate QA database. The production smoke job should stay read-only.
+Never use the production admin password for production QA. Create a dedicated account with the `VIEWER` role and configure GitHub repository variable `QA_USERNAME` plus Actions secret `QA_PASSWORD`. Enable authenticated production checks with `RUN_PRODUCTION_AUTHENTICATED_QA=true` only after these are set. The smoke test verifies the QA role is `VIEWER` and that it cannot create time slots. The disposable CI workflow continues to use a separate temporary administrator in an isolated database.
 
 ## Timetable generation behavior
 
