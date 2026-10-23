@@ -224,7 +224,7 @@ jobs:
           QA_EXPECT_READ_ONLY: "true"
         run: |
           if [ "${RUN_PRODUCTION_AUTHENTICATED_QA:-}" != "true" ]; then
-            echo "Authenticated production QA skipped. Set repository variable RUN_PRODUCTION_AUTHENTICATED_QA=true and secret QA_ADMIN_PASSWORD to enable read-only authenticated checks." >> "$GITHUB_STEP_SUMMARY"
+            echo "Authenticated production QA skipped. Set repository variable RUN_PRODUCTION_AUTHENTICATED_QA=true, variable QA_USERNAME, and secret QA_PASSWORD to enable read-only authenticated checks." >> "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
           if [ -z "${QA_USERNAME:-}" ]; then
