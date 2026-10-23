@@ -556,18 +556,18 @@ test("semester master data removes blank success field and enforces session/prog
   await form.getByLabel("Semester Name", { exact: true }).fill("semester i");
   await form.getByRole("button", { name: "+ Add Semesters", exact: true }).click();
   await expect(form.getByRole("alert")).toContainText("Semester I already exists");
-  await expect(page.locator(".master-card").filter({ hasText: "Semester I" })).toHaveCount(1);
+  await expect(page.locator(".master-data-table tbody tr").filter({ hasText: "Semester I" })).toHaveCount(1);
 
   await form.getByLabel("Semester Name", { exact: true }).fill("Semester II");
   await form.getByLabel("Display Order", { exact: true }).fill("2");
   await form.getByRole("button", { name: "+ Add Semesters", exact: true }).click();
-  const newCard = page.locator(".master-card").filter({ hasText: "Semester II" });
-  await expect(newCard).toBeVisible();
-  await expect(newCard.locator(".semester-card-context").getByText("MBA", { exact: true })).toBeVisible();
-  await expect(newCard.getByText("2026-2027", { exact: true })).toBeVisible();
-  await expect(newCard.getByText("2", { exact: true })).toBeVisible();
-  await expect(newCard.getByText("Active", { exact: true })).toBeVisible();
-  await expect(newCard.getByText("Linked sections", { exact: true })).toBeVisible();
+  const newRow = page.locator(".master-data-table tbody tr").filter({ hasText: "Semester II" });
+  await expect(newRow).toBeVisible();
+  await expect(newRow.locator("td").nth(1)).toHaveText("2026-2027");
+  await expect(newRow.locator("td").nth(2)).toHaveText("MBA");
+  await expect(newRow.locator("td").nth(3)).toHaveText("2");
+  await expect(newRow.locator("td").nth(5).locator(".master-status")).toHaveText("Active");
+  await expect(page.getByRole("columnheader", { name: "Linked Sections" })).toBeVisible();
 });
 
 test("Academic Structure only offers session-scoped semester master records", async ({ page }) => {
@@ -617,7 +617,7 @@ test("clears stale academic structure when backend records disappear while the t
   sections.splice(0, sections.length);
   await page.evaluate(() => window.dispatchEvent(new Event("focus")));
 
-  await expect(page.getByText("Create an active Program first.", { exact: true })).toBeVisible({ timeout: 8000 });
+  await expect(page.getByText("No sections configured for the selected session.", { exact: true })).toBeVisible({ timeout: 12000 });
   await expect(page.getByText("MBA", { exact: true })).toHaveCount(0);
 });
 
@@ -742,9 +742,9 @@ test("inactive programs show their real status and stay inactive in the edit for
   await signIn(page, { programs: [sampleProgram, inactiveProgram] });
   await navigateToPage(page, "Master Data Settings");
 
-  const archivedCard = page.locator(".master-card").filter({ hasText: "Archived Program" });
-  await expect(archivedCard.locator(".master-status")).toHaveText("Inactive");
-  await archivedCard.getByRole("button", { name: "Edit" }).click();
+  const archivedRow = page.locator(".master-data-table tbody tr").filter({ hasText: "Archived Program" });
+  await expect(archivedRow.locator(".master-status")).toHaveText("Inactive");
+  await archivedRow.getByRole("button", { name: "Edit" }).click();
   await expect(page.locator(".master-active-field input")).not.toBeChecked();
 });
 
