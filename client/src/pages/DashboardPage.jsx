@@ -185,35 +185,7 @@ export default function Dashboard({ cards, generate, loading, latest, role, onNa
         </div>
       )}
 
-      {showActionCenter&&<section className="dashboard-section dashboard-action-center">
-        <div className="section-heading">
-          <div><h3>Action Center</h3><p>Resolve setup issues before timetable generation.</p></div>
-          <button type="button" className="dashboard-action-refresh" onClick={()=>setReadinessRefreshKey(value=>value+1)} aria-label="Refresh action center" title="Refresh action center"><RefreshCw size={15}/></button>
-        </div>
-        {!activeSession?._id
-          ? <div className="dashboard-action-state warning"><AlertTriangle size={18}/><div><strong>No active academic session</strong><span>Choose or create an academic session to run pre-generation checks.</span></div><button type="button" onClick={()=>navigate("Academic Sessions")}>Open sessions <ArrowRight size={14}/></button></div>
-          : readinessLoading
-            ? <div className="dashboard-action-loading" role="status">Checking academic setup and scheduling resources…</div>
-            : readinessError
-              ? <div className="dashboard-action-state warning"><AlertTriangle size={18}/><div><strong>Readiness check unavailable</strong><span>{readinessError}</span></div><button type="button" onClick={()=>navigate("Generation Readiness")}>Review <ArrowRight size={14}/></button></div>
-              : actionItems.length
-                ? <div className="dashboard-action-content">
-                    <div className="dashboard-action-summary">
-                      <span className={readinessErrors.length?"dashboard-action-count error":"dashboard-action-count success"}>{readinessErrors.length} {readinessErrors.length===1?"error":"errors"}</span>
-                      <span className="dashboard-action-count warning">{readinessWarnings.length} {readinessWarnings.length===1?"warning":"warnings"}</span>
-                      <span className="dashboard-action-status">{readinessErrors.length?"Generation blocked":readinessWarnings.length?"Review recommended":"Ready to generate"}</span>
-                    </div>
-                    <div className="dashboard-action-list">
-                      {actionItems.slice(0,5).map(item=><div className={`dashboard-action-item ${item.severity.toLowerCase()}`} key={item.key}>
-                        <span className="dashboard-action-item-icon">{item.severity==="ERROR"?<AlertTriangle size={16}/>:<ShieldCheck size={16}/>}</span>
-                        <div className="dashboard-action-item-copy"><strong>{item.category||"Readiness check"}</strong><p>{item.message}</p></div>
-                        <button type="button" onClick={()=>navigate(item.destination)} aria-label={`Review ${item.category||"readiness"}`}>Review <ArrowRight size={14}/></button>
-                      </div>)}
-                    </div>
-                    {actionItems.length>5&&<button className="dashboard-action-more" type="button" onClick={()=>navigate("Generation Readiness")}>View all {actionItems.length} findings <ArrowRight size={14}/></button>}
-                  </div>
-                : <div className="dashboard-action-state success"><CheckCircle2 size={19}/><div><strong>Ready for timetable generation</strong><span>No blocking setup issues found for {readiness?.session?.name||activeSession.name}.</span></div><button type="button" onClick={()=>navigate("Generation Readiness")}>View checks <ArrowRight size={14}/></button></div>}
-      </section>}
+
 
       <section className="dashboard-section">
         <div className="section-heading"><div><h3>Overview</h3></div></div>
@@ -324,6 +296,36 @@ export default function Dashboard({ cards, generate, loading, latest, role, onNa
         </div> : <div className="dashboard-workload-empty"><Users size={20}/><strong>No faculty workload data available</strong><span>Workload appears when generated timetable entries include faculty names.</span></div>}
         {facultyWorkload.length > 0 && <p className="dashboard-workload-note">Showing up to 6 faculty members, ranked by scheduled class count. Use the day filters above to compare daily workloads.</p>}
       </section>
+      {showActionCenter&&<section className="dashboard-section dashboard-action-center">
+        <div className="section-heading">
+          <div><h3>Action Center</h3><p>Resolve setup issues before timetable generation.</p></div>
+          <button type="button" className="dashboard-action-refresh" onClick={()=>setReadinessRefreshKey(value=>value+1)} aria-label="Refresh action center" title="Refresh action center"><RefreshCw size={15}/></button>
+        </div>
+        {!activeSession?._id
+          ? <div className="dashboard-action-state warning"><AlertTriangle size={18}/><div><strong>No active academic session</strong><span>Choose or create an academic session to run pre-generation checks.</span></div><button type="button" onClick={()=>navigate("Academic Sessions")}>Open sessions <ArrowRight size={14}/></button></div>
+          : readinessLoading
+            ? <div className="dashboard-action-loading" role="status">Checking academic setup and scheduling resources…</div>
+            : readinessError
+              ? <div className="dashboard-action-state warning"><AlertTriangle size={18}/><div><strong>Readiness check unavailable</strong><span>{readinessError}</span></div><button type="button" onClick={()=>navigate("Generation Readiness")}>Review <ArrowRight size={14}/></button></div>
+              : actionItems.length
+                ? <div className="dashboard-action-content">
+                    <div className="dashboard-action-summary">
+                      <span className={readinessErrors.length?"dashboard-action-count error":"dashboard-action-count success"}>{readinessErrors.length} {readinessErrors.length===1?"error":"errors"}</span>
+                      <span className="dashboard-action-count warning">{readinessWarnings.length} {readinessWarnings.length===1?"warning":"warnings"}</span>
+                      <span className="dashboard-action-status">{readinessErrors.length?"Generation blocked":readinessWarnings.length?"Review recommended":"Ready to generate"}</span>
+                    </div>
+                    <div className="dashboard-action-list">
+                      {actionItems.slice(0,5).map(item=><div className={`dashboard-action-item ${item.severity.toLowerCase()}`} key={item.key}>
+                        <span className="dashboard-action-item-icon">{item.severity==="ERROR"?<AlertTriangle size={16}/>:<ShieldCheck size={16}/>}</span>
+                        <div className="dashboard-action-item-copy"><strong>{item.category||"Readiness check"}</strong><p>{item.message}</p></div>
+                        <button type="button" onClick={()=>navigate(item.destination)} aria-label={`Review ${item.category||"readiness"}`}>Review <ArrowRight size={14}/></button>
+                      </div>)}
+                    </div>
+                    {actionItems.length>5&&<button className="dashboard-action-more" type="button" onClick={()=>navigate("Generation Readiness")}>View all {actionItems.length} findings <ArrowRight size={14}/></button>}
+                  </div>
+                : <div className="dashboard-action-state success"><CheckCircle2 size={19}/><div><strong>Ready for timetable generation</strong><span>No blocking setup issues found for {readiness?.session?.name||activeSession.name}.</span></div><button type="button" onClick={()=>navigate("Generation Readiness")}>View checks <ArrowRight size={14}/></button></div>}
+      </section>}
+
     </div>
   );
 }
