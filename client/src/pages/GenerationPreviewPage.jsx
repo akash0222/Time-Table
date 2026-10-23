@@ -22,7 +22,8 @@ export default function GenerationPreviewPage({ preview, onCommit, onDiscard, lo
         subjectDisplay: row.subject?.name || explained?.subject || row.subject,
         sectionDisplay: row.section?.name || explained?.section || row.section,
         facultyDisplay: row.faculty?.name || explained?.faculty || row.faculty,
-        roomDisplay: row.room?.name || explained?.room || row.room
+        roomDisplay: row.room?.name || explained?.room || row.room,
+        placementReason: explained?.reason || "Selected as a feasible placement under the configured scheduling constraints."
       };
     }).filter(row => day === "All days" || row.day === day)
       .sort((a,b) => ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"].indexOf(a.day)-["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"].indexOf(b.day) || String(a.startTime).localeCompare(String(b.startTime)));
@@ -38,7 +39,8 @@ export default function GenerationPreviewPage({ preview, onCommit, onDiscard, lo
     ["Subject", row => <><strong>{row.subject?.name || row.subjectDisplay || row.subject || "Subject"}</strong><div style={muted}>{row.subject?.code || ""}</div></>],
     ["Section", row => row.section?.name || row.sectionDisplay || row.section || "Section"],
     ["Faculty", row => row.faculty?.name || row.facultyDisplay || row.faculty || "Faculty"],
-    ["Room", row => row.room?.name || row.roomDisplay || row.room || "Room"]
+    ["Room", row => row.room?.name || row.roomDisplay || row.room || "Room"],
+    ["Why placed", row => <span style={{ display: "block", minWidth: 230, maxWidth: 390, whiteSpace: "normal", lineHeight: 1.45 }}>{row.placementReason}</span>]
   ];
   const percent = Math.max(0, Math.min(100, Number(summary.coveragePercent || 0)));
   return <div style={{ display: "grid", gap: 16 }}>
@@ -68,7 +70,7 @@ export default function GenerationPreviewPage({ preview, onCommit, onDiscard, lo
         <div><h3 style={{ margin: "0 0 4px" }}>Weekly schedule</h3><p style={{ ...muted, margin: 0 }}>Review placement details before saving.</p></div>
         <select value={day} onChange={event => setDay(event.target.value)} aria-label="Filter timetable by day" style={{ border: "1px solid #cbd5e1", borderRadius: 8, padding: "8px 10px", background: "var(--panel, white)" }}>{days.map(item => <option key={item}>{item}</option>)}</select>
       </div>
-      {entries.length ? <div style={{ overflowX: "auto" }}><table style={{ borderCollapse: "collapse", width: "100%", minWidth: 650, fontSize: 13 }}>
+      {entries.length ? <div style={{ overflowX: "auto" }}><table style={{ borderCollapse: "collapse", width: "100%", minWidth: 950, fontSize: 13 }}>
         <thead><tr>{columns.map(([heading]) => <th key={heading} style={{ textAlign: "left", padding: "10px 12px", borderBottom: "1px solid #e2e8f0", color: "#64748b", fontWeight: 650 }}>{heading}</th>)}</tr></thead>
         <tbody>{entries.map((row,index) => <tr key={row._id || row.key || [row.day,row.startTime,row.subject?.name || row.subject,index].join("-")}>{columns.map(([heading, render]) => <td key={heading} style={{ padding: "12px", borderBottom: "1px solid #eef2f7", verticalAlign: "top" }}>{render(row)}</td>)}</tr>)}</tbody>
       </table></div> : <p style={muted}>No placements to display for this selection.</p>}
