@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import mongoose from "mongoose";
 
 const base = String(process.env.QA_BASE_URL || "http://127.0.0.1:5001").replace(/\/$/, "");
 const username = String(process.env.QA_ADMIN_USERNAME || "admin").trim().toLowerCase();
@@ -359,6 +360,42 @@ try {
       await call("DELETE", `/api/timeslots/${slot._id}`, {}),
       200
     );
+  }
+
+  // Inject a database-level validation error on the second document to prove
+  // the first document is rolled back by the transaction, not compensation logic.
+  const faultConnection = await mongoose.createConnection(process.env.MONGO_URI).asPromise();
+  try {
+    const timeslotCollections = await faultConnection.db.listCollections({ name: "timeslots" }, { nameOnly: true }).toArray();
+    if (!timeslotCollections.length) await faultConnection.db.createCollection("timeslots");
+    await faultConnection.db.command({
+      collMod: "timeslots",
+      validator: { order: { $lte: 1 } },
+      validationLevel: "strict",
+      validationAction: "error"
+    });
+    const failedWriteBatch = await call("POST", "/api/timeslots/bulk", {
+      slots: [
+        { ...slotBatchBase, order: 1, startTime: "09:00", endTime: "10:00" },
+        { ...slotBatchBase, order: 2, startTime: "10:00", endTime: "11:00" }
+      ]
+    });
+    expectStatus("Abort entire bulk save when a database insert fails", failedWriteBatch, 500);
+    const afterDatabaseWriteFailure = await get("/api/timeslots", "Verify transaction rollback after database write failure");
+    assert.equal(
+      slotScopeCount(afterDatabaseWriteFailure),
+      beforeBatchCount,
+      "A database error on the second slot must not persist the first slot."
+    );
+    pass("Transaction rollback removes all slots when a database write fails mid-batch");
+  } finally {
+    await faultConnection.db.command({
+      collMod: "timeslots",
+      validator: {},
+      validationLevel: "strict",
+      validationAction: "error"
+    }).catch(() => {});
+    await faultConnection.close();
   }
 
   const weekdays = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
