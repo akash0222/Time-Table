@@ -12,8 +12,21 @@ export default function GenerationPreviewPage({ preview, onCommit, onDiscard, lo
   const [reportTab, setReportTab] = useState("overview");
   const report = preview?.generationReport || {};
   const summary = report.summary || {};
-  const entries = useMemo(() => (preview?.entries || []).filter(row => day === "All days" || row.day === day)
-    .slice().sort((a,b) => ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"].indexOf(a.day)-["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"].indexOf(b.day) || String(a.startTime).localeCompare(String(b.startTime))), [preview, day]);
+  const entries = useMemo(() => {
+    const placements = report.placements || [];
+    const id = value => String(value?._id ?? value ?? "");
+    return (preview?.entries || []).map(row => {
+      const explained = placements.find(item => item.subjectId === id(row.subject) && item.day === row.day && item.startTime === row.startTime);
+      return {
+        ...row,
+        subjectDisplay: row.subject?.name || explained?.subject || row.subject,
+        sectionDisplay: row.section?.name || explained?.section || row.section,
+        facultyDisplay: row.faculty?.name || explained?.faculty || row.faculty,
+        roomDisplay: row.room?.name || explained?.room || row.room
+      };
+    }).filter(row => day === "All days" || row.day === day)
+      .sort((a,b) => ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"].indexOf(a.day)-["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"].indexOf(b.day) || String(a.startTime).localeCompare(String(b.startTime)));
+  }, [preview, day, report.placements]);
   const days = ["All days","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
   if (!preview) return <section style={cardStyle}><h2>Timetable Preview</h2><p style={muted}>No preview is open. Start Generate Timetable to review a candidate before saving it.</p></section>;
   const checks = report.checks || [];
@@ -22,10 +35,10 @@ export default function GenerationPreviewPage({ preview, onCommit, onDiscard, lo
   const errors = report.errors || [];
   const columns = [
     ["Day / time", row => <><strong>{row.day}</strong><div style={muted}>{row.startTime}–{row.endTime}</div></>],
-    ["Subject", row => <><strong>{row.subject?.name || row.subject || "Subject"}</strong><div style={muted}>{row.subject?.code || ""}</div></>],
-    ["Section", row => row.section?.name || row.section || "Section"],
-    ["Faculty", row => row.faculty?.name || row.faculty || "Faculty"],
-    ["Room", row => row.room?.name || row.room || "Room"]
+    ["Subject", row => <><strong>{row.subject?.name || row.subjectDisplay || row.subject || "Subject"}</strong><div style={muted}>{row.subject?.code || ""}</div></>],
+    ["Section", row => row.section?.name || row.sectionDisplay || row.section || "Section"],
+    ["Faculty", row => row.faculty?.name || row.facultyDisplay || row.faculty || "Faculty"],
+    ["Room", row => row.room?.name || row.roomDisplay || row.room || "Room"]
   ];
   const percent = Math.max(0, Math.min(100, Number(summary.coveragePercent || 0)));
   return <div style={{ display: "grid", gap: 16 }}>
