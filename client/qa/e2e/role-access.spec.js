@@ -422,6 +422,14 @@ test("profile dropdown is in the global header and supports password change and 
   await expect(page.getByRole("menu").getByText("ADMIN",{exact:true}).first()).toBeVisible();
 
   await page.getByRole("menuitem",{name:"Change Password"}).click();
+  await page.waitForTimeout(100);
+  console.log("PASSWORD_DIALOG_DEBUG", JSON.stringify(await page.evaluate(()=>({
+    backdropCount:document.querySelectorAll(".password-modal-backdrop").length,
+    panelCount:document.querySelectorAll(".password-modal-panel").length,
+    menuCount:document.querySelectorAll(".header-profile-menu").length,
+    visibleModalText:document.querySelector(".password-modal-panel")?.innerText||null,
+    bodyText:document.body.innerText.slice(-700)
+  }))));
   const dialog=page.getByRole("dialog",{name:"Change Password"});
   await expect(dialog).toBeVisible();
   await dialog.getByLabel("Current password",{exact:true}).fill(password);
