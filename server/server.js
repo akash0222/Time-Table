@@ -627,7 +627,8 @@ async function acquireTimeSlotWriteLock() {
   const collection = mongoose.connection.collection("_appWriteLocks");
   const owner = crypto.randomUUID();
   const maxWaitMs = 10000;
-  const leaseMs = 120000;
+  const leaseMs = 300000;
+  const renewEveryMs = 30000;
   const startedAt = Date.now();
 
   while (Date.now() - startedAt < maxWaitMs) {
@@ -640,11 +641,41 @@ async function acquireTimeSlotWriteLock() {
       );
       const lock = result?.value ?? result;
       if (lock?.owner === owner) {
-        return async () => {
+        let lost = false;
+        let renewing = false;
+        const renewalTimer = setInterval(async () => {
+          if (renewing || lost) return;
+          renewing = true;
+          try {
+            const renewal = await collection.updateOne(
+              { _id: "time-slots", owner },
+              { $set: { expiresAt: new Date(Date.now() + leaseMs) } }
+            );
+            if (renewal.matchedCount !== 1) lost = true;
+          } catch (error) {
+            lost = true;
+            console.error("Time-slot lock renewal failed:", error?.message || error);
+          } finally {
+            renewing = false;
+          }
+        }, renewEveryMs);
+        renewalTimer.unref?.();
+
+        const release = async () => {
+          clearInterval(renewalTimer);
           await collection.deleteOne({ _id: "time-slots", owner }).catch(error =>
             console.error("Time-slot lock release failed:", error?.message || error)
           );
         };
+        release.owner = owner;
+        release.assertHeld = () => {
+          if (lost) {
+            const error = new Error("Time-slot write lock was lost. No further changes will be attempted; please retry.");
+            error.statusCode = 409;
+            throw error;
+          }
+        };
+        return release;
       }
     } catch (error) {
       // Two callers may both attempt the initial upsert; retry the duplicate-key loser.
@@ -671,12 +702,18 @@ function normalizeTimeSlotInput(input = {}) {
   };
 }
 
-async function validateTimeSlotReferences(slots) {
+async function validateTimeSlotReferences(slots, dbSession) {
   const sessionIds = [...new Set(slots.map(slot => slot.academicSession).filter(Boolean).map(String))];
   const programIds = [...new Set(slots.map(slot => slot.program).filter(Boolean).map(String))];
+  let sessionQuery = AcademicSession.find({ _id: { $in: sessionIds } }).select("_id programDates");
+  let programQuery = Program.find({ _id: { $in: programIds } }).select("_id name");
+  if (dbSession) {
+    sessionQuery = sessionQuery.session(dbSession);
+    programQuery = programQuery.session(dbSession);
+  }
   const [sessions, programs] = await Promise.all([
-    sessionIds.length ? AcademicSession.find({ _id: { $in: sessionIds } }).select("_id programDates").lean() : [],
-    programIds.length ? Program.find({ _id: { $in: programIds } }).select("_id name").lean() : []
+    sessionIds.length ? sessionQuery.lean() : [],
+    programIds.length ? programQuery.lean() : []
   ]);
   const sessionById = new Map(sessions.map(row => [String(row._id), row]));
   const programById = new Map(programs.map(row => [String(row._id), row]));
@@ -706,7 +743,9 @@ async function validateTimeSlotReferences(slots) {
   }
   const semesterResults = await Promise.all([...semesterKeys].map(async key => {
     const [academicSession, program, name] = key.split("|");
-    const found = await Semester.exists({ academicSession, program, name, active: true });
+    let query = Semester.exists({ academicSession, program, name, active: true });
+    if (dbSession) query = query.session(dbSession);
+    const found = await query;
     return [key, Boolean(found)];
   }));
   const validSemesters = new Map(semesterResults);
@@ -823,6 +862,7 @@ function crud(path, Model) {
         if (conflict) return res.status(409).json({ message: conflict });
       }
 
+      if (path === "timeslots" && releaseTimeSlotLock) releaseTimeSlotLock.assertHeld();
       res.status(201).json(await Model.create(body));
     } catch(e) { res.status(e.statusCode || 400).json({message:e.message}); }
     finally { if (releaseTimeSlotLock) await releaseTimeSlotLock(); }
@@ -976,6 +1016,7 @@ function crud(path, Model) {
         if (conflict) return res.status(409).json({ message: conflict });
       }
 
+      if (path === "timeslots" && releaseTimeSlotLock) releaseTimeSlotLock.assertHeld();
       const updated = await Model.findByIdAndUpdate(
         req.params.id,
         body,
@@ -1038,39 +1079,89 @@ crud("timeslots", TimeSlot);
 
 app.post("/api/timeslots/bulk", requireAuth, allowRoles("ADMIN", "SCHEDULER"), async (req, res) => {
   let releaseTimeSlotLock = null;
-  let slotIds = [];
+  let dbSession = null;
   try {
+    const topologyType = String(mongoose.connection.getClient?.()?.topology?.description?.type || "");
+    if (!/ReplicaSet|Sharded/i.test(topologyType)) {
+      const error = new Error("Atomic time-slot bulk save requires MongoDB replica-set or sharded-cluster transactions. Configure local MongoDB with replica-set support.");
+      error.statusCode = 503;
+      throw error;
+    }
+
     releaseTimeSlotLock = await acquireTimeSlotWriteLock();
     const input = req.body?.slots;
     if (!Array.isArray(input) || input.length < 1 || input.length > 500) {
       return res.status(400).json({ message: "Provide between 1 and 500 time slots in the slots array." });
     }
+
     const slots = input.map(normalizeTimeSlotInput);
     const inputIssue = timeSlotBatchInputIssue(slots, [], 500);
     if (inputIssue) return res.status(400).json({ message: inputIssue });
 
-    await validateTimeSlotReferences(slots);
-    const daysInBatch = [...new Set(slots.map(slot => slot.day))];
-    const existingSlots = await TimeSlot.find({ day: { $in: daysInBatch } }).lean();
-    const conflict = timeSlotBatchInputIssue(slots, existingSlots, 500);
-    if (conflict) return res.status(409).json({ message: conflict });
+    releaseTimeSlotLock.assertHeld();
 
-    slotIds = slots.map(() => new mongoose.Types.ObjectId());
-    const documents = slots.map((slot, index) => ({ _id: slotIds[index], ...slot }));
-    const created = await TimeSlot.insertMany(documents, { ordered: true });
-    return res.status(201).json({ ok: true, created: created.length, slots: created });
+    const documents = slots.map(slot => ({ _id: new mongoose.Types.ObjectId(), ...slot }));
+    const daysInBatch = [...new Set(slots.map(slot => slot.day))];
+    let createdSlots = [];
+
+    // The guard row is updated within every bulk transaction. If another
+    // transaction races this one, MongoDB detects a write conflict and
+    // retries the full callback, re-running conflict validation on a fresh snapshot.
+    const guardCollection = mongoose.connection.collection("_appWriteGuards");
+    await guardCollection.updateOne(
+      { _id: "time-slots" },
+      { $setOnInsert: { version: 0, createdAt: new Date() } },
+      { upsert: true }
+    );
+
+    dbSession = await mongoose.startSession();
+    await dbSession.withTransaction(async () => {
+      releaseTimeSlotLock.assertHeld();
+      const guardUpdate = await guardCollection.updateOne(
+        { _id: "time-slots" },
+        { $inc: { version: 1 }, $set: { updatedAt: new Date() } },
+        { session: dbSession }
+      );
+      if (guardUpdate.matchedCount !== 1) {
+        const error = new Error("Unable to acquire the time-slot transaction guard. Please retry.");
+        error.statusCode = 409;
+        throw error;
+      }
+
+      await validateTimeSlotReferences(slots, dbSession);
+      const existingSlots = await TimeSlot.find({ day: { $in: daysInBatch } })
+        .session(dbSession)
+        .lean();
+      const conflict = timeSlotBatchInputIssue(slots, existingSlots, 500);
+      if (conflict) {
+        const error = new Error(conflict);
+        error.statusCode = 409;
+        throw error;
+      }
+
+      releaseTimeSlotLock.assertHeld();
+      createdSlots = await TimeSlot.insertMany(documents, { ordered: true, session: dbSession });
+    }, {
+      readConcern: { level: "snapshot" },
+      writeConcern: { w: "majority" },
+      readPreference: "primary"
+    });
+
+    return res.status(201).json({
+      ok: true,
+      created: createdSlots.length,
+      slots: createdSlots
+    });
   } catch (error) {
-    if (slotIds.length) {
-      await TimeSlot.deleteMany({ _id: { $in: slotIds } }).catch(rollbackError => {
-        console.error("Time-slot batch rollback failed:", rollbackError?.message || rollbackError);
-      });
-    }
     const status = error.statusCode || 500;
     if (status >= 500) console.error("POST /api/timeslots/bulk failed:", error?.message || error);
     return res.status(status).json({
-      message: error.statusCode ? error.message : "Unable to save the time-slot batch. The operation was rolled back where possible; please retry."
+      message: error.statusCode
+        ? error.message
+        : "Unable to commit the time-slot batch. No partial batch is committed; please retry."
     });
   } finally {
+    if (dbSession) await dbSession.endSession().catch(error => console.error("Time-slot transaction cleanup failed:", error?.message || error));
     if (releaseTimeSlotLock) await releaseTimeSlotLock();
   }
 });
