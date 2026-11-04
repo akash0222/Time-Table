@@ -8,6 +8,8 @@ assert.equal(getPageForPath("/student-mapping"), "Student Mapping");
 assert.equal(getPageForPath("/full-session-timetable"), "Full Session Timetable");
 assert.equal(getPageForPath("/approval-and-versions"), "Approval & Versions");
 assert.equal(getPageForPath("/program-and-section-mapping"), "Program & Section Mapping");
+assert.equal(getPageForPath("/manual-timetable-import"), "Manual Timetable Import");
+assert.equal(getPathForPage("Manual Timetable Import"), "/manual-timetable-import");
 assert.equal(getPageForPath("/master-data"), "Master Data Settings");
 assert.equal(getPageForPath("/unknown-module"), "Dashboard");
 
