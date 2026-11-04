@@ -77,7 +77,7 @@ assert.ok(holidayCandidates.every(item => item.day === "Tuesday"),
 
 const unavailableFaculty = {
   ...faculty,
-  unavailableSlots: [{ day: "Monday", startTime: "09:00", endTime: "10:00" }]
+  unavailableSlots: ["Monday|09:00-10:00"]
 };
 const availabilityCandidates = candidateFor(
   baseEntry, subject, unavailableFaculty, section, rooms, slots, [], settings, candidateOptions()
