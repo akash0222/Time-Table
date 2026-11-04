@@ -584,6 +584,61 @@ try {
   assert.equal(String(exportCurrent.timetableId), String(generated._id));
   pass("Published workflow state persists");
 
+  const preview = expectStatus(
+    "Generate explainable timetable preview without saving",
+    await call("POST", "/api/timetable/preview", {
+      academicSessionId: session._id,
+      programIds: [program._id],
+      generationRuns: 2,
+      generationTimeLimitMs: 5000
+    }),
+    201
+  );
+  assert.ok(preview.previewId, "Generation preview ID was not returned.");
+  assert.equal(preview.previewOnly, true);
+  assert.equal(preview.committable, true, JSON.stringify(preview.generationReport?.summary || {}));
+  assert.equal(preview.generationReport?.summary?.requiredSessions, 4);
+  assert.equal(preview.generationReport?.summary?.scheduledSessions, 4);
+  assert.equal(preview.generationReport?.summary?.unscheduledSessions, 0);
+  assert.equal(preview.generationReport?.summary?.hardValidation, "PASSED");
+  assert.equal(preview.generationReport?.placements?.length, 4);
+  pass("Preview explains all 4 required sessions and passes hard validation");
+
+  const beforePreviewCommit = await get(
+    `/api/timetable/latest?sessionId=${encodeURIComponent(session._id)}`,
+    "Current published timetable remains unchanged after preview"
+  );
+  assert.equal(String(beforePreviewCommit._id), String(generated._id));
+  assert.equal(beforePreviewCommit.status, "PUBLISHED");
+  pass("Generating a preview does not save or replace the current timetable");
+
+  const committedPreview = expectStatus(
+    "Commit reviewed timetable preview as a draft",
+    await call("POST", `/api/timetable/previews/${preview.previewId}/commit`, {}),
+    200
+  );
+  assert.notEqual(String(committedPreview._id), String(generated._id));
+  assert.equal(committedPreview.status, "DRAFT");
+  assert.equal(committedPreview.isCurrent, true);
+  assert.equal(committedPreview.entries?.length, 4);
+  pass("Reviewed preview commits atomically as a new Draft timetable version");
+
+  const repeatCommit = expectStatus(
+    "Repeat preview commit returns the existing committed draft",
+    await call("POST", `/api/timetable/previews/${preview.previewId}/commit`, {}),
+    200
+  );
+  assert.equal(String(repeatCommit._id), String(committedPreview._id));
+  pass("Preview commit is idempotent and does not create duplicate versions");
+
+  const currentAfterPreviewCommit = await get(
+    `/api/timetable/latest?sessionId=${encodeURIComponent(session._id)}`,
+    "Committed preview is the current timetable"
+  );
+  assert.equal(String(currentAfterPreviewCommit._id), String(committedPreview._id));
+  assert.equal(currentAfterPreviewCommit.status, "DRAFT");
+  pass("Current timetable points to the reviewed Draft version");
+
   console.log(`\nSUCCESS: ${passed} integration checks passed; 0 failures.`);
   console.log("All test data exists only in the disposable MongoDB service container and disappears when the job finishes.");
 } catch (error) {
