@@ -1,0 +1,64 @@
+name: Refresh server dependency lockfile
+
+on:
+  push:
+    branches:
+      - security/refresh-server-dependencies
+
+permissions:
+  contents: write
+
+jobs:
+  refresh-lockfile:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout security branch
+        uses: actions/checkout@v4
+        with:
+          ref: security/refresh-server-dependencies
+          fetch-depth: 0
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+      - name: Apply non-forced compatible security fixes
+        working-directory: server
+        run: npm audit fix --package-lock-only --no-fund --no-progress
+      - name: Report remaining server dependency advisories
+        working-directory: server
+        run: |
+          npm audit --json > "$RUNNER_TEMP/npm-audit.json" || true
+          node - "$RUNNER_TEMP/npm-audit.json" <<'NODE'
+          const fs = require("node:fs");
+          const report = JSON.parse(fs.readFileSync(process.argv[2], "utf8"));
+          console.log("NPM audit summary:", JSON.stringify(report.metadata?.vulnerabilities || {}));
+          for (const [name, item] of Object.entries(report.vulnerabilities || {})) {
+            const advisories = (item.via || [])
+              .filter(entry => typeof entry === "object")
+              .map(entry => entry.title + " (" + entry.range + ")");
+            console.log(JSON.stringify({
+              name,
+              severity: item.severity,
+              direct: item.isDirect,
+              range: item.range,
+              fixAvailable: item.fixAvailable,
+              advisories
+            }));
+          }
+          NODE
+      - name: Validate lockfile diff
+        run: git diff --check -- server/package-lock.json
+      - name: Commit refreshed lockfile
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add server/package-lock.json
+          if git diff --cached --quiet; then
+            echo "No compatible lockfile updates were available."
+            exit 0
+          fi
+          git commit -m "chore(security): apply compatible server dependency fixes"
+          git push origin HEAD:security/refresh-server-dependencies
