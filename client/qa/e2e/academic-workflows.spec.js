@@ -114,6 +114,7 @@ async function installApiMocks(page, options = {}) {
   const semesters = [...(options.semesters || [])];
   let activeSession = sessions.find(session => session.active) || null;
   let timetable = options.timetable || { _id: "timetable-empty", status: "DRAFT", entries: [], warnings: [], approvalHistory: [] };
+  let generationPreview = null;
   let timetableStatus = timetable.status || "DRAFT";
   let workflow = options.workflow || null;
   let versions = options.versions || [];
@@ -398,10 +399,48 @@ async function installApiMocks(page, options = {}) {
       workflow={...(workflow||{}),status:"DRAFT",timetableId:restored._id,version:restored.version,versionLabel:restored.versionLabel,history:[...(workflow?.history||[]),{from:"VERSION_RESTORE",to:"DRAFT",note:body.note,username:admin.username,role:admin.role,changedAt:restored.createdAt}]};
       return json(timetable,201);
     }
-    if (path === "/timetable/generate" && method === "POST") {
+    if (path === "/timetable/preview" && method === "POST") {
+      generationPreview = options.generationPreview || {
+        previewOnly: true,
+        previewId: "preview-1",
+        expiresAt: new Date(Date.now() + 30 * 60 * 1000).toISOString(),
+        committable: true,
+        entries: [{
+          _id: "entry-preview-1", day: "Monday", startTime: "09:00", endTime: "10:00", order: 1, duration: 1,
+          subject: sampleSubject._id, faculty: sampleFaculty._id, section: sampleSection._id, room: sampleRoom._id
+        }],
+        warnings: [],
+        generationReport: {
+          scope: { academicSessionName: activeSession?.name || "Academic Year 2026-27", programNames: ["MBA"] },
+          summary: { requiredSessions: 1, scheduledSessions: 1, unscheduledSessions: 0, coveragePercent: 100, hardValidation: "PASSED", hardErrorCount: 0, warningCount: 0 },
+          qualityMetrics: { qualityScore: 96, coveragePercent: 100 },
+          checks: [
+            { name: "Faculty / section / subject / room references", status: "PASSED", detail: "Every placement references configured master data." },
+            { name: "Faculty availability", status: "PASSED", detail: "Faculty availability was considered." },
+            { name: "Faculty, section and room conflicts", status: "PASSED", detail: "No timetable resource conflicts were found." }
+          ],
+          placements: [{
+            subjectId: sampleSubject._id, subject: sampleSubject.name, section: "MBA · I · A",
+            faculty: sampleFaculty.name, room: sampleRoom.name, day: "Monday", startTime: "09:00",
+            reason: "Selected as a feasible candidate placement after checking faculty, section and room availability."
+          }],
+          unscheduled: [], errors: [], warnings: []
+        }
+      };
+      return json(generationPreview, 201);
+    }
+    const previewCommitMatch = path.match(/^\/timetable\/previews\/([^/]+)\/commit$/);
+    if (previewCommitMatch && method === "POST") {
+      if (!generationPreview || previewCommitMatch[1] !== generationPreview.previewId) return json({ message: "Preview not found." }, 404);
       timetable = makeTimetable();
       timetableStatus = "DRAFT";
       return json(timetable);
+    }
+    const previewDeleteMatch = path.match(/^\/timetable\/previews\/([^/]+)$/);
+    if (previewDeleteMatch && method === "DELETE") {
+      if (!generationPreview || previewDeleteMatch[1] !== generationPreview.previewId) return json({ message: "Preview not found." }, 404);
+      generationPreview = null;
+      return json({ ok: true });
     }
 
     if (method === "GET" && path.startsWith("/")) return json([]);
@@ -426,6 +465,7 @@ const moduleForPage = {
   "Subject & Faculty Mapping":"Academic Setup",
   "Program & Section Mapping":"Academic Setup",
   "Generation Readiness":"Timetable & Scheduling",
+  "Generation Preview":"Timetable & Scheduling",
   "Availability":"Timetable & Scheduling",
   "Optimization":"Timetable & Scheduling",
   "Full Session Timetable":"Timetable & Scheduling",
@@ -472,6 +512,7 @@ async function navigateToPage(page, pageName) {
     "Master Data Settings": "Master Data & Mapping",
     "Subject & Faculty Mapping": "Master Data & Mapping",
     "Generation Readiness": "Generation & Optimization",
+    "Generation Preview": "Generation & Optimization",
     "Availability": "Generation & Optimization",
     "Optimization": "Generation & Optimization",
     "Full Session Timetable": "Timetable Views",
@@ -1300,8 +1341,12 @@ test("generation is stopped when pre-generation readiness reports blockers", asy
   expect(generationRequests).toBe(0);
 });
 
-test("generation proceeds when readiness is valid and keeps warning-only findings non-blocking", async ({ page }) => {
+test("generation proceeds to an explainable preview when readiness has warning-only findings", async ({ page }) => {
   const activeSession = makeActiveSession();
+  let previewRequests = 0;
+  page.on("request", request => {
+    if (request.method() === "POST" && new URL(request.url()).pathname.endsWith("/timetable/preview")) previewRequests += 1;
+  });
   await signIn(page, {
     sessions: [activeSession],
     includeSchedulingData: true,
@@ -1315,15 +1360,52 @@ test("generation proceeds when readiness is valid and keeps warning-only finding
 
   await page.getByRole("button", { name: /Generate Timetable/ }).first().click();
   await page.getByRole("button", { name: /Generate selected/ }).click();
-  await expect(page.getByRole("heading", { name: "Section-wise Timetable", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Timetable Preview & Generation Report", exact: true })).toBeVisible();
   await expect(page.getByText("Mathematics", { exact: true }).first()).toBeVisible();
+  await expect(page.getByRole("button", { name: "Save as Draft" })).toBeEnabled();
+  expect(previewRequests).toBe(1);
+  await expect(page.getByText("100%", { exact: true })).toBeVisible();
 });
 
-test("admin can generate and submit a timetable for review", async ({ page }) => {
+test("incomplete timetable preview explains missing classes and blocks draft saving", async ({ page }) => {
+  const activeSession = makeActiveSession();
+  await signIn(page, {
+    sessions: [activeSession],
+    includeSchedulingData: true,
+    generationPreview: {
+      previewOnly: true,
+      previewId: "preview-partial",
+      expiresAt: new Date(Date.now() + 30 * 60 * 1000).toISOString(),
+      committable: false,
+      entries: [],
+      warnings: ["Only 0 of 1 required weekly sessions could be scheduled."],
+      generationReport: {
+        scope: { academicSessionName: activeSession.name, programNames: ["MBA"] },
+        summary: { requiredSessions: 1, scheduledSessions: 0, unscheduledSessions: 1, coveragePercent: 0, hardValidation: "PASSED", hardErrorCount: 0, warningCount: 1 },
+        qualityMetrics: { qualityScore: 0, coveragePercent: 0 },
+        checks: [{ name: "Faculty availability", status: "PASSED", detail: "Faculty availability was checked." }],
+        placements: [],
+        unscheduled: [{ subjectId: sampleSubject._id, subject: "Mathematics", section: "MBA · I · A", faculty: "Ms. Faculty", required: 1, scheduled: 0, missing: 1, reason: "Faculty availability and room conflicts block all available periods." }],
+        errors: [],
+        warnings: ["Only 0 of 1 required weekly sessions could be scheduled."]
+      }
+    }
+  });
+  await page.getByRole("button", { name: /Generate Timetable/ }).first().click();
+  await page.getByRole("button", { name: /Generate selected/ }).click();
+  await expect(page.getByRole("heading", { name: "Timetable Preview & Generation Report", exact: true })).toBeVisible();
+  await expect(page.getByText("Faculty availability and room conflicts block all available periods.", { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Save as Draft" })).toBeDisabled();
+});
+
+test("admin can review a generated timetable before submitting its draft for approval", async ({ page }) => {
   const activeSession = makeActiveSession();
   await signIn(page, { sessions: [activeSession], includeSchedulingData: true });
   await page.getByRole("button", { name: /Generate Timetable/ }).first().click();
   await page.getByRole("button", { name: /Generate selected/ }).click();
+  await expect(page.getByRole("heading", { name: "Timetable Preview & Generation Report", exact: true })).toBeVisible();
+  await expect(page.getByText("Mathematics", { exact: true }).first()).toBeVisible();
+  await page.getByRole("button", { name: "Save as Draft" }).click();
   await expect(page.getByRole("heading", { name: "Section-wise Timetable", exact: true })).toBeVisible();
   await expect(page.getByText("Mathematics", { exact: true }).first()).toBeVisible();
   await page.getByRole("button", { name: /Submit for Review/ }).click();
