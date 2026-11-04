@@ -501,7 +501,7 @@ test("module flyouts support nested groups and show only role-visible pages", as
     "Timetable Views": ["Full Session Timetable","All Program Timetables","Timetable","Calendar View"],
     "Student Management": ["Students","Student Mapping","Student Profile","Student Promotion"],
     "Attendance & Fees": ["Attendance","Fees"],
-    "Import & Data Transfer": ["Excel Import","Import Center"],
+    "Import & Data Transfer": ["Excel Import","Manual Timetable Import","Import Center"],
     "Templates & Sharing": ["Templates & Clone","Public Sharing"],
     "Validation & Audit History": ["Validation","Audit Logs","Change History"]
   };
@@ -616,4 +616,19 @@ test("page search shows matching links beneath the search field without filterin
   await expect(search).toHaveValue("");
   await expect(page.locator("#page-search-results")).toHaveCount(0);
   await expect(search).not.toBeFocused();
+});
+
+test("manual timetable import navigation is visible to Admin and Scheduler only", async ({ page }) => {
+  for (const role of ["ADMIN", "SCHEDULER", "FACULTY", "VIEWER"]) {
+    const rolePage = await page.context().newPage();
+    await installRoleApiMocks(rolePage, role);
+    await rolePage.locator('.nav-module-button[data-nav-module="Tools & Sharing"]').click();
+    const link = rolePage.locator('.nav-flyout-panel [data-nav="Manual Timetable Import"]');
+    if (role === "ADMIN" || role === "SCHEDULER") {
+      await expect(link, role + " should be allowed to import a manual timetable").toBeVisible();
+    } else {
+      await expect(link, role + " should not see the manual timetable import action").toHaveCount(0);
+    }
+    await rolePage.close();
+  }
 });
