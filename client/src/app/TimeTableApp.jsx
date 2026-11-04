@@ -34,7 +34,7 @@ const NAV_MENU_LAYOUT = {
     { type: "group", label: "Attendance & Fees", pages: ["Attendance", "Fees"] }
   ],
   "Tools & Sharing": [
-    { type: "group", label: "Import & Data Transfer", pages: ["Excel Import", "Import Center"] },
+    { type: "group", label: "Import & Data Transfer", pages: ["Excel Import", "Manual Timetable Import", "Import Center"] },
     { type: "group", label: "Templates & Sharing", pages: ["Templates & Clone", "Public Sharing"] }
   ],
   "Reports & Audit": [
