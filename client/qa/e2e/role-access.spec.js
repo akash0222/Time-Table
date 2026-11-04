@@ -622,12 +622,15 @@ test("manual timetable import navigation is visible to Admin and Scheduler only"
   for (const role of ["ADMIN", "SCHEDULER", "FACULTY", "VIEWER"]) {
     const rolePage = await page.context().newPage();
     await installRoleApiMocks(rolePage, role);
-    await rolePage.locator('.nav-module-button[data-nav-module="Tools & Sharing"]').click();
-    const link = rolePage.locator('.nav-flyout-panel [data-nav="Manual Timetable Import"]');
+    const toolsModule = rolePage.locator('.nav-module-button[data-nav-module="Tools & Sharing"]');
     if (role === "ADMIN" || role === "SCHEDULER") {
+      await expect(toolsModule).toBeVisible();
+      await toolsModule.click();
+      await rolePage.locator('.nav-flyout-panel [data-nav-submenu="Import & Data Transfer"]').click();
+      const link = rolePage.locator('.nav-subflyout-panel [data-nav="Manual Timetable Import"]');
       await expect(link, role + " should be allowed to import a manual timetable").toBeVisible();
     } else {
-      await expect(link, role + " should not see the manual timetable import action").toHaveCount(0);
+      await expect(toolsModule, role + " must not have Tools & Sharing access").toHaveCount(0);
     }
     await rolePage.close();
   }
