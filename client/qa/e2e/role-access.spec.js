@@ -618,20 +618,32 @@ test("page search shows matching links beneath the search field without filterin
   await expect(search).not.toBeFocused();
 });
 
-test("manual timetable import navigation is visible to Admin and Scheduler only", async ({ page }) => {
-  for (const role of ["ADMIN", "SCHEDULER", "FACULTY", "VIEWER"]) {
-    const rolePage = await page.context().newPage();
-    await installRoleApiMocks(rolePage, role);
-    const toolsModule = rolePage.locator('.nav-module-button[data-nav-module="Tools & Sharing"]');
-    if (role === "ADMIN" || role === "SCHEDULER") {
-      await expect(toolsModule).toBeVisible();
-      await toolsModule.click();
-      await rolePage.locator('.nav-flyout-panel [data-nav-submenu="Import & Data Transfer"]').click();
-      const link = rolePage.locator('.nav-subflyout-panel [data-nav="Manual Timetable Import"]');
-      await expect(link, role + " should be allowed to import a manual timetable").toBeVisible();
-    } else {
-      await expect(toolsModule, role + " must not have Tools & Sharing access").toHaveCount(0);
-    }
-    await rolePage.close();
+async function checkManualImportNavigation(page, role, shouldBeVisible) {
+  await installRoleApiMocks(page, role);
+  const toolsModule = page.locator('.nav-module-button[data-nav-module="Tools & Sharing"]');
+  if (!shouldBeVisible) {
+    await expect(toolsModule, role + " must not have Tools & Sharing access").toHaveCount(0);
+    return;
   }
+  await expect(toolsModule).toBeVisible();
+  await toolsModule.click();
+  await page.locator('.nav-flyout-panel [data-nav-submenu="Import & Data Transfer"]').click();
+  const link = page.locator('.nav-subflyout-panel [data-nav="Manual Timetable Import"]');
+  await expect(link, role + " should be allowed to import a manual timetable").toBeVisible();
+}
+
+test("manual timetable import navigation is available to Admin", async ({ page }) => {
+  await checkManualImportNavigation(page, "ADMIN", true);
+});
+
+test("manual timetable import navigation is available to Scheduler", async ({ page }) => {
+  await checkManualImportNavigation(page, "SCHEDULER", true);
+});
+
+test("Faculty cannot access manual timetable import navigation", async ({ page }) => {
+  await checkManualImportNavigation(page, "FACULTY", false);
+});
+
+test("Viewer cannot access manual timetable import navigation", async ({ page }) => {
+  await checkManualImportNavigation(page, "VIEWER", false);
 });
