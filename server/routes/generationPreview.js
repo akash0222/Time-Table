@@ -16,6 +16,24 @@ import AcademicSession from "../models/AcademicSession.js";
 import SchedulerSetting from "../models/SchedulerSetting.js";
 import Timetable from "../models/Timetable.js";
 import GenerationPreview from "../models/GenerationPreview.js";
+import ExcelJS from "exceljs";
+import multer from "multer";
+import { assertSafeXlsxBuffer } from "../services/xlsxSafety.js";
+import { holidayImportCell } from "../services/holidayImport.js";
+import { mapManualTimetableRows } from "../services/manualTimetableImport.js";
+import Faculty from "../models/Faculty.js";
+import Section from "../models/Section.js";
+import Room from "../models/Room.js";
+
+const manualImportUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024, files: 1 }
+});
+const MANUAL_IMPORT_HEADERS = [
+  "Program Code", "Program", "Semester", "Section", "Day",
+  "Start Time", "End Time", "Duration", "Subject Code", "Subject",
+  "Faculty Code", "Faculty", "Room"
+];
 
 const router = express.Router();
 const idOf = value => value == null ? "" : String(value?._id ?? value);
@@ -88,6 +106,198 @@ async function loadContext(body = {}) {
   }) : [];
   return { sessionId, session, programIds, selectedPrograms, faculty, sections, sectionsAll, rooms, slots, usableSlots, programs, settings, subjects, scopedSubjects, allSubjects, invalidSubjects, current, reservedEntries };
 }
+
+router.get("/timetable/manual-import/template", requireAuth, allowRoles("ADMIN", "SCHEDULER"), async (_req, res) => {
+  try {
+    const workbook = new ExcelJS.Workbook();
+    workbook.creator = "Scheduly";
+    workbook.subject = "Manual timetable import template";
+    workbook.created = new Date();
+    const sheet = workbook.addWorksheet("Timetable");
+    sheet.columns = MANUAL_IMPORT_HEADERS.map((header, index) => ({
+      header, key: `column${index + 1}`,
+      width: Math.max(14, Math.min(24, header.length + 5))
+    }));
+    sheet.getRow(1).font = { bold: true, color: { argb: "FFFFFFFF" } };
+    sheet.getRow(1).fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF1E40AF" } };
+    sheet.views = [{ state: "frozen", ySplit: 1 }];
+    sheet.autoFilter = { from: "A1", to: `M1` };
+
+    const instructions = workbook.addWorksheet("Instructions");
+    instructions.columns = [{ width: 26 }, { width: 105 }];
+    instructions.addRows([
+      ["Field", "Instructions"],
+      ["Program Code / Program", "Enter the exact existing Program code or name. At least one is required. If both are entered, both must match."],
+      ["Semester / Section", "Must match the existing section mapping in the selected Academic Session."],
+      ["Day", "Use Monday, Tuesday, Wednesday, Thursday, Friday, Saturday or Sunday. Configured holidays are checked during validation."],
+      ["Start Time / End Time", "Use the exact configured time-slot boundaries, preferably in 24-hour HH:MM format (example: 09:00)."],
+      ["Duration", "Optional. Enter 1, 2 or 3 consecutive configured periods. Leave blank to infer duration from the start/end time and subject duration."],
+      ["Subject Code / Subject", "Enter the exact mapped subject code or name. At least one is required. If both are entered, both must match."],
+      ["Faculty Code / Faculty", "Enter the exact faculty code or name. The faculty member must match the faculty mapped to the subject."],
+      ["Room", "Enter the exact existing room name. Room type and section capacity are validated."],
+      ["Completeness", "Include every required weekly class for every active subject in the selected Academic Session. Missing or extra sessions block import."],
+      ["Safety", "Upload creates a preview only. The existing timetable is not changed until you confirm saving the validated import as a new Draft version. Previous versions remain in Approval & Versions."]
+    ]);
+    instructions.getRow(1).font = { bold: true, color: { argb: "FFFFFFFF" } };
+    instructions.getRow(1).fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF1E40AF" } };
+    instructions.views = [{ state: "frozen", ySplit: 1 }];
+
+    const buffer = await workbook.xlsx.writeBuffer();
+    res.setHeader("Content-Disposition", 'attachment; filename="scheduly-manual-timetable-template.xlsx"');
+    res.type("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet").send(Buffer.from(buffer));
+  } catch (error) {
+    console.error("Manual timetable template failed:", error.message);
+    res.status(500).json({ message: "Unable to create the Excel template." });
+  }
+});
+
+router.post("/timetable/manual-import/preview", requireAuth, allowRoles("ADMIN", "SCHEDULER"), manualImportUpload.single("file"), async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ message: "Choose a .xlsx workbook first." });
+    const fileName = String(req.file.originalname || "").trim();
+    if (!fileName.toLowerCase().endsWith(".xlsx")) {
+      return res.status(400).json({ message: "Upload an .xlsx Excel workbook. Download the Scheduly template to get the supported format." });
+    }
+    assertSafeXlsxBuffer(req.file.buffer);
+
+    const sessionId = String(req.body?.academicSessionId || "").trim();
+    if (!mongoose.isValidObjectId(sessionId)) return res.status(400).json({ message: "Select a valid Academic Session." });
+    const [session, faculty, programs, rooms, slots, settingsRow] = await Promise.all([
+      AcademicSession.findById(sessionId).lean(),
+      Faculty.find().lean(),
+      Program.find({ active: { $ne: false } }).lean(),
+      Room.find().lean(),
+      TimeSlot.find({ $or: [{ academicSession: sessionId }, { academicSession: null }] }).sort({ day: 1, order: 1 }).lean(),
+      SchedulerSetting.findOne({ key: "default" }).lean()
+    ]);
+    if (!session) return res.status(404).json({ message: "Selected Academic Session was not found." });
+
+    const sections = await Section.find({ academicSession: sessionId }).lean();
+    const sectionIds = sections.map(section => section._id);
+    const subjects = await Subject.find({
+      $and: [
+        { $or: [{ academicSession: sessionId }, { academicSession: null }] },
+        { section: { $in: sectionIds } },
+        { active: { $ne: false } }
+      ]
+    }).lean();
+    const override = settingsRow?.sessionOverrides?.find(row => String(row.academicSession) === sessionId);
+    const settings = override ? { ...settingsRow, ...override } : (settingsRow || { holidayDays: ["Sunday"] });
+
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.load(req.file.buffer);
+    const worksheet = workbook.getWorksheet("Timetable") || workbook.worksheets[0];
+    if (!worksheet) return res.status(400).json({ message: "The workbook does not contain a Timetable worksheet." });
+    const headerRow = worksheet.getRow(1);
+    const headers = headerRow.values.slice(1).map(value => String(holidayImportCell(value) ?? "").trim());
+    const normalizedHeaders = new Set(headers.map(value => value.toLowerCase().replace(/\s+/g, " ").trim()));
+    const has = (...names) => names.some(name => normalizedHeaders.has(name));
+    const requiredHeaderGroups = [
+      ["Program Code", "Program"], ["Semester"], ["Section"], ["Day"],
+      ["Start Time"], ["End Time"], ["Subject Code", "Subject"],
+      ["Faculty Code", "Faculty"], ["Room"]
+    ];
+    const missingHeaders = requiredHeaderGroups
+      .filter(group => !has(...group))
+      .map(group => group.join(" or "));
+    if (missingHeaders.length) {
+      return res.status(400).json({ message: "Missing required Excel column(s): " + missingHeaders.join(", ") + ". Download the Scheduly template and copy your timetable into its Timetable sheet." });
+    }
+
+    const rows = [];
+    worksheet.eachRow({ includeEmpty: false }, (excelRow, rowNumber) => {
+      if (rowNumber <= 1) return;
+      const row = { rowNumber };
+      headers.forEach((header, columnIndex) => {
+        if (!header) return;
+        row[header] = holidayImportCell(excelRow.getCell(columnIndex + 1).value);
+      });
+      if (Object.values(row).some(value => value !== "" && value !== null && value !== undefined)) rows.push(row);
+    });
+    if (!rows.length) return res.status(400).json({ message: "The Timetable worksheet has no data rows." });
+    if (rows.length > 2000) return res.status(400).json({ message: "The workbook contains more than 2,000 timetable rows. Split it into smaller files." });
+
+    const mapped = mapManualTimetableRows({
+      rows, session, faculty, sections, programs, subjects, rooms, slots, settings
+    });
+    const report = {
+      scope: {
+        academicSessionId: sessionId,
+        academicSessionName: session.name,
+        programIds: mapped.programIds,
+        programNames: mapped.programNames
+      },
+      summary: {
+        requiredSessions: mapped.requiredSessions,
+        scheduledSessions: mapped.scheduledSessions,
+        unscheduledSessions: mapped.unscheduledSessions,
+        hardValidation: mapped.errors.length === 0 && mapped.validation.valid ? "PASSED" : "FAILED",
+        hardErrorCount: mapped.errors.length,
+        coveragePercent: mapped.requiredSessions
+          ? Number((mapped.scheduledSessions / mapped.requiredSessions * 100).toFixed(1))
+          : 0
+      },
+      errors: mapped.errors,
+      warnings: mapped.warnings
+    };
+    const current = await Timetable.findOne({ academicSession: sessionId, isCurrent: true }).sort({ version: -1 }).lean();
+    if (mapped.errors.length || !mapped.validation.valid) {
+      return res.status(422).json({
+        committable: false,
+        fileName,
+        summary: report.summary,
+        scope: report.scope,
+        errors: mapped.errors,
+        warnings: mapped.warnings,
+        rows: mapped.rows.slice(0, 100),
+        totalRows: mapped.rows.length
+      });
+    }
+
+    const preview = await GenerationPreview.create({
+      createdBy: String(req.user?.username || ""),
+      academicSession: sessionId,
+      programIds: mapped.programIds,
+      entries: mapped.entries,
+      score: 0,
+      metrics: { qualityScore: null, source: "EXCEL_IMPORT" },
+      warnings: mapped.warnings,
+      report: {
+        ...report,
+        checks: [
+          { name: "Excel rows mapped to existing master data", status: "PASSED", detail: `${mapped.rows.length} row(s) resolved.` },
+          { name: "Weekly subject coverage", status: "PASSED", detail: `${mapped.scheduledSessions} of ${mapped.requiredSessions} required session(s) imported.` },
+          { name: "Hard timetable validation", status: "PASSED", detail: "No faculty, section, room, time-slot or holiday errors." }
+        ]
+      },
+      expectedSessions: mapped.requiredSessions,
+      generationRuns: 1,
+      baseTimetableId: current?._id || null,
+      baseTimetableUpdatedAt: current?.updatedAt || null,
+      sourceType: "EXCEL_IMPORT",
+      expiresAt: new Date(Date.now() + 30 * 60 * 1000),
+      status: "READY"
+    });
+
+    return res.status(201).json({
+      committable: true,
+      previewId: String(preview._id),
+      expiresAt: preview.expiresAt,
+      fileName,
+      scope: report.scope,
+      summary: report.summary,
+      rows: mapped.rows.slice(0, 100),
+      totalRows: mapped.rows.length,
+      warnings: mapped.warnings
+    });
+  } catch (error) {
+    const status = error.statusCode || 400;
+    if (status >= 500) console.error("Manual timetable Excel import failed:", error.message);
+    return res.status(status).json({
+      message: error.statusCode ? error.message : "Unable to process the Excel workbook. Check the file and try again."
+    });
+  }
+});
 
 router.post("/timetable/preview", requireAuth, allowRoles("ADMIN", "SCHEDULER"), async (req, res) => {
   try {
@@ -198,7 +408,9 @@ router.post("/timetable/previews/:id/commit", requireAuth, allowRoles("ADMIN", "
         optimizationRuns: fresh.generationRuns || 1, academicSession: fresh.academicSession, version, versionLabel: `Version ${version}`, isCurrent: true,
         createdBy: username, status: "DRAFT", statusChangedAt: new Date(), statusNote: "", warnings: fresh.warnings || [],
         generationScope: fresh.programIds?.length ? { programIds: fresh.programIds, programNames: selectedPrograms.map(program => program.name) } : null,
-        notes: "Created from a reviewed generation preview."
+        notes: fresh.sourceType === "EXCEL_IMPORT"
+          ? "Created from a reviewed manual Excel timetable import."
+          : "Created from a reviewed generation preview."
       }], { session: tx });
       const marked = await GenerationPreview.updateOne({ _id: fresh._id, status: "READY" }, { $set: { status: "COMMITTED", committedTimetable: saved._id } }, { session: tx });
       if (marked.modifiedCount !== 1) { const error = new Error("Preview status changed during save."); error.statusCode = 409; throw error; }
