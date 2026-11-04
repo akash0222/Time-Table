@@ -1394,6 +1394,7 @@ test("incomplete timetable preview explains missing classes and blocks draft sav
   await page.getByRole("button", { name: /Generate Timetable/ }).first().click();
   await page.getByRole("button", { name: /Generate selected/ }).click();
   await expect(page.getByRole("heading", { name: "Timetable Preview & Generation Report", exact: true })).toBeVisible();
+  await page.getByRole("tab", { name: /Unscheduled sessions/ }).click();
   await expect(page.getByText("Faculty availability and room conflicts block all available periods.", { exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Save as Draft" })).toBeDisabled();
 });
