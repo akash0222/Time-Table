@@ -52,6 +52,7 @@ import { workflowNoteRequired } from "./services/timetableWorkflow.js";
 import { seedDemoData } from "./services/demoSeed.js";
 import { resolveTimeSlotsForSection, resolveProgramCalendar } from "./services/timetable/academicCalendar.js";
 import { holidayDateRangeIssue } from "./services/sessionPlanHolidayDates.js";
+import { normalizeOrigin, isAllowedCorsOrigin } from "./services/corsOrigin.js";
 
 const app = express();
 globalThis.__APP_STARTED_AT = Date.now();
@@ -61,18 +62,6 @@ if (env.trustProxy) {
 }
 
 const isProduction = env.isProduction;
-
-// Normalize configured entries to URL origins so a harmless trailing slash in
-// Render's CORS_ORIGINS/CLIENT_URL value cannot reject the browser's Origin.
-function normalizeOrigin(value) {
-  try {
-    const parsed = new URL(String(value || "").trim());
-    if (parsed.protocol !== "https:" && parsed.hostname !== "localhost" && parsed.hostname !== "127.0.0.1") return "";
-    return parsed.origin;
-  } catch {
-    return "";
-  }
-}
 
 const configuredOrigins = new Set([
   ...env.corsOrigins.map(normalizeOrigin),
@@ -86,7 +75,7 @@ app.use(cors({
     if (!origin) return callback(null, true);
     if (configuredOrigins.size === 0 && !isProduction) return callback(null, true);
     const normalized = normalizeOrigin(origin);
-    if (normalized && configuredOrigins.has(normalized)) return callback(null, true);
+    if (normalized && isAllowedCorsOrigin(normalized, configuredOrigins)) return callback(null, true);
     console.warn("[CORS] Rejected origin:", origin);
     return callback(new Error("CORS origin not allowed."));
   },
