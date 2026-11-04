@@ -111,6 +111,11 @@ try {
     await call("GET", "/api/system/health"),
     403
   );
+  expectStatus(
+    "Read-only QA account cannot view full-session optimization diagnostics",
+    await call("GET", "/api/timetable/optimization"),
+    403
+  );
   token = adminToken;
   pass("Read-only QA account is unable to perform protected writes");
 
