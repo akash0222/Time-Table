@@ -19,7 +19,7 @@ const norm = value => String(value ?? "").trim().toLowerCase();
 const id = value => String(value?._id ?? value ?? "");
 
 function timeToMinutes(value) {
-  const match = String(value ?? "").trim().match(/^(\\d{1,2}):(\\d{2})$/);
+  const match = String(value ?? "").trim().match(/^(\d{1,2}):(\d{2})$/);
   if (!match) return NaN;
   const hours = Number(match[1]);
   const minutes = Number(match[2]);
@@ -150,7 +150,7 @@ export function candidateFor(
   };
   const others = (entries || []).filter(row => id(row) !== id(entry));
   const blockedDays = new Set(["sunday", ...(holidayDays || []).map(norm)]);
-  const candidateDays = [...new Set(sectionSlots.map(slot => String(slot.day))]
+  const candidateDays = [...new Set(sectionSlots.map(slot => String(slot.day)))]
     .filter(day => !blockedDays.has(norm(day)))
     .sort((a, b) => days.indexOf(a) - days.indexOf(b));
   const result = [];
