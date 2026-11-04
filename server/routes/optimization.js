@@ -1,4 +1,5 @@
 import express from "express";
+import { allowRoles } from "../middleware/auth.js";
 import Timetable from "../models/Timetable.js";
 import Faculty from "../models/Faculty.js";
 import Subject from "../models/Subject.js";
@@ -16,6 +17,15 @@ const router = express.Router();
 const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 const norm = value => String(value ?? "").trim().toLowerCase();
 const id = value => String(value?._id ?? value ?? "");
+
+function timeToMinutes(value) {
+  const match = String(value ?? "").trim().match(/^(\\d{1,2}):(\\d{2})$/);
+  if (!match) return NaN;
+  const hours = Number(match[1]);
+  const minutes = Number(match[2]);
+  if (hours < 0 || hours > 23 || minutes < 0 || minutes > 59) return NaN;
+  return hours * 60 + minutes;
+}
 
 function calendarWindowsOverlap(a, b) {
   const aStart = String(a?.calendarStartDate || a?._calendarStartDate || "");
@@ -43,11 +53,19 @@ function slotBlocks(slots, day, startOrder, duration) {
 
 function overlaps(a, b) {
   if (a.day !== b.day || !calendarWindowsOverlap(a, b)) return false;
-  const aStart = Number(a.order || 0);
-  const aEnd = aStart + Math.max(1, Number(a.duration || 1));
-  const bStart = Number(b.order || 0);
-  const bEnd = bStart + Math.max(1, Number(b.duration || 1));
-  return aStart < bEnd && bStart < aEnd;
+  const aStart = timeToMinutes(a.startTime);
+  const aEnd = timeToMinutes(a.endTime);
+  const bStart = timeToMinutes(b.startTime);
+  const bEnd = timeToMinutes(b.endTime);
+  if ([aStart, aEnd, bStart, bEnd].every(Number.isFinite) && aEnd > aStart && bEnd > bStart) {
+    return aStart < bEnd && bStart < aEnd;
+  }
+  // Legacy rows without valid clock values fall back to their configured period order.
+  const leftStart = Number(a.order || 0);
+  const leftEnd = leftStart + Math.max(1, Number(a.duration || 1));
+  const rightStart = Number(b.order || 0);
+  const rightEnd = rightStart + Math.max(1, Number(b.duration || 1));
+  return leftStart < rightEnd && rightStart < leftEnd;
 }
 
 function maxRun(entries, field, ownerId, day, targetWindow = null) {
@@ -131,9 +149,9 @@ export function candidateFor(
     calendarEndDate: baseEntry.calendarEndDate || section._calendarEndDate || ""
   };
   const others = (entries || []).filter(row => id(row) !== id(entry));
-  const blockedDays = new Set(["Sunday", ...(holidayDays || []).map(String)]);
-  const candidateDays = [...new Set(sectionSlots.map(slot => String(slot.day)))]
-    .filter(day => !blockedDays.has(day))
+  const blockedDays = new Set(["sunday", ...(holidayDays || []).map(norm)]);
+  const candidateDays = [...new Set(sectionSlots.map(slot => String(slot.day))]
+    .filter(day => !blockedDays.has(norm(day)))
     .sort((a, b) => days.indexOf(a) - days.indexOf(b));
   const result = [];
   const duration = Math.max(1, Number(entry?.duration || subject.duration || 1));
@@ -144,7 +162,6 @@ export function candidateFor(
   const maxConsecutiveSection = Math.max(1, Number(settings?.maxConsecutiveSection || 3));
 
   for (const day of candidateDays) {
-    if (!availableFaculty(faculty, day, sectionSlots.filter(slot => slot.day === day))) continue;
     const daySlots = sectionSlots.filter(slot => slot.day === day).sort((a, b) => Number(a.order) - Number(b.order));
     for (const slot of daySlots) {
       const block = slotBlocks(sectionSlots, day, slot.order, duration);
@@ -381,7 +398,7 @@ function buildOptimizationReport(c) {
   };
 }
 
-router.get("/", async (req, res) => {
+router.get("/", allowRoles("ADMIN", "SCHEDULER"), async (req, res) => {
   try {
     const c = await context(String(req.query.sessionId || ""));
     res.json(buildOptimizationReport(c));
