@@ -146,6 +146,7 @@ const SchedulerSettings = lazy(() => import("../pages/SchedulerSettingsPage.jsx"
 const MasterDataSettings = lazy(() => import("../pages/MasterDataSettingsPage.jsx"));
 const SubjectFacultyMapping = lazy(() => import("../pages/SubjectFacultyMappingPage.jsx"));
 const ExcelImport = lazy(() => import("../pages/ExcelImportPage.jsx"));
+const ManualTimetableImport = lazy(() => import("../pages/ManualTimetableImportPage.jsx"));
 const MasterView = lazy(() => import("../pages/MasterViewPage.jsx"));
 const AvailabilityMatrix = lazy(() => import("../pages/AvailabilityMatrixPage.jsx"));
 
@@ -1251,6 +1252,7 @@ export default function App(){
       {(tab==="Subject & Faculty Mapping") && <SubjectFacultyMapping data={data} sessions={sessions} activeSession={activeSession} reload={load} setMessage={setMessage}/>}
       {tab==="Program & Section Mapping" && <AcademicStructure sessions={sessions} activeSession={activeSession} programs={data.programs} data={data} reload={load} setMessage={setMessage}/>}
       {tab==="Import Center" && <ExcelImport reload={load} setMessage={setMessage}/>}
+      {tab==="Manual Timetable Import" && <ManualTimetableImport activeSession={activeSession} onImported={load} setMessage={setMessage} onNavigate={navigateToNavPage}/>}
       {["Programs","Faculty","Subjects","Sections","Rooms","Time Slots"].includes(tab) &&
         <MasterView type={tab} data={data} setData={setData} reload={load} sessions={sessions} setMessage={setMessage}/>}
       {tab==="Availability" && <AvailabilityMatrix data={data} reload={load} setMessage={setMessage}/>}
