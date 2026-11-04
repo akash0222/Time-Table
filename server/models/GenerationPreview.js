@@ -15,7 +15,8 @@ const generationPreviewSchema = new mongoose.Schema({
   baseTimetableUpdatedAt: { type: Date, default: null },
   status: { type: String, enum: ["READY", "COMMITTED"], default: "READY", index: true },
   expiresAt: { type: Date, required: true, index: { expires: 0 } },
-  committedTimetable: { type: mongoose.Schema.Types.ObjectId, ref: "Timetable", default: null }
+  committedTimetable: { type: mongoose.Schema.Types.ObjectId, ref: "Timetable", default: null },
+  sourceType: { type: String, enum: ["GENERATION", "EXCEL_IMPORT"], default: "GENERATION" }
 }, { timestamps: true });
 
 generationPreviewSchema.index({ createdBy: 1, status: 1, expiresAt: 1 });
