@@ -39,7 +39,8 @@
     "test:regression:timetable-workflow-notes": "node qa/timetable-workflow-notes.test.mjs",
     "test:regression:program-semester-scope": "node qa/program-semester-scope.test.mjs",
     "test:regression:generation-explainability": "node qa/generation-explainability.test.mjs",
-    "test:regression:cors-origin": "node qa/cors-origin.test.mjs"
+    "test:regression:cors-origin": "node qa/cors-origin.test.mjs",
+    "test:regression:optimization-candidates": "node qa/optimization-candidates.test.mjs"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
