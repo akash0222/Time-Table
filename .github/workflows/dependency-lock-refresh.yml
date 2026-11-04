@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - security/refresh-server-dependencies
+  pull_request:
+    branches:
+      - main
 
 permissions:
   contents: write
