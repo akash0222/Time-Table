@@ -28,6 +28,7 @@ export const PAGE_NAMES = [
   "Subject & Faculty Mapping",
   "Program & Section Mapping",
   "Excel Import",
+  "Manual Timetable Import",
   "Import Center",
   "Templates & Clone",
   "Public Sharing",
