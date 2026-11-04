@@ -1240,7 +1240,7 @@ export default function App(){
       {tab==="Analytics" && <Analytics activeSession={activeSession}/>}
       {tab==="Reports" && <Reports activeSession={activeSession}/>}
       {tab==="Audit Logs" && <AuditLogs/>}
-      {tab==="Optimization" && <Optimization/>}
+      {tab==="Optimization" && <Optimization activeSession={activeSession}/>}
       {tab==="Generation Readiness" && <GenerationReadiness activeSession={activeSession} onNavigate={navigateFromDashboard}/>}
       {tab==="Generation Preview" && <GenerationPreviewPage preview={generationPreview} onCommit={commitGenerationPreview} onDiscard={discardGenerationPreview} loading={loading}/>}
       {tab==="Validation" && <Validation/>}
