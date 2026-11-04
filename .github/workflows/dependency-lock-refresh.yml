@@ -1,15 +1,12 @@
 name: Refresh server dependency lockfile
 
 on:
-  push:
-    branches:
-      - security/refresh-server-dependencies
   pull_request:
     branches:
       - main
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   refresh-lockfile:
@@ -59,14 +56,10 @@ jobs:
           NODE
       - name: Validate lockfile diff
         run: git diff --check -- server/package-lock.json
-      - name: Commit refreshed lockfile
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add server/package-lock.json
-          if git diff --cached --quiet; then
-            echo "No compatible lockfile updates were available."
-            exit 0
-          fi
-          git commit -m "chore(security): update patched server dependencies"
-          git push origin HEAD:security/refresh-server-dependencies
+      - name: Upload refreshed lockfile
+        uses: actions/upload-artifact@v4
+        with:
+          name: refreshed-server-package-lock
+          path: server/package-lock.json
+          if-no-files-found: error
+          retention-days: 3
