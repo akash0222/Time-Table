@@ -399,6 +399,23 @@ async function installApiMocks(page, options = {}) {
       workflow={...(workflow||{}),status:"DRAFT",timetableId:restored._id,version:restored.version,versionLabel:restored.versionLabel,history:[...(workflow?.history||[]),{from:"VERSION_RESTORE",to:"DRAFT",note:body.note,username:admin.username,role:admin.role,changedAt:restored.createdAt}]};
       return json(timetable,201);
     }
+    if (path === "/timetable/manual-import/preview" && method === "POST") {
+      return json(options.manualImportPreview || {
+        committable: true,
+        previewId: "manual-import-preview-1",
+        expiresAt: new Date(Date.now() + 30 * 60 * 1000).toISOString(),
+        fileName: "manual-timetable.xlsx",
+        scope: { academicSessionName: activeSession?.name || "Academic Year 2026-27" },
+        summary: { requiredSessions: 1, scheduledSessions: 1, unscheduledSessions: 0, hardValidation: "PASSED", hardErrorCount: 0, coveragePercent: 100 },
+        rows: [{
+          rowNumber: 2, program: "MBA", semester: "I", section: "A", day: "Monday",
+          startTime: "09:00", endTime: "10:00", subject: "Mathematics",
+          faculty: "Ms. Faculty", room: "Room 101"
+        }],
+        totalRows: 1,
+        warnings: []
+      }, 201);
+    }
     if (path === "/timetable/preview" && method === "POST") {
       generationPreview = options.generationPreview || {
         previewOnly: true,
@@ -484,6 +501,7 @@ const moduleForPage = {
   "Section Portal":"Portals & Communication",
   "Notifications":"Portals & Communication",
   "Excel Import":"Tools & Sharing",
+  "Manual Timetable Import":"Tools & Sharing",
   "Import Center":"Tools & Sharing",
   "Templates & Clone":"Tools & Sharing",
   "Public Sharing":"Tools & Sharing",
@@ -526,6 +544,7 @@ async function navigateToPage(page, pageName) {
     "Attendance": "Attendance & Fees",
     "Fees": "Attendance & Fees",
     "Excel Import": "Import & Data Transfer",
+    "Manual Timetable Import": "Import & Data Transfer",
     "Import Center": "Import & Data Transfer",
     "Templates & Clone": "Templates & Sharing",
     "Public Sharing": "Templates & Sharing",
@@ -1549,4 +1568,24 @@ test("Generate Timetable program selector is centered, scrollable, and accessibl
   expect(mobile.height).toBeLessThanOrEqual(700);
   await page.keyboard.press("Escape");
   await expect(mobileDialog).toHaveCount(0);
+});
+
+test("admin can upload a manual Excel timetable and review its validated preview", async ({ page }) => {
+  const activeSession = makeActiveSession();
+  await signIn(page, { sessions: [activeSession], includeSchedulingData: true });
+  await navigateToPage(page, "Manual Timetable Import");
+
+  await expect(page.getByRole("heading", { name: "Manual Timetable Excel Import", exact: true })).toBeVisible();
+  await expect(page.getByLabel("Academic Session")).toHaveValue(activeSession._id);
+  await page.locator(".manual-import-file input").setInputFiles({
+    name: "manual-timetable.xlsx",
+    mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    buffer: Buffer.from("mock-xlsx")
+  });
+  await page.getByRole("button", { name: "Upload & Validate" }).click();
+
+  await expect(page.getByRole("heading", { name: "Import Validation Preview", exact: true })).toBeVisible();
+  await expect(page.getByText("Ready to save")).toBeVisible();
+  await expect(page.getByText("Mathematics", { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Save Imported Timetable as Draft" })).toBeEnabled();
 });
