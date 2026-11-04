@@ -233,7 +233,7 @@ export function mapManualTimetableRows({
     }
 
     if (rowErrors.length) {
-      errors.push(...rowErrors.filter(message => !String(message).startsWith(`Row ${rowNumber}:`)).map(message => `Row ${rowNumber}: ${message}`));
+      errors.push(...rowErrors.map(message => String(message).startsWith(`Row ${rowNumber}:`) ? message : `Row ${rowNumber}: ${message}`));
       continue;
     }
 
