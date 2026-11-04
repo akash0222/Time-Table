@@ -1400,3 +1400,63 @@ html:has(.app .erp-sidebar),body:has(.app .erp-sidebar),#root:has(.app .erp-side
   .app .master-data-table{min-width:680px}
   .app .master-data-table thead th,.app .master-data-table tbody td{padding:10px}
 }
+
+
+/* Manual timetable workbook import */
+.app .manual-timetable-import{display:grid;gap:16px;min-width:0}
+.app .manual-import-steps{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:18px 0}
+.app .manual-import-steps>div{display:grid;grid-template-columns:30px minmax(0,1fr);align-items:center;column-gap:10px;padding:12px;border:1px solid #e2e8f0;border-radius:12px;background:#f8fafc}
+.app .manual-import-steps>div>span{grid-row:span 2;display:grid;place-items:center;width:28px;height:28px;border-radius:50%;background:#dbeafe;color:#1d4ed8;font-weight:800}
+.app .manual-import-steps strong{font-size:13px;color:#1e293b}
+.app .manual-import-steps small{font-size:11px;color:#64748b}
+.app .manual-import-download{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:14px;border:1px solid #dbeafe;background:#f8fbff;border-radius:12px}
+.app .manual-import-download strong{color:#1e3a8a;font-size:14px}
+.app .manual-import-download p{margin:4px 0 0;color:#64748b;font-size:12px;line-height:1.5}
+.app .manual-import-form{display:grid;grid-template-columns:minmax(220px,.65fr) minmax(260px,1fr);gap:14px;align-items:end;margin-top:18px}
+.app .manual-import-field{display:grid;gap:7px;color:#334155;font-size:12px;font-weight:750}
+.app .manual-import-field select{width:100%;min-height:42px;border:1px solid #cbd5e1;border-radius:9px;padding:9px 11px;background:#fff;color:#0f172a}
+.app .manual-import-file{display:grid;place-items:center;gap:6px;min-height:112px;padding:16px;border:1.5px dashed #94a3b8;border-radius:12px;background:#fafcff;text-align:center;cursor:pointer;color:#2563eb}
+.app .manual-import-file input{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
+.app .manual-import-file strong{max-width:100%;overflow-wrap:anywhere;color:#1e293b;font-size:13px}
+.app .manual-import-file small{color:#64748b;font-size:11px}
+.app .manual-import-actions{grid-column:1/-1;display:flex;gap:9px;flex-wrap:wrap}
+.app .manual-import-session-note{margin:12px 0 0;color:#64748b;font-size:12px}
+.app .manual-import-preview .panel-head{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;flex-wrap:wrap}
+.app .manual-import-preview .panel-head p{margin:4px 0 0;color:#64748b;font-size:12px}
+.app .manual-import-status{display:inline-flex;align-items:center;gap:6px;border-radius:999px;padding:7px 10px;font-size:11px;font-weight:800;white-space:nowrap}
+.app .manual-import-status.passed{background:#e8fbf1;color:#087f5b}
+.app .manual-import-status.failed{background:#fff1f2;color:#be123c}
+.app .manual-import-metrics{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;margin:16px 0}
+.app .manual-import-metrics>div{display:grid;gap:5px;padding:12px;border:1px solid #e2e8f0;border-radius:10px;background:#f8fafc}
+.app .manual-import-metrics small{font-size:11px;color:#64748b}
+.app .manual-import-metrics strong{font-size:21px;color:#0f172a;font-variant-numeric:tabular-nums}
+.app .manual-import-danger{color:#be123c!important}
+.app .manual-import-diagnostics,.app .manual-import-warnings{margin:14px 0;padding:13px 15px;border-radius:10px}
+.app .manual-import-diagnostics{border:1px solid #fecaca;background:#fff7f7;color:#991b1b}
+.app .manual-import-warnings{border:1px solid #fde68a;background:#fffbeb;color:#92400e}
+.app .manual-import-diagnostics h3,.app .manual-import-warnings h3{display:flex;align-items:center;gap:7px;margin:0 0 8px;font-size:13px}
+.app .manual-import-diagnostics ul,.app .manual-import-warnings ul{margin:0;padding-left:22px;font-size:12px;line-height:1.65}
+.app .manual-import-diagnostics p{margin:8px 0 0;font-size:11px}
+.app .manual-import-table-wrap{margin-top:18px;min-width:0}
+.app .manual-import-table-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:10px}
+.app .manual-import-table-heading h3{margin:0;font-size:14px}
+.app .manual-import-table-heading p{margin:3px 0 0;color:#64748b;font-size:11px}
+.app .manual-import-table-heading>span{color:#64748b;font-size:11px}
+.app .manual-import-table-wrap .table-scroll{max-width:100%;overflow:auto;border:1px solid #e2e8f0;border-radius:10px}
+.app .manual-import-table-wrap table{width:100%;min-width:980px;border-collapse:collapse;font-size:12px}
+.app .manual-import-table-wrap th{position:sticky;top:0;background:#f8fafc;color:#64748b;text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:.04em;white-space:nowrap;padding:11px;border-bottom:1px solid #e2e8f0}
+.app .manual-import-table-wrap td{padding:10px 11px;border-bottom:1px solid #edf1f6;white-space:nowrap;color:#334155}
+.app .manual-import-commit{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-top:18px;padding:16px;border:1px solid #bbf7d0;border-radius:12px;background:#f0fdf4}
+.app .manual-import-commit strong{color:#166534;font-size:14px}
+.app .manual-import-commit p{margin:4px 0 7px;color:#475569;font-size:12px;line-height:1.5}
+.app .manual-import-commit small{display:flex;align-items:center;gap:5px;color:#64748b;font-size:11px}
+.app .spin{animation:manualImportSpin 1s linear infinite}
+@keyframes manualImportSpin{to{transform:rotate(360deg)}}
+@media(max-width:760px){
+  .app .manual-import-steps{grid-template-columns:1fr}
+  .app .manual-import-form{grid-template-columns:1fr}
+  .app .manual-import-actions{grid-column:auto}
+  .app .manual-import-download,.app .manual-import-commit{align-items:stretch;flex-direction:column}
+  .app .manual-import-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .app .manual-import-metrics>div:last-child{grid-column:1/-1}
+}
