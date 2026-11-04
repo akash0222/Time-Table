@@ -27,9 +27,9 @@ jobs:
           node-version: 22
           cache: npm
           cache-dependency-path: server/package-lock.json
-      - name: Apply non-forced compatible security fixes
+      - name: Update only patched body parser and upload middleware
         working-directory: server
-        run: npm audit fix --package-lock-only --no-fund --no-progress
+        run: npm update body-parser multer --package-lock-only --no-fund --no-progress
       - name: Report remaining server dependency advisories
         working-directory: server
         run: |
@@ -37,7 +37,8 @@ jobs:
           node - "$RUNNER_TEMP/npm-audit.json" <<'NODE'
           const fs = require("node:fs");
           const report = JSON.parse(fs.readFileSync(process.argv[2], "utf8"));
-          console.log("NPM audit summary:", JSON.stringify(report.metadata?.vulnerabilities || {}));
+          const counts = report.metadata?.vulnerabilities || {};
+          console.log("NPM audit summary:", JSON.stringify(counts));
           for (const [name, item] of Object.entries(report.vulnerabilities || {})) {
             const advisories = (item.via || [])
               .filter(entry => typeof entry === "object")
@@ -51,6 +52,10 @@ jobs:
               advisories
             }));
           }
+          if (Number(counts.high || 0) > 0 || Number(counts.critical || 0) > 0) {
+            console.error("High or critical dependency advisories remain.");
+            process.exitCode = 1;
+          }
           NODE
       - name: Validate lockfile diff
         run: git diff --check -- server/package-lock.json
@@ -63,5 +68,5 @@ jobs:
             echo "No compatible lockfile updates were available."
             exit 0
           fi
-          git commit -m "chore(security): apply compatible server dependency fixes"
+          git commit -m "chore(security): update patched server dependencies"
           git push origin HEAD:security/refresh-server-dependencies
