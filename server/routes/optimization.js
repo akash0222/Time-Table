@@ -94,11 +94,17 @@ function availableFaculty(faculty, day, block) {
     ? faculty.availableDays.map(norm).filter(Boolean)
     : [];
   if (allowed.length && !allowed.includes(norm(day))) return false;
-  const unavailable = new Set((faculty?.unavailableSlots || []).map(slot =>
-    `${norm(slot.day)}|${slot.startTime}-${slot.endTime}`
-  ));
+  // Faculty.unavailableSlots is persisted as slot-key strings, for example
+  // "Monday|09:00-10:00". Support legacy object rows as well.
+  const unavailable = new Set((faculty?.unavailableSlots || []).map(value =>
+    typeof value === "string"
+      ? value.trim()
+      : value && typeof value === "object"
+        ? `${value.day}|${value.startTime}-${value.endTime}`
+        : ""
+  ).filter(Boolean));
   return !(block || []).some(slot =>
-    unavailable.has(`${norm(slot.day)}|${slot.startTime}-${slot.endTime}`)
+    unavailable.has(`${slot.day}|${slot.startTime}-${slot.endTime}`)
   );
 }
 
