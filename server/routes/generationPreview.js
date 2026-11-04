@@ -21,9 +21,6 @@ import multer from "multer";
 import { assertSafeXlsxBuffer } from "../services/xlsxSafety.js";
 import { holidayImportCell } from "../services/holidayImport.js";
 import { mapManualTimetableRows } from "../services/manualTimetableImport.js";
-import Faculty from "../models/Faculty.js";
-import Section from "../models/Section.js";
-import Room from "../models/Room.js";
 
 const manualImportUpload = multer({
   storage: multer.memoryStorage(),
@@ -191,11 +188,14 @@ router.post("/timetable/manual-import/preview", requireAuth, allowRoles("ADMIN",
     const headerRow = worksheet.getRow(1);
     const headers = headerRow.values.slice(1).map(value => String(holidayImportCell(value) ?? "").trim());
     const normalizedHeaders = new Set(headers.map(value => value.toLowerCase().replace(/\s+/g, " ").trim()));
-    const has = (...names) => names.some(name => normalizedHeaders.has(name));
+    const has = (...names) => names.some(name => normalizedHeaders.has(name.toLowerCase().replace(/\\s+/g, " ").trim()));
     const requiredHeaderGroups = [
-      ["Program Code", "Program"], ["Semester"], ["Section"], ["Day"],
-      ["Start Time"], ["End Time"], ["Subject Code", "Subject"],
-      ["Faculty Code", "Faculty"], ["Room"]
+      ["program code", "program", "program name", "programme", "programme name", "programme code"],
+      ["semester", "term"], ["section", "section name", "section code"], ["day", "weekday"],
+      ["start time", "start", "from"], ["end time", "end", "to"],
+      ["subject code", "subject", "subject name", "course", "course name"],
+      ["faculty code", "staff code", "employee code", "faculty", "faculty name", "teacher", "teacher name"],
+      ["room", "room name", "room no", "room number", "classroom"]
     ];
     const missingHeaders = requiredHeaderGroups
       .filter(group => !has(...group))
@@ -208,11 +208,14 @@ router.post("/timetable/manual-import/preview", requireAuth, allowRoles("ADMIN",
     worksheet.eachRow({ includeEmpty: false }, (excelRow, rowNumber) => {
       if (rowNumber <= 1) return;
       const row = { rowNumber };
+      let hasContent = false;
       headers.forEach((header, columnIndex) => {
         if (!header) return;
-        row[header] = holidayImportCell(excelRow.getCell(columnIndex + 1).value);
+        const value = holidayImportCell(excelRow.getCell(columnIndex + 1).value);
+        row[header] = value;
+        if (value !== "" && value !== null && value !== undefined) hasContent = true;
       });
-      if (Object.values(row).some(value => value !== "" && value !== null && value !== undefined)) rows.push(row);
+      if (hasContent) rows.push(row);
     });
     if (!rows.length) return res.status(400).json({ message: "The Timetable worksheet has no data rows." });
     if (rows.length > 2000) return res.status(400).json({ message: "The workbook contains more than 2,000 timetable rows. Split it into smaller files." });
